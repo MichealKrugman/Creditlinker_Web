@@ -1,0 +1,60 @@
+{
+  "Button": {
+    "variants": ["primary", "secondary", "outline", "ghost", "destructive"],
+    "sizes": ["sm", "md", "lg"],
+    "states": ["default", "loading", "disabled"]
+  },
+  "Card": {
+    "variants": ["default", "elevated", "bordered"],
+    "usage": "Wraps summary data, metrics, or sections on dashboard pages"
+  },
+  "MetricCard": {
+    "props": ["label", "value", "change", "trend", "icon"],
+    "usage": "Displays a single KPI — score, transaction count, revenue"
+  },
+  "DataTable": {
+    "props": ["columns", "data", "pagination", "filters", "loading"],
+    "usage": "Displays transaction records, businesses list, disputes"
+  },
+  "Sidebar": {
+    "variants": ["business", "financer", "developer", "admin"],
+    "props": ["navigation_items", "active_route", "user_info"],
+    "usage": "Main portal navigation — persistent left sidebar"
+  },
+  "TopNav": {
+    "props": ["title", "user_menu", "notifications_badge"],
+    "usage": "Top header in all portal environments"
+  },
+  "StatusBadge": {
+    "variants": ["success", "warning", "error", "info", "neutral"],
+    "usage": "Shows status of profile, consent, disputes, financing"
+  },
+  "ScoreRing": {
+    "props": ["score", "max", "risk_level", "size"],
+    "usage": "Circular score display on Financial Identity and Dashboard"
+  },
+  "ProgressBar": {
+    "props": ["value", "max", "label", "color"],
+    "usage": "Data completeness, profile completion"
+  },
+  "Modal": {
+    "props": ["title", "children", "onClose", "size"],
+    "usage": "Consent grant flow, confirm actions, dispute form"
+  },
+  "Toast": {
+    "variants": ["success", "error", "warning", "info"],
+    "usage": "Operation feedback — bank linked, consent granted, error"
+  },
+  "EmptyState": {
+    "props": ["icon", "title", "description", "cta"],
+    "usage": "No transactions yet, no consent records, no linked accounts"
+  },
+  "InputField": {
+    "variants": ["text", "email", "password", "number", "select", "textarea"],
+    "props": ["label", "placeholder", "error", "required", "helpText"]
+  },
+  "Tabs": {
+    "props": ["tabs", "activeTab", "onChange"],
+    "usage": "Financial Identity page sections, settings sections"
+  }
+}

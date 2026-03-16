@@ -1,0 +1,10 @@
+Go through code for secure coding{secure code}
+Go through code and generate all api needed to function, app layer dependencies - roles auth and more, that way we can implement
+database needs, securing databases
+
+go through code and API, determine ways to make API faster 
+
+check for stale buttons and UI 
+
+how to make admin page private, there shouldnt be a login form for admin on the website, webspiders shouldnt pick it up etc
+

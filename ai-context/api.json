@@ -1,0 +1,67 @@
+{
+  "base_url": "http://localhost:4000",
+  "auth": {
+    "type": "Bearer JWT",
+    "token_source": "Keycloak password grant",
+    "header": "Authorization: Bearer <token>"
+  },
+  "endpoints": {
+    "business": {
+      "register": { "method": "POST", "path": "/business/register", "role": "business_owner", "body": { "name": "string", "registration_number": "string?", "sector": "string?" }, "response": "Business" },
+      "mono_initiate": { "method": "POST", "path": "/business/mono/initiate", "role": "business_owner", "response": { "mono_link_url": "string" } },
+      "mono_callback": { "method": "POST", "path": "/business/mono/callback", "role": "business_owner", "body": { "code": "string" }, "response": { "success": "boolean", "account_id": "string" } },
+      "upload_csv": { "method": "POST", "path": "/business/upload/csv", "role": "business_owner", "body": { "csv_content": "string", "column_map": "object" }, "response": { "success": "boolean", "records_imported": "number" } },
+      "upload_pdf": { "method": "POST", "path": "/business/upload/pdf", "role": "business_owner", "body": { "pdf_base64": "string", "password": "string?" }, "response": { "success": "boolean", "transactions_parsed": "number" } },
+      "get_score": { "method": "GET", "path": "/business/score", "role": "business_owner", "response": "Score" },
+      "get_profile": { "method": "GET", "path": "/business/profile", "role": "business_owner", "response": "BusinessProfile" },
+      "put_profile": { "method": "PUT", "path": "/business/profile", "role": "business_owner", "body": "object", "response": { "success": "boolean" } },
+      "patch_profile_section": { "method": "PATCH", "path": "/business/profile/:section", "role": "business_owner", "body": "object", "response": { "success": "boolean" } },
+      "get_readiness_all": { "method": "GET", "path": "/business/readiness", "role": "business_owner", "response": "Record<capital_category, ReadinessAssessment[]>" },
+      "get_readiness_single": { "method": "GET", "path": "/business/readiness/:finance_type", "role": "business_owner", "response": "ReadinessAssessment" },
+      "get_consents": { "method": "GET", "path": "/business/consent", "role": "business_owner", "response": "ConsentRecord[]" },
+      "grant_consent": { "method": "POST", "path": "/business/consent/grant", "role": "business_owner", "body": { "institution_id": "string", "permissions": "object", "duration_days": "number" }, "response": "ConsentRecord" },
+      "revoke_consent": { "method": "POST", "path": "/business/consent/revoke", "role": "business_owner", "body": { "consent_id": "string" }, "response": { "success": "boolean" } },
+      "renew_consent": { "method": "POST", "path": "/business/consent/renew", "role": "business_owner", "body": { "consent_id": "string", "duration_days": "number" }, "response": "ConsentRecord" },
+      "patch_discovery": { "method": "PATCH", "path": "/business/discovery", "role": "business_owner", "body": { "open_to_financing": "boolean", "selected_capital_categories": "string[]" }, "response": { "success": "boolean" } },
+      "get_discovery_requests": { "method": "GET", "path": "/business/discovery/requests", "role": "business_owner", "response": "ConsentRequest[]" },
+      "grant_discovery_request": { "method": "POST", "path": "/business/discovery/requests/:request_id/grant", "role": "business_owner", "body": { "permissions": "object", "duration_days": "number" }, "response": "ConsentRecord" },
+      "deny_discovery_request": { "method": "POST", "path": "/business/discovery/requests/:request_id/deny", "role": "business_owner", "response": { "success": "boolean" } },
+      "get_financing": { "method": "GET", "path": "/business/financing", "role": "business_owner", "response": "FinancingRecord[]" },
+      "get_financing_single": { "method": "GET", "path": "/business/financing/:financing_id", "role": "business_owner", "response": "FinancingRecord" },
+      "grant_financing": { "method": "POST", "path": "/business/financing/:consent_id/grant", "role": "business_owner", "body": { "terms": "object" }, "response": "FinancingRecord" },
+      "submit_settlement": { "method": "POST", "path": "/business/financing/:financing_id/settlement", "role": "business_owner", "body": { "proof": "object" }, "response": "FinancingRecord" },
+      "open_dispute": { "method": "POST", "path": "/business/financing/:financing_id/dispute", "role": "business_owner", "body": { "reason": "string" }, "response": "DisputeRecord" },
+      "get_reputation": { "method": "GET", "path": "/business/reputation", "role": "business_owner", "response": "ReputationRecord" },
+      "get_financer_reputation": { "method": "GET", "path": "/business/financer/:institution_id/reputation", "role": "business_owner", "response": "ReputationRecord" },
+      "get_snapshots": { "method": "GET", "path": "/business/snapshots", "role": "business_owner", "response": "FinancialIdentitySnapshot[]" }
+    },
+    "institution": {
+      "get_profile": { "method": "GET", "path": "/institution/profile/:financial_identity_id", "role": "institution", "note": "Requires active consent. Returns filtered profile based on consent permissions.", "response": "FilteredBusinessProfile" },
+      "get_score": { "method": "GET", "path": "/institution/score/:financial_identity_id", "role": "institution", "note": "Requires can_view_score permission in consent.", "response": "Score" },
+      "subscribe_alerts": { "method": "POST", "path": "/institution/alert/subscribe", "role": "institution", "body": { "financial_identity_id": "string" }, "response": { "success": "boolean" } },
+      "unsubscribe_alerts": { "method": "POST", "path": "/institution/alert/unsubscribe", "role": "institution", "body": { "financial_identity_id": "string" }, "response": { "success": "boolean" } },
+      "get_discovery": { "method": "GET", "path": "/institution/discovery", "role": "institution", "response": "DiscoveryMatch[]" },
+      "post_criteria": { "method": "POST", "path": "/institution/discovery/criteria", "role": "institution", "body": "FinancerCriteria", "response": { "success": "boolean", "criteria_id": "string" } },
+      "get_criteria": { "method": "GET", "path": "/institution/discovery/criteria", "role": "institution", "response": "FinancerCriteria" },
+      "request_access": { "method": "POST", "path": "/institution/discovery/:match_id/request-access", "role": "institution", "response": { "success": "boolean", "request_id": "string" } },
+      "get_financing": { "method": "GET", "path": "/institution/financing", "role": "institution", "response": "FinancingRecord[]" },
+      "confirm_settlement": { "method": "POST", "path": "/institution/financing/:financing_id/confirm-settlement", "role": "institution", "body": {}, "response": "FinancingRecord" },
+      "open_dispute": { "method": "POST", "path": "/institution/financing/:financing_id/dispute", "role": "institution", "body": { "reason": "string" }, "response": "DisputeRecord" },
+      "get_reputation": { "method": "GET", "path": "/institution/reputation", "role": "institution", "response": "ReputationRecord" },
+      "get_provenance": { "method": "GET", "path": "/institution/profile/:financial_identity_id/provenance", "role": "institution", "response": "MetricProvenance" },
+      "get_snapshots": { "method": "GET", "path": "/institution/profile/:financial_identity_id/snapshots", "role": "institution", "response": "FinancialIdentitySnapshot[]" }
+    },
+    "partner": {
+      "consent_status": { "method": "GET", "path": "/partner/consent/status?business_token=", "role": "partner", "response": { "active": "boolean", "access_tier": "string", "permitted_fields": "string[]", "valid_until": "string" } },
+      "get_profile": { "method": "GET", "path": "/partner/profile/:business_token", "role": "partner", "note": "Returns only permitted_fields from consent. business_token is opaque.", "response": "PartnerScopedProfile" },
+      "submit_data": { "method": "POST", "path": "/partner/submit/:submission_type", "role": "partner", "note": "submission_type: submit_bank_transactions | submit_identity_signals | submit_operational_data", "body": { "business_token": "string", "data": "array" }, "response": { "accepted": "boolean", "submission_id": "string", "records_accepted": "number", "records_rejected": "number" } }
+    },
+    "admin": {
+      "get_observability": { "method": "GET", "path": "/admin/observability/:pipeline_run_id", "role": "platform_admin", "response": "ObservabilityRecord" },
+      "get_business_observability": { "method": "GET", "path": "/admin/observability/business/:business_id?limit=20", "role": "platform_admin", "response": "ObservabilityRecord[]" },
+      "get_audit": { "method": "GET", "path": "/admin/audit?actor=&action_type=&business_id=&from=&to=&page=&limit=", "role": "platform_admin", "response": { "entries": "AuditEntry[]", "total": "number", "page": "number", "limit": "number" } },
+      "get_events": { "method": "GET", "path": "/admin/events?event_type=&business_id=&from=&to=&page=&limit=", "role": "platform_admin", "response": { "events": "SDKEvent[]", "total": "number", "page": "number", "limit": "number" } }
+    },
+    "health": { "method": "GET", "path": "/health", "auth": false, "response": { "status": "ok" } }
+  }
+}

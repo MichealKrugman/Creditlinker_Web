@@ -1,0 +1,66 @@
+{
+  "public": {
+    "landing": { "route": "/", "purpose": "Acquire businesses and financers. Explain value prop. Drive signups.", "cta": "Create Your Financial Identity" },
+    "about": { "route": "/about", "purpose": "Company story and mission" },
+    "how_it_works": { "route": "/how-it-works", "purpose": "Step by step explanation of the platform engine" },
+    "for_businesses": { "route": "/for-businesses", "purpose": "Benefits and flow for SMEs" },
+    "for_financers": { "route": "/for-financers", "purpose": "Benefits and flow for financers and lenders" },
+    "for_developers": { "route": "/for-developers", "purpose": "SDK and API integration story" },
+    "financial_identity": { "route": "/financial-identity", "purpose": "Deep explanation of what financial identity is" },
+    "security": { "route": "/security", "purpose": "Data privacy, encryption, consent model" },
+    "pricing": { "route": "/pricing", "purpose": "Pricing tiers for businesses, financers, developers" },
+    "blog": { "route": "/blog", "purpose": "Thought leadership content" },
+    "docs": { "route": "/docs", "purpose": "Public developer documentation" },
+    "contact": { "route": "/contact", "purpose": "Contact form and support" },
+    "careers": { "route": "/careers", "purpose": "Job listings" }
+  },
+  "business": {
+    "dashboard": { "route": "/dashboard", "purpose": "Overview of financial identity status, score, recent activity", "data": ["Business", "Score", "LinkedAccount"], "api": ["runPipeline"] },
+    "financial_identity": { "route": "/financial-identity", "purpose": "THE MOST IMPORTANT PAGE. Shows identity status, verification level, data completeness, score breakdown", "data": ["Business", "Score", "LinkedAccount", "NormalizedTransaction"], "api": ["runPipeline"] },
+    "financial_analysis": { "route": "/financial-analysis", "purpose": "Deep analysis of revenue patterns, cash flow, financial stability", "data": ["Score", "NormalizedTransaction"] },
+    "transactions": { "route": "/transactions", "purpose": "Full transaction history with filters and search", "data": ["NormalizedTransaction", "LinkedAccount"] },
+    "data_sources": { "route": "/data-sources", "purpose": "Manage linked bank accounts and data connections", "api": ["linkBank", "exchangeToken"] },
+    "documents": { "route": "/documents", "purpose": "Upload and manage financial documents" },
+    "financing": { "route": "/financing", "purpose": "Financing marketplace — discover financers, view offers", "data": ["FinancingRecord"], "api": ["assessReadiness"] },
+    "financers": { "route": "/financers", "purpose": "View and manage financer connections and active consents", "data": ["ConsentRecord"], "api": ["grantConsent", "revokeConsent"] },
+    "business_profile": { "route": "/business-profile", "purpose": "Edit business information and manage profile", "data": ["Business"] },
+    "reports": { "route": "/reports", "purpose": "Download financial reports and summaries" },
+    "notifications": { "route": "/notifications", "purpose": "Platform notifications and alerts" },
+    "settings": { "route": "/settings", "purpose": "Account, security, and preferences" }
+  },
+  "financer": {
+    "dashboard": { "route": "/financer/dashboard", "purpose": "Portfolio overview, pending requests, recent activity" },
+    "businesses": { "route": "/financer/businesses", "purpose": "Browse and search businesses with verified financial identity", "data": ["Business", "Score"] },
+    "business_profile": { "route": "/financer/business-profile", "purpose": "View a specific business full financial profile (consent required)", "data": ["Business", "Score", "ConsentRecord"] },
+    "financial_analysis": { "route": "/financer/financial-analysis", "purpose": "Detailed financial analysis of a consenting business" },
+    "requests": { "route": "/financer/requests", "purpose": "Incoming financing requests from businesses" },
+    "offers": { "route": "/financer/offers", "purpose": "Create and manage financing offers", "api": ["createOffer"] },
+    "portfolio": { "route": "/financer/portfolio", "purpose": "Active financing records and portfolio health", "data": ["FinancingRecord"] },
+    "reports": { "route": "/financer/reports", "purpose": "Portfolio reports and analytics" },
+    "notifications": { "route": "/financer/notifications", "purpose": "Platform alerts — new consent grants, repayments" },
+    "settings": { "route": "/financer/settings", "purpose": "Institution profile and preferences" }
+  },
+  "developer": {
+    "overview": { "route": "/developers", "purpose": "Developer dashboard — usage stats, quick start" },
+    "api_keys": { "route": "/developers/api-keys", "purpose": "Create and manage API keys" },
+    "sdks": { "route": "/developers/sdks", "purpose": "SDK downloads and installation guides" },
+    "docs": { "route": "/developers/docs", "purpose": "Integration documentation" },
+    "api_reference": { "route": "/developers/api-reference", "purpose": "Full API reference" },
+    "webhooks": { "route": "/developers/webhooks", "purpose": "Configure and test webhooks" },
+    "sandbox": { "route": "/developers/sandbox", "purpose": "Test API calls in a sandbox environment" },
+    "usage": { "route": "/developers/usage", "purpose": "API usage analytics and limits" }
+  },
+  "admin": {
+    "dashboard": { "route": "/admin", "purpose": "Platform health, key metrics, recent activity" },
+    "businesses": { "route": "/admin/businesses", "purpose": "Manage all businesses — verify, suspend, view profiles" },
+    "financers": { "route": "/admin/financers", "purpose": "Manage financer institutions — approve, suspend" },
+    "developers": { "route": "/admin/developers", "purpose": "Manage developer accounts and API keys" },
+    "financial_data": { "route": "/admin/financial-data", "purpose": "Monitor data ingestion pipelines and quality" },
+    "verifications": { "route": "/admin/verifications", "purpose": "Review and approve verification queue" },
+    "reports": { "route": "/admin/reports", "purpose": "Platform-wide analytics and reports" },
+    "system": { "route": "/admin/system", "purpose": "System health, service status" },
+    "audit_logs": { "route": "/admin/audit-logs", "purpose": "Full audit trail of platform events" },
+    "notifications": { "route": "/admin/notifications", "purpose": "Send platform-wide notifications" },
+    "settings": { "route": "/admin/settings", "purpose": "Platform configuration" }
+  }
+}

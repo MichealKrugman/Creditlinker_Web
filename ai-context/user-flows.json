@@ -1,0 +1,44 @@
+{
+  "business_signup": [
+    "landing",
+    "register (create account in Keycloak)",
+    "business profile creation (POST /business/register)",
+    "link bank account (Mono Link flow)",
+    "pipeline run (data ingestion + scoring)",
+    "financial identity page (see your score)"
+  ],
+  "financer_signup": [
+    "landing",
+    "register as institution",
+    "institution profile creation",
+    "browse businesses",
+    "request consent from business",
+    "view financial profile",
+    "create financing offer"
+  ],
+  "consent_flow": [
+    "business receives financer connection request",
+    "business reviews permissions requested",
+    "business grants consent with expiry",
+    "financer gains access to consented data",
+    "business can revoke at any time"
+  ],
+  "financing_flow": [
+    "business assesses financing readiness",
+    "business browses financing marketplace",
+    "business applies for financing",
+    "financer reviews financial identity",
+    "financer creates offer",
+    "business accepts or rejects offer",
+    "financing record created"
+  ],
+  "pipeline_flow": [
+    "bank account linked via Mono",
+    "transactions ingested and normalized",
+    "ledger reconciled",
+    "enrichment applied",
+    "score computed",
+    "financial identity snapshot created",
+    "business notified"
+  ]
+}

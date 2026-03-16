@@ -1,0 +1,96 @@
+{
+  "navigation": {
+    "business_portal": [
+      { "label": "Dashboard", "route": "/dashboard", "icon": "LayoutDashboard" },
+      { "label": "Financial Identity", "route": "/financial-identity", "icon": "ShieldCheck" },
+      { "label": "Financial Analysis", "route": "/financial-analysis", "icon": "TrendingUp" },
+      { "label": "Transactions", "route": "/transactions", "icon": "ArrowLeftRight" },
+      { "label": "Data Sources", "route": "/data-sources", "icon": "Database" },
+      { "label": "Documents", "route": "/documents", "icon": "FileText" },
+      { "label": "Financing", "route": "/financing", "icon": "Banknote" },
+      { "label": "Financers", "route": "/financers", "icon": "Handshake" },
+      { "label": "Reports", "route": "/reports", "icon": "BarChart2" },
+      { "label": "Settings", "route": "/settings", "icon": "Settings" }
+    ],
+    "financer_portal": [
+      { "label": "Dashboard", "route": "/financer/dashboard", "icon": "LayoutDashboard" },
+      { "label": "Businesses", "route": "/financer/businesses", "icon": "Building2" },
+      { "label": "Financing Requests", "route": "/financer/requests", "icon": "Inbox" },
+      { "label": "Offers", "route": "/financer/offers", "icon": "Tag" },
+      { "label": "Portfolio", "route": "/financer/portfolio", "icon": "PieChart" },
+      { "label": "Reports", "route": "/financer/reports", "icon": "BarChart2" },
+      { "label": "Settings", "route": "/financer/settings", "icon": "Settings" }
+    ],
+    "developer_portal": [
+      { "label": "Overview", "route": "/developers", "icon": "LayoutDashboard" },
+      { "label": "API Keys", "route": "/developers/api-keys", "icon": "Key" },
+      { "label": "SDKs", "route": "/developers/sdks", "icon": "Package" },
+      { "label": "Documentation", "route": "/developers/docs", "icon": "BookOpen" },
+      { "label": "API Reference", "route": "/developers/api-reference", "icon": "Code2" },
+      { "label": "Webhooks", "route": "/developers/webhooks", "icon": "Webhook" },
+      { "label": "Sandbox", "route": "/developers/sandbox", "icon": "FlaskConical" },
+      { "label": "Usage", "route": "/developers/usage", "icon": "Activity" }
+    ],
+    "admin_panel": [
+      { "label": "Dashboard", "route": "/admin", "icon": "LayoutDashboard" },
+      { "label": "Businesses", "route": "/admin/businesses", "icon": "Building2" },
+      { "label": "Financers", "route": "/admin/financers", "icon": "Landmark" },
+      { "label": "Developers", "route": "/admin/developers", "icon": "Code2" },
+      { "label": "Financial Data", "route": "/admin/financial-data", "icon": "Database" },
+      { "label": "Verifications", "route": "/admin/verifications", "icon": "ShieldCheck" },
+      { "label": "Reports", "route": "/admin/reports", "icon": "BarChart2" },
+      { "label": "System", "route": "/admin/system", "icon": "Server" },
+      { "label": "Audit Logs", "route": "/admin/audit-logs", "icon": "ScrollText" },
+      { "label": "Settings", "route": "/admin/settings", "icon": "Settings" }
+    ]
+  },
+  "layouts": {
+    "portal": {
+      "structure": "sidebar (240px) + main content area",
+      "header": "64px top bar with page title, notifications, user menu",
+      "sidebar": "logo + nav items + user info at bottom"
+    },
+    "public": {
+      "structure": "full width with top navbar",
+      "header": "navbar with logo, links, login/signup CTA"
+    },
+    "financial_identity_page": {
+      "sections": [
+        "Identity Status Banner (verified / incomplete / pending)",
+        "Score Ring (overall score + risk level)",
+        "Score Components (4 cards: revenue, cash flow, repayment, data quality)",
+        "Data Completeness Progress",
+        "Linked Accounts",
+        "Recent Pipeline Run"
+      ]
+    },
+    "dashboard_layout": {
+      "sections": [
+        "Welcome + profile status",
+        "Key metrics row (score, accounts linked, data coverage)",
+        "Financial Identity card",
+        "Recent transactions",
+        "Financing opportunities"
+      ]
+    }
+  },
+  "copy": {
+    "tagline": "Financial identity infrastructure for businesses",
+    "sub_tagline": "Build a verified financial identity from your real transaction data. Get access to the financing you deserve.",
+    "primary_cta": "Create Your Financial Identity",
+    "secondary_cta": "See How It Works",
+    "financer_cta": "Evaluate Businesses",
+    "developer_cta": "Start Building",
+    "empty_states": {
+      "no_accounts": "Connect your bank account to start building your financial identity.",
+      "no_transactions": "No transactions yet. Link a bank account to get started.",
+      "no_consent": "No active financer connections. Share your financial identity to access financing.",
+      "no_financing": "No financing records yet. Explore the marketplace to find financers."
+    },
+    "error_messages": {
+      "generic": "Something went wrong. Please try again.",
+      "unauthorized": "You don't have permission to view this.",
+      "session_expired": "Your session has expired. Please log in again."
+    }
+  }
+}

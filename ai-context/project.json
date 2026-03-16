@@ -1,0 +1,27 @@
+{
+  "name": "Creditlinker",
+  "type": "Fintech Infrastructure",
+  "description": "Financial identity infrastructure that helps SMEs build a verified financial identity from their real transaction data, and connects them to financers who can offer credit based on that identity.",
+  "tagline": "Financial identity infrastructure for businesses",
+  "primary_cta": "Create Your Financial Identity",
+  "target_users": [
+    "SMEs seeking credit access",
+    "Financers evaluating creditworthiness",
+    "Fintech developers integrating financial identity"
+  ],
+  "core_features": [
+    "Financial Identity Creation",
+    "Financial Data Aggregation (via Mono)",
+    "Credit Scoring",
+    "Financer Marketplace",
+    "Consent Management",
+    "Dispute Resolution"
+  ],
+  "core_engine": [
+    "Financial Data → Financial Identity → Financial Analysis → Financer Access → Financing"
+  ],
+  "environments": ["public", "business", "financer", "developer", "admin"],
+  "api_base_url": "http://localhost:4000",
+  "auth_provider": "Keycloak",
+  "auth_realm": "creditlinker"
+}
