@@ -270,7 +270,7 @@ export default function FinancerFinancialAnalysis() {
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <Card>
           <div style={{ padding: "18px 22px 0" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 2 }}>Monthly Revenue</p>
