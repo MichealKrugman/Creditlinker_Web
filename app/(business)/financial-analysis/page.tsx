@@ -980,14 +980,14 @@ export default function FinancialAnalysisPage() {
               sub={`Stability, seasonality, and growth signals${selectedEntity ? ` · ${selectedEntity.shortName}` : " · Consolidated"}`}
             />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 0, padding: "16px 0 0", borderTop: "1px solid #F3F4F6", marginTop: 4 }}>
-              {[
-                { label: "Revenue Trend",       value: "Strong upward",  sub: "+52% over 12 months",   positive: true  as const },
-                { label: "Seasonality",          value: "Low",           sub: "Consistent year-round",  positive: true  as const },
-                { label: "Recurring Revenue",    value: isConsolidated ? "61%" : activeEntity === "br_001" ? "65%" : "58%", sub: "Of total inflows", positive: true as const },
+              {([
+                { label: "Revenue Trend",       value: "Strong upward",  sub: "+52% over 12 months",   positive: true  },
+                { label: "Seasonality",          value: "Low",           sub: "Consistent year-round",  positive: true  },
+                { label: "Recurring Revenue",    value: isConsolidated ? "61%" : activeEntity === "br_001" ? "65%" : "58%", sub: "Of total inflows", positive: true },
                 { label: "Client Concentration", value: "Medium",        sub: "Top client = 22%",       positive: null },
-                { label: "Revenue Volatility",   value: isConsolidated ? "8.4%" : activeEntity === "br_001" ? "7.4%" : "9.1%", sub: "Month-on-month std dev", positive: true as const },
-                { label: "Growth Rate",          value: "+14% MoM avg",  sub: "Trailing 12 months",     positive: true  as const },
-              ].map((item, i) => (
+                { label: "Revenue Volatility",   value: isConsolidated ? "8.4%" : activeEntity === "br_001" ? "7.4%" : "9.1%", sub: "Month-on-month std dev", positive: true },
+                { label: "Growth Rate",          value: "+14% MoM avg",  sub: "Trailing 12 months",     positive: true  },
+              ] as { label: string; value: string; sub: string; positive: boolean | null }[]).map((item, i) => (
                 <div key={item.label} style={{ padding: "16px 24px 20px", borderRight: i % 3 !== 2 ? "1px solid #F3F4F6" : "none", borderBottom: i < 3 ? "1px solid #F3F4F6" : "none" }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>{item.label}</p>
                   <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 3 }}>{item.value}</p>
