@@ -292,7 +292,7 @@ export default function SandboxPage() {
           }}>
             {/* URL bar */}
             <div style={{
-              display: "flex", alignItems: "center", gap: 12,
+              display: "flex", alignItems: "center",
               padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.08)",
               flexWrap: "wrap", gap: 10,
             }}>
