@@ -129,9 +129,9 @@ export function Footer() {
             <p className="ft-brand-desc" style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, marginBottom: 16, maxWidth: 260 }}>
               Financial identity infrastructure for African businesses.
             </p>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
               {['Twitter', 'LinkedIn'].map((p) => (
-                <a key={p} href="#" style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', transition: 'color 0.15s' }}>{p}</a>
+                <a key={p} href="#" style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 10px', transition: 'color 0.15s' }}>{p}</a>
               ))}
             </div>
           </div>
