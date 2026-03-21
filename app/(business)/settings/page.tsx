@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -262,7 +262,7 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
 /* ─────────────────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────────────────── */
-export default function SettingsPage() {
+function SettingsContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("account");
 
@@ -601,6 +601,14 @@ export default function SettingsPage() {
 
       </div>
     </>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense>
+      <SettingsContent />
+    </Suspense>
   );
 }
 
