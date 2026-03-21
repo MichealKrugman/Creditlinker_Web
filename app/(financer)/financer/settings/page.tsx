@@ -802,6 +802,7 @@ function TeamTab({ currentUserId, currentRole }: { currentUserId: string; curren
       active_requests: 0,
       active_portfolio: "₦0",
       is_active: false,
+      workflow_override: null,
     };
     setMembers(prev => [...prev, newMember]);
     // TODO: POST /institution/members/invite { email, role } → Keycloak invitation
