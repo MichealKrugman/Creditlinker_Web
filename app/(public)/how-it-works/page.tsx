@@ -62,20 +62,20 @@ function Tag({ children, color = "#0A2540" }: { children: React.ReactNode; color
 ───────────────────────────────────────────────────────── */
 function TimelineStep({ n, icon, title, desc, detail, last = false }: { n: string; icon: React.ReactNode; title: string; desc: string; detail?: string; last?: boolean }) {
   return (
-    <div style={{ display: "flex", gap: 24 }}>
+    <div style={{ display: "flex", gap: 20 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-        <div style={{ width: 48, height: 48, borderRadius: 14, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 1px rgba(0,212,255,0.18), 0 4px 16px rgba(10,37,64,0.14)", position: "relative" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 1px rgba(0,212,255,0.18)", position: "relative" }}>
           {icon}
-          <span style={{ position: "absolute", top: -8, right: -8, width: 20, height: 20, borderRadius: "50%", background: "#00D4FF", color: "#0A2540", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)" }}>{n}</span>
+          <span style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: "50%", background: "#00D4FF", color: "#0A2540", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)" }}>{n}</span>
         </div>
-        {!last && <div style={{ width: 2, flex: 1, minHeight: 40, marginTop: 8, background: "linear-gradient(to bottom, rgba(0,212,255,0.25), rgba(0,212,255,0.04))" }} />}
+        {!last && <div style={{ width: 2, flex: 1, minHeight: 32, marginTop: 6, background: "linear-gradient(to bottom, rgba(0,212,255,0.25), rgba(0,212,255,0.04))" }} />}
       </div>
-      <div style={{ paddingBottom: last ? 0 : 48, flex: 1, minWidth: 0 }}>
-        <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, color: "#0A2540", letterSpacing: "-0.025em", marginBottom: 10 }}>{title}</h3>
-        <p style={{ fontSize: 15, color: "#4B5563", lineHeight: 1.78, marginBottom: detail ? 14 : 0 }}>{desc}</p>
+      <div className="hiw-step-pb" style={{ paddingBottom: last ? 0 : 36, flex: 1, minWidth: 0 }}>
+        <h3 className="hiw-step-title" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#0A2540", letterSpacing: "-0.025em", marginBottom: 8 }}>{title}</h3>
+        <p className="hiw-step-desc" style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.75, marginBottom: detail ? 12 : 0 }}>{desc}</p>
         {detail && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#F0FDFF", border: "1px solid rgba(0,212,255,0.18)", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "#0A5060", fontWeight: 500 }}>
-            <CheckCircle2 size={13} aria-hidden="true" style={{ color: "#00D4FF", flexShrink: 0 }} />
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#F0FDFF", border: "1px solid rgba(0,212,255,0.18)", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#0A5060", fontWeight: 500 }}>
+            <CheckCircle2 size={12} aria-hidden="true" style={{ color: "#00D4FF", flexShrink: 0 }} />
             {detail}
           </div>
         )}
@@ -142,11 +142,11 @@ function AudienceCard({ icon, label, title, desc, href, cta, dark = false }: { i
   const muted = dark ? "rgba(255,255,255,0.45)" : "#6B7280";
   const border= dark ? "rgba(255,255,255,0.08)" : "#E5E7EB";
   return (
-    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 18, padding: 32, display: "flex", flexDirection: "column", boxShadow: dark ? "0 24px 64px rgba(0,0,0,0.18)" : "0 4px 24px rgba(0,0,0,0.04)" }}>
-      <div style={{ width: 52, height: 52, borderRadius: 14, background: dark ? "rgba(0,212,255,0.10)" : "#F0FDFF", border: `1px solid ${dark ? "rgba(0,212,255,0.2)" : "rgba(0,212,255,0.18)"}`, display: "flex", alignItems: "center", justifyContent: "center", color: "#00D4FF", marginBottom: 20 }}>{icon}</div>
+    <div className="hiw-aud-card" style={{ background: bg, border: `1px solid ${border}`, borderRadius: 18, padding: 32, display: "flex", flexDirection: "column", boxShadow: dark ? "0 24px 64px rgba(0,0,0,0.18)" : "0 4px 24px rgba(0,0,0,0.04)" }}>
+      <div className="hiw-aud-icon" style={{ width: 52, height: 52, borderRadius: 14, background: dark ? "rgba(0,212,255,0.10)" : "#F0FDFF", border: `1px solid ${dark ? "rgba(0,212,255,0.2)" : "rgba(0,212,255,0.18)"}`, display: "flex", alignItems: "center", justifyContent: "center", color: "#00D4FF", marginBottom: 20 }}>{icon}</div>
       <Tag color={dark ? "#00D4FF" : "#0A2540"}>{label}</Tag>
-      <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22, color: text, letterSpacing: "-0.025em", marginTop: 14, marginBottom: 12 }}>{title}</h3>
-      <p style={{ fontSize: 15, color: muted, lineHeight: 1.78, flex: 1, marginBottom: 28 }}>{desc}</p>
+      <h3 className="hiw-aud-title" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22, color: text, letterSpacing: "-0.025em", marginTop: 14, marginBottom: 12 }}>{title}</h3>
+      <p className="hiw-aud-desc" style={{ fontSize: 15, color: muted, lineHeight: 1.78, flex: 1, marginBottom: 28 }}>{desc}</p>
       <Link href={href} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 14, fontWeight: 700, color: dark ? "#00D4FF" : "#0A2540" }}>
         {cta} <ArrowUpRight size={15} aria-hidden="true" />
       </Link>
@@ -159,7 +159,7 @@ function AudienceCard({ icon, label, title, desc, href, cta, dark = false }: { i
 ───────────────────────────────────────────────────────── */
 function CompareRow({ label, before, after }: { label: string; before: string; after: string }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, padding: "14px 0", borderBottom: "1px solid #F3F4F6" }}>
+    <div className="hiw-compare-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, padding: "14px 0", borderBottom: "1px solid #F3F4F6" }}>
       <span style={{ fontSize: 14, fontWeight: 600, color: "#374151", paddingTop: 2 }}>{label}</span>
       <span style={{ fontSize: 13, color: "#EF4444", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", padding: "6px 12px", borderRadius: 8 }}>{before}</span>
       <span style={{ fontSize: 13, color: "#10B981", background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.15)", padding: "6px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 5 }}>
@@ -186,23 +186,72 @@ export default function HowItWorksPage() {
   return (
     <>
       <style>{`
+        /* ── Tablet ── */
         @media (max-width: 900px) {
-          .hiw-hero-grid   { grid-template-columns: 1fr !important; }
-          .hiw-audience    { grid-template-columns: 1fr !important; }
-          .hiw-compare-hdr { grid-template-columns: 1fr !important; }
-          .hiw-fin-grid    { grid-template-columns: 1fr 1fr !important; }
-          .hiw-dim-grid    { grid-template-columns: 1fr 1fr !important; }
+          .hiw-hero-grid   { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .hiw-audience    { grid-template-columns: 1fr 1fr !important; gap: 16px !important; }
+          .hiw-dim-grid    { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+          .hiw-section     { padding: 64px 0 !important; }
+          .hiw-pad         { padding: 0 24px !important; }
         }
+
+        /* ── Mobile ── */
         @media (max-width: 600px) {
-          .hiw-fin-grid  { grid-template-columns: 1fr !important; }
-          .hiw-dim-grid  { grid-template-columns: 1fr !important; }
+          .hiw-section     { padding: 40px 0 !important; }
+          .hiw-pad         { padding: 0 20px !important; }
+
+          /* Hero: hide data-flow card */
+          .hiw-hero-card   { display: none !important; }
+          .hiw-hero-grid   { grid-template-columns: 1fr !important; }
+          .hiw-hero-btns   { flex-direction: column !important; }
+          .hiw-hero-btns a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
+
+          /* Section headings: tighter margin */
+          .hiw-sh          { margin-bottom: 28px !important; }
+          .hiw-sh p        { display: none !important; }
+
+          /* Compare table: 2 col, no label column */
+          .hiw-compare-hdr { grid-template-columns: 1fr 1fr !important; }
+          .hiw-compare-hdr span:first-child { display: none !important; }
+          .hiw-compare-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; padding: 10px 0 !important; }
+          .hiw-compare-row span:first-child  { display: none !important; }
+          .hiw-compare-row span { font-size: 11px !important; padding: 5px 8px !important; }
+
+          /* Timeline steps: trim description */
+          .hiw-step-desc   { display: none !important; }
+          .hiw-step-title  { font-size: 15px !important; margin-bottom: 6px !important; }
+          .hiw-step-pb     { padding-bottom: 24px !important; }
+
+          /* Pipeline dimension cards: hide description */
+          .hiw-dim-desc    { display: none !important; }
+          .hiw-dim-grid    { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .hiw-dim-card    { padding: 14px !important; }
+
+          /* Consent section: hide the UI card, show only copy */
+          .hiw-consent-card { display: none !important; }
+          .hiw-hero-grid    { grid-template-columns: 1fr !important; }
+
+          /* Provider journey: hide offer card */
+          .hiw-offer-card  { display: none !important; }
+
+          /* Audience section: hidden on mobile */
+          .hiw-audience-section { display: none !important; }
+          .hiw-aud-icon    { display: none !important; }
+          .hiw-aud-card    { padding: 20px !important; }
+          .hiw-aud-title   { font-size: 17px !important; margin-top: 8px !important; margin-bottom: 6px !important; }
+          .hiw-aud-desc    { display: none !important; }
+
+          /* CTA section */
+          .hiw-cta-btns    { flex-direction: column !important; }
+          .hiw-cta-btns a  { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
+          .hiw-cta-body    { display: none !important; }
         }
       `}</style>
 
       {/* ══ HERO ══════════════════════════════════════════════════ */}
-      <section aria-label="Page hero" style={{ position: "relative", overflow: "hidden", background: "radial-gradient(ellipse 1000px 600px at 60% -60px, rgba(0,212,255,0.07) 0%, transparent 60%),#ffffff", paddingTop: 80, paddingBottom: 80 }}>
+      <section aria-label="Page hero" className="hiw-section" style={{ position: "relative", overflow: "hidden", background: "radial-gradient(ellipse 1000px 600px at 60% -60px, rgba(0,212,255,0.07) 0%, transparent 60%),#ffffff", paddingTop: 80, paddingBottom: 80 }}>
         <GridBg light />
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="hiw-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="hiw-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
 
             {/* Left */}
@@ -220,7 +269,7 @@ export default function HowItWorksPage() {
                 enriches, and reconciles it — then computes six independent financial health dimensions
                 that capital providers use to evaluate your business on how it actually operates.
               </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+              <div className="hiw-hero-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
                   Build my identity <ArrowRight size={15} aria-hidden="true" />
                 </Link>
@@ -231,7 +280,7 @@ export default function HowItWorksPage() {
             </div>
 
             {/* Right — data flow */}
-            <div>
+            <div className="hiw-hero-card">
               <div style={{ background: "#0A2540", borderRadius: 20, padding: 24, boxShadow: "0 32px 96px rgba(10,37,64,0.2), 0 0 0 1px rgba(255,255,255,0.06)", position: "relative", overflow: "hidden" }}>
                 <GridBg />
                 <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 20 }}>Data flow</p>
@@ -261,38 +310,35 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ OLD WAY vs CREDITLINKER ═══════════════════════════════ */}
-      <section aria-labelledby="compare-heading" style={{ padding: "96px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="compare-heading" className="hiw-section" style={{ padding: "96px 0", background: "#F9FAFB" }}>
+        <div className="hiw-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="compare-heading"
             badge={<Badge>Why it matters</Badge>}
             title={<>Traditional credit doesn&apos;t work<br />for African businesses.</>}
-            sub="Bureau scores, collateral requirements, and self-reported documents exclude the majority of viable SMEs. Creditlinker uses the data that already exists — your actual financial behavior."
             center
           />
           <div style={{ maxWidth: 860, margin: "0 auto" }}>
             <div className="hiw-compare-hdr" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 8 }}>
               <span />
-              <div style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, color: "#EF4444", textAlign: "center" }}>Traditional lending</div>
+              <div style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, color: "#EF4444", textAlign: "center" }}>Traditional</div>
               <div style={{ background: "#0A2540", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, color: "#00D4FF", textAlign: "center" }}>Creditlinker</div>
             </div>
             {[
-              { label: "Data source",       before: "Self-reported documents",    after: "Verified bank, ledger & operational data" },
-              { label: "Score basis",        before: "Credit bureau proxy",        after: "6 independent financial dimensions"       },
-              { label: "Capital types",      before: "Collateral-backed loans",    after: "14 categories across 5 capital types"     },
-              { label: "Access control",     before: "Financer owns your data",    after: "You grant & revoke consent"              },
-              { label: "Time to decision",   before: "4–12 weeks",                after: "Hours after linking data sources"         },
-              { label: "Coverage",           before: "Formal credit history only", after: "Any bank-active business qualifies"       },
-              { label: "Provenance",         before: "None",                       after: "Every metric traced to source data"       },
-              { label: "Audit trail",        before: "None",                       after: "Immutable access log for every query"     },
+              { label: "Data source",      before: "Self-reported documents",    after: "Verified bank, ledger & ops data" },
+              { label: "Score basis",       before: "Credit bureau proxy",        after: "6 independent dimensions"        },
+              { label: "Capital types",     before: "Collateral-backed loans",    after: "14 categories, 5 types"          },
+              { label: "Access control",    before: "Financer owns your data",    after: "You grant & revoke consent"      },
+              { label: "Time to decision",  before: "4–12 weeks",                after: "Hours after linking data"        },
+              { label: "Coverage",          before: "Formal credit history",      after: "Any bank-active business"        },
             ].map((r) => <CompareRow key={r.label} {...r} />)}
           </div>
         </div>
       </section>
 
       {/* ══ BUSINESS JOURNEY ══════════════════════════════════════ */}
-      <section aria-labelledby="biz-journey-heading" style={{ padding: "96px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="biz-journey-heading" className="hiw-section" style={{ padding: "96px 0", background: "white" }}>
+        <div className="hiw-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="hiw-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
             <div>
               <SectionHeading
@@ -346,11 +392,11 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ PIPELINE DEEP DIVE ════════════════════════════════════ */}
-      <section aria-labelledby="pipeline-heading" style={{ padding: "96px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-labelledby="pipeline-heading" className="hiw-section" style={{ padding: "96px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "30%", right: "-10%", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="hiw-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ marginBottom: 56 }}>
             <div style={{ marginBottom: 16 }}><Badge><Cpu size={10} aria-hidden="true" /> Under the hood</Badge></div>
             <h2 id="pipeline-heading" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,46px)", letterSpacing: "-0.035em", color: "white", lineHeight: 1.1, marginBottom: 16 }}>
@@ -375,7 +421,7 @@ export default function HowItWorksPage() {
           {/* 6 dimension cards */}
           <div className="hiw-dim-grid" style={{ marginTop: 32, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
             {sixDimensions.map((d) => (
-              <div key={d.dim} style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 20 }}>
+              <div key={d.dim} className="hiw-dim-card" style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                   <p style={{ fontSize: 13, fontWeight: 700, color: "white", fontFamily: "var(--font-display)", lineHeight: 1.3, maxWidth: 130 }}>{d.dim}</p>
                   <span style={{ fontSize: 18, fontWeight: 800, color: d.color, fontFamily: "var(--font-display)", flexShrink: 0, marginLeft: 8 }}>{d.score}</span>
@@ -383,7 +429,7 @@ export default function HowItWorksPage() {
                 <div style={{ height: 4, borderRadius: 9999, background: "rgba(255,255,255,0.07)", marginBottom: 10 }}>
                   <div style={{ height: "100%", width: `${d.score}%`, background: d.color, borderRadius: 9999 }} />
                 </div>
-                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", lineHeight: 1.65 }}>{d.desc}</p>
+                <p className="hiw-dim-desc" style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", lineHeight: 1.65 }}>{d.desc}</p>
               </div>
             ))}
           </div>
@@ -401,12 +447,12 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ CONSENT MODEL ═════════════════════════════════════════ */}
-      <section aria-labelledby="consent-heading" style={{ padding: "96px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="consent-heading" className="hiw-section" style={{ padding: "96px 0", background: "#F9FAFB" }}>
+        <div className="hiw-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="hiw-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
 
             {/* Left — consent UI */}
-            <div>
+            <div className="hiw-consent-card">
               <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 18, padding: 28, boxShadow: "0 8px 40px rgba(0,0,0,0.06)" }}>
                 <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Consent record</p>
                 <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#0A2540", marginBottom: 4 }}>FastCash Microfinance</h3>
@@ -480,8 +526,8 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ CAPITAL PROVIDER JOURNEY ══════════════════════════════ */}
-      <section aria-labelledby="fin-journey-heading" style={{ padding: "96px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="fin-journey-heading" className="hiw-section" style={{ padding: "96px 0", background: "white" }}>
+        <div className="hiw-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="hiw-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
 
             {/* Left — steps */}
@@ -518,7 +564,7 @@ export default function HowItWorksPage() {
             </div>
 
             {/* Right — offer card */}
-            <div style={{ position: "sticky", top: 88 }}>
+            <div className="hiw-offer-card" style={{ position: "sticky", top: 88 }}>
               <div style={{ background: "#0A2540", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 80px rgba(10,37,64,0.18), 0 0 0 1px rgba(255,255,255,0.06)" }}>
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 2 }}>Financing offer</p>
@@ -557,8 +603,8 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ AUDIENCE CARDS ════════════════════════════════════════ */}
-      <section aria-label="Who Creditlinker is for" style={{ padding: "96px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-label="Who Creditlinker is for" className="hiw-section hiw-audience-section" style={{ padding: "96px 0", background: "#F9FAFB" }}>
+        <div className="hiw-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading badge={<Badge>Get started</Badge>} title="Which path is yours?" sub="Creditlinker serves businesses, capital providers, and developers — each with a dedicated product experience." center />
           <div className="hiw-audience" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
             <AudienceCard
@@ -591,18 +637,18 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ CTA ═══════════════════════════════════════════════════ */}
-      <section aria-label="Call to action" style={{ padding: "80px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-label="Call to action" className="hiw-section" style={{ padding: "80px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", inset: 0, background: "radial-gradient(ellipse 800px 400px at 50% 50%, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
-        <div style={{ position: "relative", maxWidth: 680, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
+        <div className="hiw-pad" style={{ position: "relative", maxWidth: 680, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,4vw,48px)", letterSpacing: "-0.04em", color: "white", marginBottom: 16 }}>
             Ready to build your<br />
             <span style={{ color: "#00D4FF" }}>financial identity?</span>
           </h2>
-          <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 40, lineHeight: 1.78 }}>
+          <p className="hiw-cta-body" style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 40, lineHeight: 1.78 }}>
             Sign up in minutes. Link your first data source in under two. See your six-dimensional identity before the end of the day.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+          <div className="hiw-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
               Build my financial identity <ArrowRight size={15} aria-hidden="true" />
             </Link>
