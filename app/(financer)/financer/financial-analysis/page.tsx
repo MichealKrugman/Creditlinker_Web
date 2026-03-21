@@ -204,7 +204,6 @@ function BusinessPicker({
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function FinancerFinancialAnalysis() {
-  const isMobile = useIsMobile();
   const [biz, setBiz] = useState(ACCESSIBLE_BUSINESSES[0]);
 
   return (
