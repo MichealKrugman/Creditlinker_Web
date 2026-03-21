@@ -106,12 +106,12 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
 
 function CardHeader({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #F3F4F6", gap: 12 }}>
-      <div>
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #F3F4F6", gap: 12, flexWrap: "wrap" as const }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: sub ? 3 : 0 }}>{title}</p>
         {sub && <p style={{ fontSize: 12, color: "#9CA3AF" }}>{sub}</p>}
       </div>
-      {action}
+      {action && <div style={{ flexShrink: 0 }}>{action}</div>}
     </div>
   );
 }
@@ -174,8 +174,8 @@ function ReportCard({
       </div>
 
       {/* Footer */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4, borderTop: "1px solid #F3F4F6" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingTop: 4, borderTop: "1px solid #F3F4F6", flexWrap: "wrap" as const, gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
           {/* Format badges */}
           <div style={{ display: "flex", gap: 5 }}>
             {report.format.map(f => (
@@ -268,9 +268,9 @@ export default function ReportsPage() {
         </div>
 
         {/* Date range selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Calendar size={13} style={{ color: "#9CA3AF" }} />
-          <div style={{ display: "flex", border: "1px solid #E5E7EB", borderRadius: 8, overflow: "hidden" }}>
+        <div className="cl-overflow-x-auto" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Calendar size={13} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+          <div style={{ display: "flex", border: "1px solid #E5E7EB", borderRadius: 8, overflow: "hidden", minWidth: "fit-content" }}>
             {DATE_RANGES.map((r, i) => (
               <button
                 key={r}
@@ -319,49 +319,90 @@ export default function ReportsPage() {
             </button>
           }
         />
-        <div style={{ padding: "10px 0 8px" }}>
-          {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 80px auto", gap: 14, padding: "6px 24px 10px", borderBottom: "1px solid #F3F4F6" }}>
-            {["Pipeline run", "Score", "Risk level", "Quality", ""].map(h => (
-              <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
+        <div style={{ padding: "4px 0 8px" }}>
+
+          {/* ── DESKTOP TABLE ── */}
+          <div className="bp-op-desktop">
+            <div className="cl-table-scroll">
+              <div style={{ minWidth: 560 }}>
+                {/* Header */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 140px", gap: 14, padding: "6px 24px 10px", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>
+                  {["Pipeline run", "Score", "Risk level", "Quality", ""].map(h => (
+                    <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
+                  ))}
+                </div>
+                {/* Rows */}
+                {SNAPSHOT_HISTORY.map((snap, i) => (
+                  <div
+                    key={snap.pipeline_run_id}
+                    style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 140px", gap: 14, padding: "13px 24px", borderBottom: i < SNAPSHOT_HISTORY.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", transition: "background 0.1s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#FAFAFA")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: "#0A2540", marginBottom: 2 }}>
+                        {snap.taken_at}
+                        {i === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6 }}>(latest)</span>}
+                      </p>
+                      <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>{snap.pipeline_run_id}</p>
+                    </div>
+                    <p style={{ fontSize: 14, fontWeight: 800, fontFamily: "var(--font-display)", letterSpacing: "-0.03em", color: snap.score >= 730 ? "#10B981" : snap.score >= 650 ? "#F59E0B" : "#EF4444" }}>
+                      {snap.score}
+                    </p>
+                    <Badge variant={snap.risk === "Low Risk" ? "success" : "warning"} style={{ width: "fit-content", fontSize: 10 }}>
+                      {snap.risk}
+                    </Badge>
+                    <p style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{snap.quality}%</p>
+                    <button
+                      onClick={() => handleGenerate("financial_identity", "PDF")}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#6B7280", cursor: "pointer", whiteSpace: "nowrap" as const }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+                    >
+                      <Download size={11} /> Download PDF
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── MOBILE CARDS ── */}
+          <div className="bp-op-mobile">
+            {SNAPSHOT_HISTORY.map((snap, i) => (
+              <div
+                key={snap.pipeline_run_id}
+                style={{ padding: "14px 16px", borderBottom: i < SNAPSHOT_HISTORY.length - 1 ? "1px solid #F3F4F6" : "none" }}
+              >
+                {/* Run + timestamp */}
+                <div style={{ marginBottom: 10 }}>
+                  <p style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 500, color: "#0A2540", marginBottom: 2 }}>
+                    {snap.taken_at}
+                    {i === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6 }}>(latest)</span>}
+                  </p>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>{snap.pipeline_run_id}</p>
+                </div>
+                {/* Metrics row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" as const }}>
+                  <p style={{ fontSize: 15, fontWeight: 800, fontFamily: "var(--font-display)", letterSpacing: "-0.03em", color: snap.score >= 730 ? "#10B981" : snap.score >= 650 ? "#F59E0B" : "#EF4444" }}>
+                    {snap.score}
+                  </p>
+                  <Badge variant={snap.risk === "Low Risk" ? "success" : "warning"} style={{ fontSize: 10 }}>
+                    {snap.risk}
+                  </Badge>
+                  <span style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>Quality: {snap.quality}%</span>
+                </div>
+                {/* Action */}
+                <button
+                  onClick={() => handleGenerate("financial_identity", "PDF")}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 7, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}
+                >
+                  <Download size={11} /> Download PDF
+                </button>
+              </div>
             ))}
           </div>
 
-          {SNAPSHOT_HISTORY.map((snap, i) => (
-            <div
-              key={snap.pipeline_run_id}
-              style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 80px auto", gap: 14, padding: "13px 24px", borderBottom: i < SNAPSHOT_HISTORY.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", transition: "background 0.1s" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#FAFAFA")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              <div>
-                <p style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: "#0A2540", marginBottom: 2 }}>
-                  {snap.taken_at}
-                  {i === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6 }}>(latest)</span>}
-                </p>
-                <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>{snap.pipeline_run_id}</p>
-              </div>
-              <p style={{
-                fontSize: 14, fontWeight: 800,
-                fontFamily: "var(--font-display)", letterSpacing: "-0.03em",
-                color: snap.score >= 730 ? "#10B981" : snap.score >= 650 ? "#F59E0B" : "#EF4444",
-              }}>
-                {snap.score}
-              </p>
-              <Badge variant={snap.risk === "Low Risk" ? "success" : "warning"} style={{ width: "fit-content", fontSize: 10 }}>
-                {snap.risk}
-              </Badge>
-              <p style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{snap.quality}%</p>
-              <button
-                onClick={() => handleGenerate("financial_identity", "PDF")}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#6B7280", cursor: "pointer", whiteSpace: "nowrap" as const }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
-              >
-                <Download size={11} /> Download PDF
-              </button>
-            </div>
-          ))}
         </div>
       </Card>
 

@@ -6,6 +6,7 @@ import {
   TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/lib/mobile-nav-context";
 
 /* Business subscriptions — these are businesses the financer
    has access to and is monitoring for score/profile changes.
@@ -93,6 +94,7 @@ function severityConfig(s: "positive" | "warning" | "info") {
 }
 
 export default function FinancerAlerts() {
+  const isMobile = useIsMobile();
   const [subs, setSubs] = useState(SUBSCRIPTIONS);
 
   const toggle = (fid: string) => {
@@ -113,7 +115,7 @@ export default function FinancerAlerts() {
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: 20, alignItems: "start" }}>
 
         {/* Left: Alert feed */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

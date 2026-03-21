@@ -6,6 +6,7 @@ import {
   Clock, X, ChevronDown, Info, Banknote,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/lib/mobile-nav-context";
 
 /* ─────────────────────────────────────────────────────────
    MOCK DATA
@@ -265,7 +266,7 @@ function OfferCard({ offer }: { offer: typeof OFFERS[0] }) {
       </div>
 
       {/* Terms grid */}
-      <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+      <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 14 }}>
         {[
           { label: "Amount Range",   value: `${offer.amount_min} – ${offer.amount_max}` },
           { label: "Interest Rate",  value: offer.interest_rate },
@@ -360,7 +361,7 @@ export default function FinancerOffers() {
 
         {/* How it works strip */}
         <div style={{
-          display: "flex", gap: 0,
+          display: "flex", flexWrap: "wrap", gap: 0,
           background: "white", border: "1px solid #E5E7EB",
           borderRadius: 12, overflow: "hidden",
         }}>
@@ -371,8 +372,9 @@ export default function FinancerOffers() {
             { step: "4", label: "You review & fund",     sub: "Review their identity and create a financing record" },
           ].map((s, i, arr) => (
             <div key={s.step} style={{
-              flex: 1, padding: "14px 18px",
+              flex: "1 1 140px", padding: "14px 18px",
               borderRight: i < arr.length - 1 ? "1px solid #F3F4F6" : "none",
+              borderBottom: "1px solid #F3F4F6",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span style={{

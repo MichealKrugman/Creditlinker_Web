@@ -6,6 +6,7 @@ import {
   TrendingUp, Banknote, PieChart, ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/lib/mobile-nav-context";
 
 /* ─────────────────────────────────────────────────────────
    MOCK DATA
@@ -13,11 +14,19 @@ import { Badge } from "@/components/ui/badge";
 ───────────────────────────────────────────────────────── */
 type FinancingStatus = "active" | "settled" | "disputed" | "withdrawn";
 
+/**
+ * originated_by: the analyst or member who first recommended this deal
+ * recommended_at: when the report was submitted into the approval chain
+ * approved_by: the team lead (or principal) who made the final call
+ * approved_at: when final approval was granted
+ * report_id: links back to the business report that originated this deal
+ */
 const RECORDS = [
   {
     id: "FIN-001",
     business_id: "BIZ-1R8T",
-    business_name: "Kemi Superstores",
+    business_name: "Kemi Superstores Ltd",
+    business_cl_id: "BIZ-1R8T",
     capital_category: "Working Capital",
     amount: "₦15M",
     amount_raw: 15_000_000,
@@ -27,11 +36,17 @@ const RECORDS = [
     health: "on_track" as const,
     repaid_pct: 42,
     sector: "Retail",
+    originated_by: "Bola Fashola",
+    recommended_at: "Oct 10, 2024",
+    approved_by: "Chidi Eze",
+    approved_at: "Oct 13, 2024",
+    report_id: "RPT-002",
   },
   {
     id: "FIN-002",
     business_id: "BIZ-3K2M",
     business_name: "Nonso Logistics",
+    business_cl_id: "BIZ-3K2M",
     capital_category: "Asset Financing",
     amount: "₦42M",
     amount_raw: 42_000_000,
@@ -41,11 +56,17 @@ const RECORDS = [
     health: "on_track" as const,
     repaid_pct: 18,
     sector: "Logistics",
+    originated_by: "Amaka Nwosu",
+    recommended_at: "Aug 24, 2024",
+    approved_by: "Chidi Eze",
+    approved_at: "Aug 28, 2024",
+    report_id: "RPT-008",
   },
   {
     id: "FIN-003",
     business_id: "BIZ-9P4L",
     business_name: "Bright Pharma",
+    business_cl_id: "BIZ-9P4L",
     capital_category: "Invoice Financing",
     amount: "₦8M",
     amount_raw: 8_000_000,
@@ -55,11 +76,17 @@ const RECORDS = [
     health: "watch" as const,
     repaid_pct: 0,
     sector: "Healthcare",
+    originated_by: "Amaka Nwosu",
+    recommended_at: "Nov 28, 2024",
+    approved_by: "Tunde Adeyemi",
+    approved_at: "Nov 30, 2024",
+    report_id: "RPT-003",
   },
   {
     id: "FIN-004",
-    business_id: "BIZ-7X9A",
-    business_name: "Aduke Bakeries",
+    business_id: "BIZ-4F9T",
+    business_name: "Aduke Bakeries Ltd",
+    business_cl_id: "BIZ-4F9T",
     capital_category: "Working Capital",
     amount: "₦12M",
     amount_raw: 12_000_000,
@@ -69,11 +96,17 @@ const RECORDS = [
     health: "on_track" as const,
     repaid_pct: 100,
     sector: "Food & Beverage",
+    originated_by: "Amaka Nwosu",
+    recommended_at: "Jun 2, 2024",
+    approved_by: "Chidi Eze",
+    approved_at: "Jun 6, 2024",
+    report_id: "RPT-001",
   },
   {
     id: "FIN-005",
     business_id: "BIZ-2B7R",
     business_name: "Delta Textiles",
+    business_cl_id: "BIZ-2B7R",
     capital_category: "Term Loan",
     amount: "₦22M",
     amount_raw: 22_000_000,
@@ -83,6 +116,11 @@ const RECORDS = [
     health: "watch" as const,
     repaid_pct: 30,
     sector: "Manufacturing",
+    originated_by: "Bola Fashola",
+    recommended_at: "Jul 28, 2024",
+    approved_by: "Chidi Eze",
+    approved_at: "Aug 1, 2024",
+    report_id: "RPT-006",
   },
 ];
 
@@ -147,6 +185,7 @@ function SummaryCard({ label, value, sub, icon, accent = false }: {
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function FinancerPortfolio() {
+  const isMobile = useIsMobile();
   const active   = RECORDS.filter(r => r.status === "active");
   const settled  = RECORDS.filter(r => r.status === "settled");
   const disputed = RECORDS.filter(r => r.status === "disputed");
@@ -187,56 +226,79 @@ export default function FinancerPortfolio() {
         </div>
 
         <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
-          {/* Header */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 140px 100px 140px 100px 80px 100px",
-            padding: "10px 22px",
-            borderBottom: "1px solid #F3F4F6",
-          }}>
-            {["Business", "Type", "Amount", "Due Date", "Repaid", "Health", "Status"].map(h => (
-              <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                {h}
-              </p>
-            ))}
-          </div>
-
-          {/* Rows */}
-          {active.map((rec, i) => {
-            const sc = statusConfig(rec.status);
-            const hc = healthConfig(rec.health);
-            return (
-              <div key={rec.id} style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 140px 100px 140px 100px 80px 100px",
-                padding: "14px 22px",
-                borderBottom: i < active.length - 1 ? "1px solid #F3F4F6" : "none",
-                alignItems: "center",
-              }}>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
-                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.sector}</p>
-                </div>
-                <p style={{ fontSize: 12, color: "#6B7280" }}>{rec.capital_category}</p>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{rec.amount}</p>
-                <p style={{ fontSize: 12, color: "#6B7280" }}>{rec.due}</p>
-                {/* Repaid bar */}
-                <div>
-                  <div style={{ height: 6, borderRadius: 9999, background: "#F3F4F6", marginBottom: 3, overflow: "hidden" }}>
-                    <div style={{
-                      height: "100%", width: `${rec.repaid_pct}%`,
-                      background: hc.color, borderRadius: 9999,
-                    }} />
+          {isMobile ? (
+            active.map((rec, i) => {
+              const hc = healthConfig(rec.health);
+              return (
+                <div key={rec.id} style={{ padding: "14px 18px", borderBottom: i < active.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
+                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.capital_category} · {rec.sector}</p>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: hc.color, flexShrink: 0 }}>{hc.label}</span>
                   </div>
-                  <p style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF" }}>{rec.repaid_pct}%</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                    <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px" }}>
+                      <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Amount</p>
+                      <p style={{ fontSize: 15, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{rec.amount}</p>
+                    </div>
+                    <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px" }}>
+                      <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Due</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{rec.due}</p>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>Repaid</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: hc.color }}>{rec.repaid_pct}%</span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${rec.repaid_pct}%`, background: hc.color, borderRadius: 9999 }} />
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>by {rec.originated_by} · appr. {rec.approved_by}</p>
                 </div>
-                <p style={{ fontSize: 11, fontWeight: 700, color: hc.color }}>{hc.label}</p>
-                <Badge variant={sc.variant} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, width: "fit-content" }}>
-                  {sc.icon} {sc.label}
-                </Badge>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 90px 120px 90px 70px 160px", padding: "10px 22px", borderBottom: "1px solid #F3F4F6" }}>
+              {["Business", "Type", "Amount", "Due Date", "Repaid", "Health", "Originated by"].map(h => (
+                <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
+              ))}
+            </div>
+            {active.map((rec, i) => {
+              const hc = healthConfig(rec.health);
+              return (
+                <div key={rec.id} style={{ display: "grid", gridTemplateColumns: "1fr 130px 90px 120px 90px 70px 160px", padding: "14px 22px", borderBottom: i < active.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ fontSize: 10, fontFamily: "monospace", color: "#9CA3AF", background: "#F3F4F6", padding: "1px 4px", borderRadius: 3 }}>{rec.business_cl_id}</span>
+                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.sector}</span>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 12, color: "#6B7280" }}>{rec.capital_category}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{rec.amount}</p>
+                  <p style={{ fontSize: 12, color: "#6B7280" }}>{rec.due}</p>
+                  <div>
+                    <div style={{ height: 6, borderRadius: 9999, background: "#F3F4F6", marginBottom: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${rec.repaid_pct}%`, background: hc.color, borderRadius: 9999 }} />
+                    </div>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF" }}>{rec.repaid_pct}%</p>
+                  </div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: hc.color }}>{hc.label}</p>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{rec.originated_by}</p>
+                    <p style={{ fontSize: 10, color: "#9CA3AF" }}>rec. {rec.recommended_at}</p>
+                    <p style={{ fontSize: 10, color: "#9CA3AF" }}>appr. by {rec.approved_by} · {rec.approved_at}</p>
+                  </div>
+                </div>
+              );
+            })}
+            </>
+          )}
         </div>
       </div>
 
@@ -295,9 +357,15 @@ export default function FinancerPortfolio() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
-                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.capital_category} · Disbursed {rec.disbursed}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "#9CA3AF", background: "#F3F4F6", padding: "1px 4px", borderRadius: 3 }}>{rec.business_cl_id}</span>
+                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.capital_category} · Disbursed {rec.disbursed}</span>
+                  </div>
                 </div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)" }}>{rec.amount}</p>
+                <div style={{ textAlign: "right" as const }}>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", marginBottom: 2 }}>{rec.amount}</p>
+                  <p style={{ fontSize: 10, color: "#9CA3AF" }}>by {rec.originated_by} · appr. {rec.approved_by}</p>
+                </div>
                 <Badge variant="success" style={{ fontSize: 10 }}>Settled</Badge>
               </div>
             ))}

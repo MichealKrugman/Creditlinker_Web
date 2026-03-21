@@ -211,7 +211,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* ── FILTER TABS ── */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+      <div className="cl-overflow-x-auto"><div style={{ display: "flex", gap: 6, flexWrap: "nowrap" as const, minWidth: "fit-content" }}>
         {FILTER_TABS.map(tab => {
           const count = tab.id === "unread"
             ? notifs.filter(n => !n.read).length
@@ -248,7 +248,7 @@ export default function NotificationsPage() {
             </button>
           );
         })}
-      </div>
+      </div></div>
 
       {/* ── NOTIFICATION LIST ── */}
       {visible.length === 0 ? (

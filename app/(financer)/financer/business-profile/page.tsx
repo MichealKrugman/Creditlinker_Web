@@ -6,6 +6,7 @@ import {
   ArrowDownLeft, ChevronRight, Tag, AlertCircle, Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/lib/mobile-nav-context";
 
 /* ─────────────────────────────────────────────────────────
    MOCK DATA
@@ -76,6 +77,7 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
 }
 
 export default function FinancerBusinessProfile() {
+  const isMobile = useIsMobile();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -136,7 +138,7 @@ export default function FinancerBusinessProfile() {
       </div>
 
       {/* ── MAIN GRID ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "260px 1fr", gap: 20, alignItems: "start" }}>
 
         {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

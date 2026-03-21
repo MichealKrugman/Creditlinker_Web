@@ -11,6 +11,7 @@ import {
   AlertCircle, BarChart2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/lib/mobile-nav-context";
 
 /* ─────────────────────────────────────────────────────────
    ROLE SIMULATION
@@ -126,7 +127,7 @@ const ROLE_CONFIG: Record<OrgRole, {
   variant: "default"|"secondary"|"success"|"warning"|"outline";
   label: string;
 }> = {
-  owner:     { icon: <Crown     size={10} />, variant: "default",   label: "Owner"     },
+  owner:     { icon: <Crown     size={10} />, variant: "default",   label: "Principal" },
   admin:     { icon: <Shield    size={10} />, variant: "secondary", label: "Admin"     },
   team_lead: { icon: <UserCheck size={10} />, variant: "warning",   label: "Team Lead" },
   analyst:   { icon: <User      size={10} />, variant: "outline",   label: "Analyst"   },
@@ -278,7 +279,7 @@ function OrgDashboard() {
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Badge variant="default" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <Crown size={10} /> Owner
+              <Crown size={10} /> Principal
             </Badge>
             <span style={{ fontSize: 13, color: "#6B7280" }}>
               {TEAM_MEMBERS.length} members · {totalRequests} active requests · {pendingActions} pending actions
@@ -295,56 +296,90 @@ function OrgDashboard() {
         {ORG_METRICS.map(m => <MetricCard key={m.label} {...m} />)}
       </div>
 
-      {/* Main grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 14, alignItems: "start" }}>
+      {/* Main grid — fnc-db-main-grid collapses to 1fr on mobile via globals.css */}
+      <div className="fnc-db-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-          {/* Team table */}
+          {/* Team table — desktop grid, collapses to stacked cards on mobile */}
           <Card>
             <CardHeader title="Team Overview" action={
               <Link href="/financer/settings" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
                 Team settings <ChevronRight size={13} />
               </Link>
             } />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 80px 80px 90px", gap: 12, padding: "12px 22px 8px", borderBottom: "1px solid #F3F4F6", marginTop: 12 }}>
-              {["Member", "Role", "Requests", "Portfolio", "Pending"].map(h => (
-                <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-              ))}
+
+            {/* Mobile cards — hidden on desktop via CSS */}
+            <div className="fnc-db-mobile-card" style={{ display: "none", padding: "10px 0 8px" }}>
+              {TEAM_MEMBERS.map((m, i) => {
+                const rc = ROLE_CONFIG[m.role];
+                const isMe = m.id === CURRENT_USER.id;
+                return (
+                  <div key={m.id} style={{ padding: "12px 18px", borderBottom: i < TEAM_MEMBERS.length - 1 ? "1px solid #F3F4F6" : "none", background: isMe ? "rgba(0,212,255,0.02)" : "transparent" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: isMe ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: isMe ? "#00D4FF" : "#0A2540" }}>
+                          {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{m.name} {isMe && <span style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 400 }}>(you)</span>}</p>
+                          <Badge variant={rc.variant} style={{ fontSize: 9, display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2 }}>{rc.icon} {rc.label}</Badge>
+                        </div>
+                      </div>
+                      {m.pending_actions > 0 ? (
+                        <span style={{ minWidth: 22, height: 22, borderRadius: 9999, background: "#FEF2F2", color: "#EF4444", fontSize: 10, fontWeight: 700, padding: "0 5px", display: "flex", alignItems: "center", justifyContent: "center" }}>{m.pending_actions} pending</span>
+                      ) : <CheckCircle2 size={14} style={{ color: "#D1D5DB" }} />}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px" }}>
+                        <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Requests</p>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{m.active_requests}</p>
+                      </div>
+                      <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px" }}>
+                        <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Portfolio</p>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{m.active_portfolio}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            {TEAM_MEMBERS.map((m, i) => {
-              const rc = ROLE_CONFIG[m.role];
-              const lead = m.team_lead_id ? TEAM_MEMBERS.find(t => t.id === m.team_lead_id) : null;
-              const isMe = m.id === CURRENT_USER.id;
-              return (
-                <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 80px 80px 90px", gap: 12, padding: "13px 22px", borderBottom: i < TEAM_MEMBERS.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", background: isMe ? "rgba(0,212,255,0.02)" : "transparent" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 7, background: isMe ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: isMe ? "#00D4FF" : "#0A2540", flexShrink: 0 }}>
-                      {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+
+            {/* Desktop table — hidden on mobile via CSS */}
+            <div className="fnc-db-desktop-only">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 80px 80px 90px", gap: 12, padding: "12px 22px 8px", borderBottom: "1px solid #F3F4F6", marginTop: 12 }}>
+                {["Member", "Role", "Requests", "Portfolio", "Pending"].map(h => (
+                  <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
+                ))}
+              </div>
+              {TEAM_MEMBERS.map((m, i) => {
+                const rc = ROLE_CONFIG[m.role];
+                const lead = m.team_lead_id ? TEAM_MEMBERS.find(t => t.id === m.team_lead_id) : null;
+                const isMe = m.id === CURRENT_USER.id;
+                return (
+                  <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 80px 80px 90px", gap: 12, padding: "13px 22px", borderBottom: i < TEAM_MEMBERS.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", background: isMe ? "rgba(0,212,255,0.02)" : "transparent" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: isMe ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: isMe ? "#00D4FF" : "#0A2540", flexShrink: 0 }}>
+                        {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: isMe ? 700 : 600, color: "#0A2540" }}>
+                          {m.name} {isMe && <span style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 400 }}>(you)</span>}
+                        </p>
+                        {lead && <p style={{ fontSize: 10, color: "#9CA3AF" }}>Reports to {lead.name}</p>}
+                      </div>
                     </div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: isMe ? 700 : 600, color: "#0A2540" }}>
-                        {m.name} {isMe && <span style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 400 }}>(you)</span>}
-                      </p>
-                      {lead && <p style={{ fontSize: 10, color: "#9CA3AF" }}>Reports to {lead.name}</p>}
+                    <Badge variant={rc.variant} style={{ fontSize: 9, display: "inline-flex", alignItems: "center", gap: 3, width: "fit-content" }}>{rc.icon} {rc.label}</Badge>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{m.active_requests}</p>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540" }}>{m.active_portfolio}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      {m.pending_actions > 0 ? (
+                        <span style={{ minWidth: 20, height: 20, borderRadius: 9999, background: "#FEF2F2", color: "#EF4444", fontSize: 10, fontWeight: 700, padding: "0 5px", display: "flex", alignItems: "center", justifyContent: "center" }}>{m.pending_actions}</span>
+                      ) : <CheckCircle2 size={14} style={{ color: "#D1D5DB" }} />}
                     </div>
                   </div>
-                  <Badge variant={rc.variant} style={{ fontSize: 9, display: "inline-flex", alignItems: "center", gap: 3, width: "fit-content" }}>
-                    {rc.icon} {rc.label}
-                  </Badge>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{m.active_requests}</p>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540" }}>{m.active_portfolio}</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    {m.pending_actions > 0 ? (
-                      <span style={{ minWidth: 20, height: 20, borderRadius: 9999, background: "#FEF2F2", color: "#EF4444", fontSize: 10, fontWeight: 700, padding: "0 5px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {m.pending_actions}
-                      </span>
-                    ) : (
-                      <CheckCircle2 size={14} style={{ color: "#D1D5DB" }} />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </Card>
 
           {/* Org activity */}
@@ -433,8 +468,8 @@ function TeamLeadDashboard() {
         ].map(m => <MetricCard key={m.label} {...m} />)}
       </div>
 
-      {/* Main grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 14, alignItems: "start" }}>
+      {/* Main grid — fnc-db-main-grid collapses to 1fr on mobile via globals.css */}
+      <div className="fnc-db-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
           {/* My team's requests */}
@@ -446,32 +481,34 @@ function TeamLeadDashboard() {
             } />
             <div style={{ padding: "10px 0 8px" }}>
               {TEAM_REQUESTS.map((req, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 22px", borderBottom: i < TEAM_REQUESTS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                  {/* Member avatar */}
-                  <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0A2540" }}>
-                    {req.member.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Member name + risk */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>{req.member}</p>
-                      <span style={{ fontSize: 9, color: "#D1D5DB" }}>→</span>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req.business}</p>
-                      <Badge variant={riskVariant(req.risk)} style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>{req.risk}</Badge>
+                <div key={i} style={{ padding: "12px 16px", borderBottom: i < TEAM_REQUESTS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0A2540" }}>
+                      {req.member.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
-                    <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.type} · {req.time}</p>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>{req.member}</p>
+                        <span style={{ fontSize: 9, color: "#D1D5DB" }}>→</span>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business}</p>
+                        <Badge variant={riskVariant(req.risk)} style={{ fontSize: 9, padding: "1px 6px" }}>{req.risk}</Badge>
+                      </div>
+                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.type} · {req.time}</p>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 2 }}>{req.score}</p>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#6B7280" }}>{req.amount}</p>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 46 }}>
+                    <div>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{req.score}</span>
+                      <span style={{ fontSize: 11, color: "#6B7280", marginLeft: 6 }}>{req.amount}</span>
+                    </div>
+                    {req.status === "pending" ? (
+                      <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                        Review <ArrowUpRight size={11} />
+                      </Link>
+                    ) : (
+                      <Badge variant="secondary">Reviewed</Badge>
+                    )}
                   </div>
-                  {req.status === "pending" ? (
-                    <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}>
-                      Review <ArrowUpRight size={11} />
-                    </Link>
-                  ) : (
-                    <Badge variant="secondary" style={{ flexShrink: 0 }}>Reviewed</Badge>
-                  )}
                 </div>
               ))}
             </div>
@@ -485,24 +522,48 @@ function TeamLeadDashboard() {
               </Link>
             } />
             <div style={{ padding: "10px 0 8px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
-                {["Member", "Business", "Type", "Amount", "Due", "Health"].map(h => (
-                  <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-                ))}
+              {/* Mobile cards */}
+              <div className="fnc-db-mobile-card" style={{ display: "none" }}>
+                {TEAM_PORTFOLIO.map((item, i) => {
+                  const hc = healthCfg(item.health);
+                  return (
+                    <div key={i} style={{ padding: "12px 18px", borderBottom: i < TEAM_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{item.business}</p>
+                          <p style={{ fontSize: 11, color: "#9CA3AF" }}>{item.member.split(" ")[0]} · {item.type}</p>
+                        </div>
+                        <Badge variant={hc.variant} style={{ fontSize: 10 }}>{hc.label}</Badge>
+                      </div>
+                      <div style={{ display: "flex", gap: 16 }}>
+                        <span style={{ fontSize: 12, color: "#6B7280" }}>Amount: <strong style={{ color: "#0A2540" }}>{item.amount}</strong></span>
+                        <span style={{ fontSize: 12, color: "#6B7280" }}>Due: <strong style={{ color: "#0A2540" }}>{item.due}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {TEAM_PORTFOLIO.map((item, i) => {
-                const hc = healthCfg(item.health);
-                return (
-                  <div key={i} style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "12px 22px", borderBottom: i < TEAM_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
-                    <p style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{item.member.split(" ")[0]}</p>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{item.business}</p>
-                    <p style={{ fontSize: 12, color: "#6B7280" }}>{item.type}</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.amount}</p>
-                    <p style={{ fontSize: 12, color: "#6B7280" }}>{item.due}</p>
-                    <Badge variant={hc.variant} style={{ width: "fit-content", fontSize: 10 }}>{hc.label}</Badge>
-                  </div>
-                );
-              })}
+              {/* Desktop table */}
+              <div className="fnc-db-desktop-only">
+                <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
+                  {["Member", "Business", "Type", "Amount", "Due", "Health"].map(h => (
+                    <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
+                  ))}
+                </div>
+                {TEAM_PORTFOLIO.map((item, i) => {
+                  const hc = healthCfg(item.health);
+                  return (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "12px 22px", borderBottom: i < TEAM_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
+                      <p style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{item.member.split(" ")[0]}</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{item.business}</p>
+                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.type}</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.amount}</p>
+                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.due}</p>
+                      <Badge variant={hc.variant} style={{ width: "fit-content", fontSize: 10 }}>{hc.label}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </Card>
 
@@ -604,7 +665,7 @@ function PersonalDashboard() {
         {PERSONAL_METRICS.map(m => <MetricCard key={m.label} {...m} />)}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, alignItems: "start" }}>
+      <div className="fnc-db-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
           {/* My requests */}
@@ -616,28 +677,32 @@ function PersonalDashboard() {
             } />
             <div style={{ padding: "10px 0 8px" }}>
               {MY_REQUESTS.map((req, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 22px", borderBottom: i < MY_REQUESTS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0A2540" }}>
-                    {req.business.slice(0, 4)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req.business}</p>
-                      <Badge variant={riskVariant(req.risk)} style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>{req.risk}</Badge>
+                <div key={i} style={{ padding: "12px 16px", borderBottom: i < MY_REQUESTS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0A2540" }}>
+                      {req.business.slice(0, 4)}
                     </div>
-                    <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.type} · {req.requested}</p>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business}</p>
+                        <Badge variant={riskVariant(req.risk)} style={{ fontSize: 9, padding: "1px 6px" }}>{req.risk}</Badge>
+                      </div>
+                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.type} · {req.requested}</p>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
-                    <p style={{ fontSize: 16, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 2 }}>{req.score}</p>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#6B7280" }}>{req.amount}</p>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 46 }}>
+                    <div>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{req.score}</span>
+                      <span style={{ fontSize: 11, color: "#6B7280", marginLeft: 6 }}>{req.amount}</span>
+                    </div>
+                    {req.status === "pending" ? (
+                      <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                        Review <ArrowUpRight size={11} />
+                      </Link>
+                    ) : (
+                      <Badge variant="secondary">Reviewed</Badge>
+                    )}
                   </div>
-                  {req.status === "pending" ? (
-                    <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}>
-                      Review <ArrowUpRight size={11} />
-                    </Link>
-                  ) : (
-                    <Badge variant="secondary" style={{ flexShrink: 0 }}>Reviewed</Badge>
-                  )}
                 </div>
               ))}
             </div>
@@ -651,23 +716,47 @@ function PersonalDashboard() {
               </Link>
             } />
             <div style={{ padding: "10px 0 8px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px 90px 80px", padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
-                {["Business", "Type", "Amount", "Due", "Health"].map(h => (
-                  <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-                ))}
+              {/* Mobile cards */}
+              <div className="fnc-db-mobile-card" style={{ display: "none" }}>
+                {MY_PORTFOLIO.map((item, i) => {
+                  const hc = healthCfg(item.health);
+                  return (
+                    <div key={i} style={{ padding: "12px 18px", borderBottom: i < MY_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{item.business}</p>
+                          <p style={{ fontSize: 11, color: "#9CA3AF" }}>{item.type}</p>
+                        </div>
+                        <Badge variant={hc.variant} style={{ fontSize: 10 }}>{hc.label}</Badge>
+                      </div>
+                      <div style={{ display: "flex", gap: 16 }}>
+                        <span style={{ fontSize: 12, color: "#6B7280" }}>Amount: <strong style={{ color: "#0A2540" }}>{item.amount}</strong></span>
+                        <span style={{ fontSize: 12, color: "#6B7280" }}>Due: <strong style={{ color: "#0A2540" }}>{item.due}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {MY_PORTFOLIO.map((item, i) => {
-                const hc = healthCfg(item.health);
-                return (
-                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px 90px 80px", padding: "12px 22px", borderBottom: i < MY_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{item.business}</p>
-                    <p style={{ fontSize: 12, color: "#6B7280" }}>{item.type}</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.amount}</p>
-                    <p style={{ fontSize: 12, color: "#6B7280" }}>{item.due}</p>
-                    <Badge variant={hc.variant} style={{ width: "fit-content", fontSize: 10 }}>{hc.label}</Badge>
-                  </div>
-                );
-              })}
+              {/* Desktop table */}
+              <div className="fnc-db-desktop-only">
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px 90px 80px", padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
+                  {["Business", "Type", "Amount", "Due", "Health"].map(h => (
+                    <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
+                  ))}
+                </div>
+                {MY_PORTFOLIO.map((item, i) => {
+                  const hc = healthCfg(item.health);
+                  return (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px 90px 80px", padding: "12px 22px", borderBottom: i < MY_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{item.business}</p>
+                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.type}</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.amount}</p>
+                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.due}</p>
+                      <Badge variant={hc.variant} style={{ width: "fit-content", fontSize: 10 }}>{hc.label}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </Card>
         </div>
@@ -693,12 +782,12 @@ function PersonalDashboard() {
                     </div>
                     <span style={{ fontSize: 13, fontWeight: 800, color: m.match >= 90 ? "#10B981" : "#F59E0B", fontFamily: "var(--font-display)" }}>{m.match}%</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="fnc-db-match-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                       <DimBars dims={m.dims} />
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{m.revenue_band}</p>
+                      <p style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.revenue_band}</p>
                     </div>
-                    <Link href="/financer/businesses" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>
+                    <Link href="/financer/businesses" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
                       Request access <ArrowUpRight size={11} />
                     </Link>
                   </div>

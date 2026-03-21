@@ -110,6 +110,11 @@
     color: var(--color-text-primary);
     font-family: var(--font-body);
     margin: 0;
+    overflow-x: hidden;
+  }
+
+  html {
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -180,7 +185,7 @@
 .delay-600 { animation-delay: 0.60s; }
 
 /* ══════════════════════════════════════════
-   RESPONSIVE UTILITIES
+   RESPONSIVE UTILITIES (public pages)
 ══════════════════════════════════════════ */
 .desktop-only { display: block; }
 .mobile-only  { display: none;  }
@@ -188,21 +193,297 @@
 @media (max-width: 900px) {
   .desktop-only { display: none !important; }
   .mobile-only  { display: block !important; }
+  .responsive-grid-2 { grid-template-columns: 1fr !important; }
+  .responsive-grid-4 { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 600px) {
+  .responsive-grid-4 { grid-template-columns: 1fr !important; }
+  .hero-card-float-top, .hero-card-float-bottom { display: none !important; }
+}
 
-  .responsive-grid-2 {
-    grid-template-columns: 1fr !important;
+/* ══════════════════════════════════════════
+   BUSINESS PORTAL — MOBILE LAYOUT
+   Breakpoint: 768px
+══════════════════════════════════════════ */
+
+/* Hamburger: hidden on desktop, flex on mobile */
+.cl-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background: white;
+  cursor: pointer;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+/* Sidebar backdrop: hidden on desktop */
+.cl-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Show hamburger */
+  .cl-hamburger { display: flex !important; }
+
+  /* Sidebar: off-screen by default, slides in when open */
+  .cl-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .responsive-grid-4 {
-    grid-template-columns: 1fr 1fr !important;
+  .cl-sidebar.cl-sidebar-open {
+    transform: translateX(0);
+  }
+
+  /* Close button inside sidebar */
+  .cl-sidebar-close { display: flex !important; }
+
+  /* Backdrop: covers screen behind open sidebar */
+  .cl-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 49;
+    pointer-events: none;
+    transition: background 0.25s ease;
+  }
+  .cl-sidebar-backdrop.cl-sidebar-open {
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: auto;
+  }
+
+  /* Main content: no sidebar offset */
+  .cl-main { margin-left: 0 !important; }
+
+  /* Reduce page padding on mobile */
+  .cl-main-content { padding: 16px !important; }
+}
+
+/* Close button hidden on desktop */
+.cl-sidebar-close {
+  display: none;
+}
+
+/* ── Scrollable wrapper for horizontal tab/button bars ── */
+.cl-overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  width: 100%;
+}
+.cl-overflow-x-auto::-webkit-scrollbar { display: none; }
+
+/* ══════════════════════════════════════════
+   BUSINESS PORTAL — PAGE RESPONSIVE GRIDS
+══════════════════════════════════════════ */
+
+/* Horizontal scroll wrapper for data tables */
+.cl-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Transactions: desktop table shown, mobile cards hidden by default */
+.tx-desktop-table { display: block; }
+.tx-mobile-list   { display: none; }
+
+/* Data Sources: desktop tables shown, mobile cards hidden by default */
+.ds-desktop-table { display: block; }
+.ds-mobile-list   { display: none; }
+.ds-acc-desktop   { display: flex; }
+.ds-acc-mobile    { display: none; }
+
+/* Documents: desktop rows shown, mobile cards hidden by default */
+.doc-desktop-row { display: grid; }
+.doc-mobile-row  { display: none; }
+
+/* Business Profile: desktop rows/tables shown, mobile cards hidden by default */
+.bp-op-desktop  { display: flex; }
+.bp-op-mobile   { display: none; }
+.bp-inv-desktop { display: block; }
+.bp-inv-mobile  { display: none; }
+/* FieldRow label column — fixed width on desktop */
+.bp-field-label { min-width: 180px; flex-shrink: 0; }
+
+@media (max-width: 768px) {
+
+  /* ── Global: hard containment — no element may exceed viewport width ── */
+  .cl-main-content {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  /* Grid / flex children must be allowed to shrink */
+  .cl-main-content * {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* ── Dashboard ── */
+  .db-main-grid  { grid-template-columns: 1fr !important; }
+  .db-score-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+  .db-score-grid > :first-child { margin: 0 auto; }
+
+  /* ── Financer Dashboard ── */
+  .fnc-db-main-grid    { grid-template-columns: 1fr !important; }
+  .fnc-db-side-grid    { grid-template-columns: 1fr !important; }
+  /* Hide desktop-only table headers, show mobile cards */
+  .fnc-db-mobile-card  { display: block !important; }
+  .fnc-db-desktop-only { display: none !important; }
+  /* Discovery matches row wraps on mobile */
+  .fnc-db-match-row    { flex-wrap: wrap !important; gap: 8px !important; }
+
+  /* ── Financer Financing ── */
+  /* Row card: hide desktop grid, show mobile card */
+  .fnc-fin-row-desktop { display: none !important; }
+  .fnc-fin-row-mobile  { display: flex !important; }
+  /* Expanded panel: stack to single col */
+  .fnc-fin-panel-grid  { grid-template-columns: 1fr !important; }
+  /* Key metrics 3-col → 1-col */
+  .fnc-fin-metrics     { grid-template-columns: 1fr !important; }
+  /* Repayment schedule: scroll */
+  .fnc-fin-schedule-wrap { overflow-x: auto; }
+  .fnc-fin-schedule-inner { min-width: 480px; }
+  /* Column headers hidden */
+  .fnc-fin-col-headers { display: none !important; }
+
+  /* ── Financer Reports ── */
+  .fnc-rep-charts-grid  { grid-template-columns: 1fr !important; }
+  .fnc-rep-analyst-stats { grid-template-columns: repeat(2, 1fr) !important; }
+  .fnc-rep-cards-grid   { grid-template-columns: 1fr !important; }
+  /* Generate modal form grids */
+  .fnc-rep-form-grid    { grid-template-columns: 1fr !important; }
+
+  /* ── Financer Settings ── */
+  /* Member row: hide desktop grid, show mobile card */
+  .fnc-set-row-desktop { display: none !important; }
+  .fnc-set-row-mobile  { display: flex !important; }
+  .fnc-set-col-headers { display: none !important; }
+  /* Stats 4-col → 2-col, reduce padding */
+  .fnc-set-stats-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .fnc-set-stats-grid > div { padding: 14px 16px !important; }
+  /* Form grids → single column */
+  .fnc-set-two-col     { grid-template-columns: 1fr !important; }
+  .fnc-set-three-col   { grid-template-columns: 1fr !important; }
+  /* Ensure members table and role permissions card don't overflow */
+  .fnc-set-table-wrap  { overflow-x: hidden !important; }
+  .fnc-set-role-grid   { grid-template-columns: 1fr !important; }
+
+  /* ── Financer Business Profile ── */
+  .fnc-bp-main-grid    { grid-template-columns: 1fr !important; }
+
+  /* ── Financer Financial Analysis ── */
+  .fnc-fa-charts-grid  { grid-template-columns: 1fr !important; }
+
+  /* ── Financial Identity ── */
+  .fi-sidebar-grid { grid-template-columns: 1fr !important; }
+  .fi-sidebar-grid > * { min-width: 0 !important; width: 100% !important; }
+  .fi-two-col      { grid-template-columns: 1fr !important; }
+
+  /* ── Financial Analysis ── */
+  .fa-charts-grid      { grid-template-columns: 1fr !important; }
+  .fa-expense-grid     { grid-template-columns: 1fr !important; }
+  /* Tabs: inner flex row nowrap — outer wrapper scrolls */
+  .fa-tabs-inner       { flex-wrap: nowrap !important; min-width: max-content; }
+  /* Forecast 4-col stats → 2×2 on mobile */
+  .fa-forecast-stats   { grid-template-columns: 1fr 1fr !important; }
+  .fa-forecast-stats > div { border-right: none !important; border-bottom: 1px solid #F3F4F6; padding: 14px 16px 16px !important; }
+  .fa-forecast-stats > div:nth-last-child(-n+2) { border-bottom: none !important; }
+  /* Revenue pattern: remove hardcoded borders, add row separators */
+  .fa-pattern-item  { border-right: none !important; border-bottom: 1px solid #F3F4F6 !important; padding: 14px 16px 16px !important; }
+  .fa-pattern-item:last-child { border-bottom: none !important; }
+  /* Contribution table scrollable */
+  .fa-contrib-inner { min-width: 540px; }
+
+  /* ── Transactions ── */
+  .tx-desktop-table { display: none !important; }
+  .tx-mobile-list   { display: block !important; }
+  .tx-filters-row   { flex-wrap: wrap !important; gap: 8px !important; }
+
+  /* ── Data Sources ── */
+  .ds-desktop-table { display: none !important; }
+  .ds-mobile-list   { display: block !important; }
+  .ds-acc-desktop   { display: none !important; }
+  .ds-acc-mobile    { display: block !important; }
+  .ds-map-grid      { grid-template-columns: 1fr !important; }
+  .ds-three-col     { grid-template-columns: 1fr !important; }
+
+  /* ── Documents ── */
+  .doc-desktop-row { display: none !important; }
+  .doc-mobile-row  { display: block !important; }
+
+  /* ── Financing ── */
+  .fin-two-col   { grid-template-columns: 1fr !important; }
+  .fin-card-grid { grid-template-columns: 1fr !important; }
+
+  /* ── Financers ── */
+  .fnc-four-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* ── Business Profile ── */
+  .bp-two-col    { grid-template-columns: 1fr !important; }
+  .bp-three-col  { grid-template-columns: 1fr !important; }
+  /* Operational rows: hide desktop, show mobile cards */
+  .bp-op-desktop  { display: none !important; }
+  .bp-op-mobile   { display: block !important; }
+  /* Inventory table: hide desktop grid, show mobile cards */
+  .bp-inv-desktop { display: none !important; }
+  .bp-inv-mobile  { display: block !important; }
+  /* FieldRow: stack label above value on narrow screens */
+  .bp-field-row   { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; }
+  .bp-field-label { min-width: 0 !important; width: 100% !important; }
+
+  /* ── Reports ── */
+  .rep-table-row { min-width: 520px; }
+
+  /* ── Settings ── */
+  .set-two-col { grid-template-columns: 1fr !important; }
+
+  /* ── Reports date range ── */
+  .rep-date-range { overflow-x: auto !important; }
+
+  /* ── Active financing row: stack on mobile ── */
+  .fin-active-row {
+    grid-template-columns: 44px 1fr !important;
+    grid-template-rows: auto auto !important;
+    gap: 10px !important;
+  }
+  .fin-active-actions {
+    grid-column: 1 / -1 !important;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  /* ── Messages ── */
+  .msg-split-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 180px) !important;
+    min-height: 400px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+  /* Hide the panel not in view */
+  .msg-thread-hidden-mobile { display: none !important; }
+  /* Both panels fill the grid cell fully on mobile */
+  .msg-split-grid > * {
+    height: 100%;
+    min-height: 0;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 }
 
-@media (max-width: 600px) {
-  .responsive-grid-4 {
-    grid-template-columns: 1fr !important;
-  }
-  .hero-card-float-top,
-  .hero-card-float-bottom {
-    display: none !important;
-  }
+@media (max-width: 480px) {
+  /* Extra small: collapse 2-col finance/financer grids further */
+  .fnc-four-grid { grid-template-columns: 1fr !important; }
+  .db-score-grid { text-align: center; }
 }

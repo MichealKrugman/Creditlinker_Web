@@ -7,7 +7,8 @@ import {
   User, Lock, Bell, Shield, Smartphone,
   Eye, EyeOff, CheckCircle2, AlertCircle,
   ChevronRight, LogOut, Trash2, Save,
-  Loader2, X, RefreshCw, Info,
+  Loader2, X, RefreshCw, Info, Headset,
+  FileText, Send, HelpCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,27 @@ const TABS = [
   { id: "account",       label: "Account",        icon: <User       size={14} /> },
   { id: "security",      label: "Security",       icon: <Lock       size={14} /> },
   { id: "notifications", label: "Notifications",  icon: <Bell       size={14} /> },
+  { id: "identity",      label: "Identity (KYC)", icon: <Shield     size={14} /> },
+  { id: "support",       label: "Support",        icon: <Headset    size={14} /> },
 ];
+
+const GENDER_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
+
+const KYC_DATA = {
+  full_name:    "Ada Okonkwo",
+  gender:       "",
+  dob:          "",
+  nationality:  "Nigerian",
+  bvn:          "",
+  nin:          "",
+  id_type:      "",
+  id_number:    "",
+  id_expiry:    "",
+  address:      "",
+  bvn_verified: false,
+  nin_verified: false,
+  id_verified:  false,
+};
 
 /* ─────────────────────────────────────────────────────────
    SHARED UI
@@ -285,7 +306,8 @@ export default function SettingsPage() {
         </div>
 
         {/* ── TABS ── */}
-        <div style={{ display: "flex", gap: 0, border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", width: "fit-content" }}>
+        <div className="cl-overflow-x-auto">
+        <div style={{ display: "flex", gap: 0, border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", width: "fit-content", minWidth: "fit-content" }}>
           {TABS.map((tab, i) => (
             <button
               key={tab.id}
@@ -298,11 +320,13 @@ export default function SettingsPage() {
                 background: activeTab === tab.id ? "#0A2540" : "white",
                 color: activeTab === tab.id ? "white" : "#6B7280",
                 cursor: "pointer", transition: "all 0.12s",
+                whiteSpace: "nowrap" as const,
               }}
             >
               {tab.icon} {tab.label}
             </button>
           ))}
+        </div>
         </div>
 
         {/* ══════════════════════════════════════
@@ -315,7 +339,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader title="Personal Details" sub="Your name and contact information." />
               <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div className="set-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Full name</label>
                     <Input value={name} onChange={e => setName(e.target.value)} style={{ height: 42, fontSize: 13 }} />
@@ -561,7 +585,359 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* ══════════════════════════════════════
+            IDENTITY / KYC TAB
+        ══════════════════════════════════════ */}
+        {activeTab === "identity" && (
+          <KycTab />
+        )}
+
+        {/* ══════════════════════════════════════
+            SUPPORT TAB
+        ══════════════════════════════════════ */}
+        {activeTab === "support" && (
+          <SupportTab />
+        )}
+
       </div>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   KYC TAB
+───────────────────────────────────────────────────────── */
+function KycTab() {
+  const [gender,    setGender]    = useState(KYC_DATA.gender);
+  const [dob,       setDob]       = useState(KYC_DATA.dob);
+  const [bvn,       setBvn]       = useState(KYC_DATA.bvn);
+  const [nin,       setNin]       = useState(KYC_DATA.nin);
+  const [idType,    setIdType]    = useState(KYC_DATA.id_type);
+  const [idNumber,  setIdNumber]  = useState(KYC_DATA.id_number);
+  const [idExpiry,  setIdExpiry]  = useState(KYC_DATA.id_expiry);
+  const [address,   setAddress]   = useState(KYC_DATA.address);
+  const [saving,    setSaving]    = useState(false);
+  const [saved,     setSaved]     = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise(r => setTimeout(r, 1000));
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+    // TODO: PATCH /business/profile/kyc { gender, dob, bvn, nin, id_type, id_number, id_expiry, address }
+  };
+
+  const VerifiedBadge = ({ verified }: { verified: boolean }) => (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 9999, background: verified ? "#ECFDF5" : "#FFF7ED", color: verified ? "#10B981" : "#F59E0B", border: `1px solid ${verified ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)"}` }}>
+      {verified ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+      {verified ? "Verified" : "Pending verification"}
+    </span>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      <div style={{ display: "flex", gap: 8, padding: "12px 16px", background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 10 }}>
+        <Info size={13} style={{ color: "#00A8CC", flexShrink: 0, marginTop: 1 }} />
+        <p style={{ fontSize: 12, color: "#0A5060", lineHeight: 1.6 }}>
+          KYC information is required to verify your identity and that of key principals. Verified identities build trust with capital providers and unlock higher financing limits.
+        </p>
+      </div>
+
+      {/* Personal Identity */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #F3F4F6" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 3 }}>Personal Identity</p>
+          <p style={{ fontSize: 12, color: "#9CA3AF" }}>Your personal details as the account owner.</p>
+        </div>
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Name (read-only from Keycloak) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Full legal name</label>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", background: "#F3F4F6", padding: "2px 7px", borderRadius: 9999 }}>From your account</span>
+            </div>
+            <div style={{ height: 42, padding: "0 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", display: "flex", alignItems: "center" }}>
+              <p style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>{KYC_DATA.full_name}</p>
+            </div>
+            <p style={{ fontSize: 11, color: "#9CA3AF" }}>Update your name in the Account tab above.</p>
+          </div>
+
+          <div className="set-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {/* Gender */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Gender *</label>
+              <div style={{ position: "relative" as const }}>
+                <select value={gender} onChange={e => setGender(e.target.value)}
+                  style={{ width: "100%", height: 42, padding: "0 32px 0 12px", borderRadius: 8, border: `1.5px solid ${gender ? "#E5E7EB" : "rgba(245,158,11,0.4)"}`, fontSize: 13, color: gender ? "#0A2540" : "#9CA3AF", background: "white", appearance: "none", outline: "none", cursor: "pointer" }}>
+                  <option value="" disabled>Select gender</option>
+                  {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <ChevronRight size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%) rotate(90deg)", color: "#9CA3AF", pointerEvents: "none" }} />
+              </div>
+              {!gender && <p style={{ fontSize: 11, color: "#F59E0B" }}>Required for KYC verification.</p>}
+            </div>
+
+            {/* Date of birth */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Date of birth *</label>
+              <Input type="date" value={dob} onChange={e => setDob(e.target.value)}
+                style={{ height: 42, fontSize: 13, borderColor: dob ? undefined : "rgba(245,158,11,0.4)" }} />
+            </div>
+          </div>
+
+          {/* Address */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Residential address</label>
+            <Input value={address} onChange={e => setAddress(e.target.value)}
+              placeholder="e.g. 14 Admiralty Way, Lekki Phase 1, Lagos" style={{ height: 42, fontSize: 13 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Government IDs */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #F3F4F6" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 3 }}>Government Identity Numbers</p>
+          <p style={{ fontSize: 12, color: "#9CA3AF" }}>BVN and NIN are used for identity verification with NIBSS. These are never shared with financers directly.</p>
+        </div>
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="set-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {/* BVN */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>BVN</label>
+                <VerifiedBadge verified={KYC_DATA.bvn_verified} />
+              </div>
+              <Input value={bvn} onChange={e => setBvn(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                placeholder="11-digit BVN" style={{ height: 42, fontSize: 13, fontFamily: "monospace", letterSpacing: "0.08em" }} />
+              <p style={{ fontSize: 11, color: "#9CA3AF" }}>Verified against NIBSS records. Never exposed to financers.</p>
+            </div>
+            {/* NIN */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>NIN</label>
+                <VerifiedBadge verified={KYC_DATA.nin_verified} />
+              </div>
+              <Input value={nin} onChange={e => setNin(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                placeholder="11-digit NIN" style={{ height: 42, fontSize: 13, fontFamily: "monospace", letterSpacing: "0.08em" }} />
+              <p style={{ fontSize: 11, color: "#9CA3AF" }}>National Identification Number. Used for identity resolution.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Government ID Document */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #F3F4F6" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 3 }}>Identity Document</p>
+          <p style={{ fontSize: 12, color: "#9CA3AF" }}>Provide a valid government-issued photo ID for identity verification.</p>
+        </div>
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="set-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>ID Type</label>
+              <div style={{ position: "relative" as const }}>
+                <select value={idType} onChange={e => setIdType(e.target.value)}
+                  style={{ width: "100%", height: 42, padding: "0 32px 0 12px", borderRadius: 8, border: "1.5px solid #E5E7EB", fontSize: 13, color: idType ? "#0A2540" : "#9CA3AF", background: "white", appearance: "none", outline: "none", cursor: "pointer" }}>
+                  <option value="" disabled>Select ID type</option>
+                  {["National ID (NIN slip)", "International Passport", "Driver's Licence", "Voter's Card"].map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <ChevronRight size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%) rotate(90deg)", color: "#9CA3AF", pointerEvents: "none" }} />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>ID Number</label>
+              <Input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="e.g. A00000000" style={{ height: 42, fontSize: 13, fontFamily: "monospace" }} />
+            </div>
+          </div>
+          <div className="set-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Expiry date</label>
+              <Input type="date" value={idExpiry} onChange={e => setIdExpiry(e.target.value)} style={{ height: 42, fontSize: 13 }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Verification status</label>
+              <div style={{ height: 42, display: "flex", alignItems: "center", paddingLeft: 4 }}>
+                <VerifiedBadge verified={KYC_DATA.id_verified} />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, padding: "12px 14px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 9, alignItems: "flex-start" }}>
+            <Info size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>
+              Upload a clear photo or scan of your ID at <Link href="/documents" style={{ color: "#0A2540", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 2 }}>Documents</Link>. The document team will verify and update your status within 1–2 business days.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Save */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button variant="primary" size="sm" onClick={handleSave} disabled={saving} style={{ gap: 6, minWidth: 140 }}>
+          {saving ? <><Loader2 size={13} className="animate-spin" /> Saving…</> : saved ? <><CheckCircle2 size={13} /> Saved!</> : <><Save size={13} /> Save KYC info</>}
+        </Button>
+      </div>
+
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   SUPPORT TAB
+───────────────────────────────────────────────────────── */
+function SupportTab() {
+  const [issueType,    setIssueType]    = useState("");
+  const [subject,      setSubject]      = useState("");
+  const [description,  setDescription]  = useState("");
+  const [submitting,   setSubmitting]   = useState(false);
+  const [submitted,    setSubmitted]    = useState(false);
+
+  const ISSUE_TYPES = [
+    { value: "score_dispute",    label: "Dispute my score or dimension",       description: "A score, risk flag, or dimension result looks incorrect." },
+    { value: "data_error",       label: "Transaction / data error",             description: "A transaction is miscategorised or missing." },
+    { value: "pipeline_error",   label: "Pipeline run issue",                  description: "The pipeline failed, stalled, or produced unexpected results." },
+    { value: "account_issue",    label: "Account or access issue",             description: "Login, verification, or consent access problems." },
+    { value: "financer_dispute", label: "Dispute with a capital provider",     description: "An issue with a financer's behaviour or a financing record." },
+    { value: "other",            label: "Other",                               description: "Anything not covered above." },
+  ];
+
+  const handleSubmit = async () => {
+    if (!issueType || !subject || !description) return;
+    setSubmitting(true);
+    await new Promise(r => setTimeout(r, 1200));
+    setSubmitting(false);
+    setSubmitted(true);
+    // TODO: POST /business/support/ticket { issue_type, subject, description }
+  };
+
+  const selectedIssue = ISSUE_TYPES.find(i => i.value === issueType);
+
+  if (submitted) return (
+    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "48px 24px", textAlign: "center" as const }}>
+      <div style={{ width: 56, height: 56, borderRadius: 14, background: "#ECFDF5", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+        <CheckCircle2 size={26} style={{ color: "#10B981" }} />
+      </div>
+      <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 8 }}>Support ticket submitted</p>
+      <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65, maxWidth: 380, margin: "0 auto 24px" }}>
+        Our support team will review your issue and respond to <strong>ada@adukebakeries.ng</strong> within 1–2 business days.
+      </p>
+      <button onClick={() => { setSubmitted(false); setSubject(""); setDescription(""); setIssueType(""); }}
+        style={{ padding: "9px 20px", borderRadius: 9, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>
+        Submit another request
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Info banner */}
+      <div style={{ display: "flex", gap: 8, padding: "12px 16px", background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 10 }}>
+        <Info size={13} style={{ color: "#00A8CC", flexShrink: 0, marginTop: 1 }} />
+        <p style={{ fontSize: 12, color: "#0A5060", lineHeight: 1.6 }}>
+          If you believe your financial score contains an error — such as a misidentified transaction, an incorrect risk flag, or data that was not properly attributed — raise a support ticket here and our team will review it within 1–2 business days.
+        </p>
+      </div>
+
+      {/* Ticket form */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #F3F4F6" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 3 }}>Submit a support request</p>
+          <p style={{ fontSize: 12, color: "#9CA3AF" }}>Responses are sent to your registered email address.</p>
+        </div>
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Issue type */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Issue type *</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {ISSUE_TYPES.map(issue => (
+                <button key={issue.value} onClick={() => setIssueType(issue.value)}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", borderRadius: 9, border: "1.5px solid", borderColor: issueType === issue.value ? "#0A2540" : "#E5E7EB", background: issueType === issue.value ? "#F8FAFF" : "white", cursor: "pointer", textAlign: "left" as const, transition: "all 0.12s" }}
+                  onMouseEnter={e => { if (issueType !== issue.value) (e.currentTarget as HTMLElement).style.borderColor = "#D1D5DB"; }}
+                  onMouseLeave={e => { if (issueType !== issue.value) (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; }}
+                >
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid", borderColor: issueType === issue.value ? "#0A2540" : "#D1D5DB", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                    {issueType === issue.value && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#0A2540" }} />}
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>{issue.label}</p>
+                    <p style={{ fontSize: 12, color: "#9CA3AF" }}>{issue.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Score dispute context */}
+          {(issueType === "score_dispute" || issueType === "data_error") && (
+            <div style={{ display: "flex", gap: 8, padding: "10px 14px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 9 }}>
+              <AlertCircle size={13} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: "#92400E", lineHeight: 1.6 }}>
+                {issueType === "score_dispute"
+                  ? "Please tag any miscategorised transactions on the Transactions page before submitting — it helps our team investigate faster."
+                  : "If a transaction is tagged incorrectly, you can correct it directly from the Transactions page. Add any remaining context in the description below."}
+              </p>
+            </div>
+          )}
+
+          {/* Subject */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Subject *</label>
+            <Input value={subject} onChange={e => setSubject(e.target.value)}
+              placeholder={issueType === "score_dispute" ? "e.g. Risk flag: Concentration risk seems incorrect" : "Short summary of your issue"}
+              style={{ height: 42, fontSize: 13 }} />
+          </div>
+
+          {/* Description */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>Description *</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)}
+              placeholder={issueType === "score_dispute"
+                ? "Describe which score, dimension, or risk flag looks wrong and why. Include dates, amounts, or transaction IDs if applicable."
+                : "Provide as much detail as possible so our team can investigate quickly."}
+              rows={5}
+              style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13, color: "#0A2540", resize: "vertical", outline: "none", fontFamily: "inherit", lineHeight: 1.6 }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4 }}>
+            <p style={{ fontSize: 12, color: "#9CA3AF" }}>We respond within 1–2 business days.</p>
+            <Button variant="primary" size="sm" onClick={handleSubmit}
+              disabled={!issueType || !subject || !description || submitting}
+              style={{ gap: 6, minWidth: 140 }}>
+              {submitting ? <><Loader2 size={13} className="animate-spin" /> Submitting…</> : <><Send size={13} /> Submit ticket</>}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* FAQ shortcuts */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #F3F4F6" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>Common questions</p>
+        </div>
+        {[
+          { q: "Why did my score go down?",                      a: "Scores are recalculated on every pipeline run based on your latest transaction data. A decline usually reflects a change in cashflow patterns or a new risk flag. Run a fresh pipeline and check your dimension breakdown." },
+          { q: "How do I dispute a risk flag?",                   a: "Submit a support ticket above with issue type 'Dispute my score'. Tag any related transactions on the Transactions page before submitting." },
+          { q: "Why is a transaction miscategorised?",            a: "The normalization engine classifies transactions from bank descriptions. If a category is wrong, tag it manually on the Transactions page — your tag will be applied on the next pipeline run at the highest confidence level." },
+          { q: "How long until my score reflects new data?",      a: "After syncing a bank account or uploading a statement, trigger a pipeline run from the Financial Identity page. Your score updates within a few minutes." },
+        ].map((item, i) => (
+          <div key={i} style={{ padding: "14px 24px", borderBottom: i < 3 ? "1px solid #F9FAFB" : "none" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <HelpCircle size={13} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 4 }}>{item.q}</p>
+                <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{item.a}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+    </div>
   );
 }

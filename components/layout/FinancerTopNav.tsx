@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Bell, Search, Settings, LogOut,
-  ChevronDown, X,
+  ChevronDown, X, Menu,
   LayoutDashboard, Building2, Inbox, Tag,
   PieChart, BarChart2, Target,
 } from 'lucide-react';
+import { useMobileNav } from '@/lib/mobile-nav-context';
 
 /* ─────────────────────────────────────────────────────────
    ROUTE → TITLE MAP
@@ -54,6 +55,7 @@ export function FinancerTopNav() {
   const pathname  = usePathname();
   const router    = useRouter();
   const title     = ROUTE_TITLES[pathname] ?? 'Capital Provider Portal';
+  const { toggle } = useMobileNav();
 
   const [open,       setOpen]       = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -104,17 +106,26 @@ export function FinancerTopNav() {
       zIndex: 40,
     }}>
 
-      {/* Page title */}
-      <h1 style={{
-        fontFamily: 'var(--font-display)',
-        fontWeight: 700,
-        fontSize: 16,
-        color: '#0A2540',
-        letterSpacing: '-0.02em',
-        margin: 0,
-      }}>
-        {title}
-      </h1>
+      {/* Left side: hamburger (hidden on desktop via .cl-hamburger in globals.css) + title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          className="cl-hamburger"
+          onClick={toggle}
+          aria-label="Open menu"
+        >
+          <Menu size={16} />
+        </button>
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          fontSize: 16,
+          color: '#0A2540',
+          letterSpacing: '-0.02em',
+          margin: 0,
+        }}>
+          {title}
+        </h1>
+      </div>
 
       {/* Right controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

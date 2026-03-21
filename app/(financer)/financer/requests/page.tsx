@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/lib/mobile-nav-context";
 
 /* ─────────────────────────────────────────────────────────
    MOCK DATA
@@ -212,6 +213,7 @@ function RequestRow({
   onAction: (action: "offer" | "decline") => void;
 }) {
   const sc = statusConfig(req.status);
+  const isMobile = useIsMobile();
 
   return (
     <div style={{
@@ -221,81 +223,68 @@ function RequestRow({
       background: "white",
       transition: "border-color 0.12s",
     }}>
-      {/* Summary row */}
-      <div
-        onClick={onToggle}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "36px 1fr 120px 110px 120px 130px",
-          gap: 12,
-          padding: "14px 20px",
-          alignItems: "center",
-          cursor: "pointer",
-        }}
-      >
-        {/* Anon avatar */}
-        <div style={{
-          width: 36, height: 36, borderRadius: 8, background: "#F3F4F6",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Building2 size={15} color="#9CA3AF" />
-        </div>
-
-        {/* Business + meta */}
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business_id}</p>
-            <Badge variant={riskVariant(req.risk_level)} style={{ fontSize: 9, padding: "1px 6px" }}>
-              {req.risk_level}
-            </Badge>
+      {/* Summary row — mobile card / desktop grid */}
+      <div onClick={onToggle} style={{ cursor: "pointer" }}>
+        {isMobile ? (
+          <div style={{ padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Building2 size={15} color="#9CA3AF" />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business_id}</p>
+                    <Badge variant={riskVariant(req.risk_level)} style={{ fontSize: 9, padding: "1px 6px" }}>{req.risk_level}</Badge>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.capital_category}</p>
+                </div>
+              </div>
+              <ChevronDown size={14} style={{ color: "#9CA3AF", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0, marginTop: 2 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div>
+                  <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 1 }}>Amount</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{req.requested_amount}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 1 }}>Match</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: req.match_score >= 90 ? "#10B981" : "#F59E0B", fontFamily: "var(--font-display)" }}>{req.match_score}%</p>
+                </div>
+              </div>
+              <Badge variant={sc.variant} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10 }}>{sc.icon} {sc.label}</Badge>
+            </div>
           </div>
-          <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-            {req.sector} · {req.capital_category}
-          </p>
-        </div>
-
-        {/* Amount */}
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>
-          {req.requested_amount}
-        </p>
-
-        {/* Match */}
-        <p style={{
-          fontSize: 14, fontWeight: 800, color: req.match_score >= 90 ? "#10B981" : "#F59E0B",
-          fontFamily: "var(--font-display)",
-        }}>
-          {req.match_score}% <span style={{ fontSize: 10, fontWeight: 500, color: "#9CA3AF" }}>match</span>
-        </p>
-
-        {/* When */}
-        <p style={{ fontSize: 12, color: "#9CA3AF" }}>{req.requested_at}</p>
-
-        {/* Status + chevron */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-          <Badge variant={sc.variant} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10 }}>
-            {sc.icon} {sc.label}
-          </Badge>
-          <ChevronDown
-            size={14}
-            style={{
-              color: "#9CA3AF",
-              transform: expanded ? "rotate(180deg)" : "none",
-              transition: "transform 0.15s",
-            }}
-          />
-        </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 120px 110px 120px 130px", gap: 12, padding: "14px 20px", alignItems: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Building2 size={15} color="#9CA3AF" />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business_id}</p>
+                <Badge variant={riskVariant(req.risk_level)} style={{ fontSize: 9, padding: "1px 6px" }}>{req.risk_level}</Badge>
+              </div>
+              <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.capital_category}</p>
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{req.requested_amount}</p>
+            <p style={{ fontSize: 14, fontWeight: 800, color: req.match_score >= 90 ? "#10B981" : "#F59E0B", fontFamily: "var(--font-display)" }}>{req.match_score}% <span style={{ fontSize: 10, fontWeight: 500, color: "#9CA3AF" }}>match</span></p>
+            <p style={{ fontSize: 12, color: "#9CA3AF" }}>{req.requested_at}</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+              <Badge variant={sc.variant} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10 }}>{sc.icon} {sc.label}</Badge>
+              <ChevronDown size={14} style={{ color: "#9CA3AF", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Expanded panel */}
       {expanded && (
-        <div style={{
-          borderTop: "1px solid #F3F4F6",
-          padding: "18px 20px",
-          background: "#FAFAFA",
-        }}>
+        <div style={{ borderTop: "1px solid #F3F4F6", padding: "18px 20px", background: "#FAFAFA" }}>
           <div style={{
             display: "grid",
-            gridTemplateColumns: "1fr 200px",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 200px",
             gap: 20,
           }}>
             {/* Left: dimensions + note */}
@@ -482,30 +471,18 @@ export default function FinancingRequests() {
           ))}
         </div>
 
-        {/* ── TABLE HEADER ── */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "36px 1fr 120px 110px 120px 130px",
-          gap: 12,
-          padding: "0 20px 8px",
-        }}>
+        {/* ── TABLE HEADER (desktop only) ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 120px 110px 120px 130px", gap: 12, padding: "0 20px 8px" }} className="desktop-table-header">
           {["", "Business", "Amount", "Match", "Received", "Status"].map(h => (
-            <p key={h} style={{
-              fontSize: 11, fontWeight: 700, color: "#9CA3AF",
-              textTransform: "uppercase", letterSpacing: "0.05em",
-            }}>
-              {h}
-            </p>
+            <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
           ))}
         </div>
+        <style>{`@media (max-width: 768px) { .desktop-table-header { display: none !important; } }`}</style>
 
         {/* ── ROWS ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {filtered.length === 0 ? (
-            <div style={{
-              padding: "48px 24px", textAlign: "center" as const,
-              background: "white", borderRadius: 12, border: "1px solid #E5E7EB",
-            }}>
+            <div style={{ padding: "48px 24px", textAlign: "center" as const, background: "white", borderRadius: 12, border: "1px solid #E5E7EB" }}>
               <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No requests</p>
               <p style={{ fontSize: 13, color: "#9CA3AF" }}>No financing requests match the selected filter.</p>
             </div>

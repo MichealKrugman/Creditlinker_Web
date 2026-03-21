@@ -1,10 +1,384 @@
-Go through code for secure coding{secure code}
-Go through code and generate all api needed to function, app layer dependencies - roles auth and more, that way we can implement
-database needs, securing databases
 
-go through code and API, determine ways to make API faster 
+You are performing a full architecture audit of this codebase.
 
-check for stale buttons and UI 
+Your task is NOT to modify the code.
 
-how to make admin page private, there shouldnt be a login form for admin on the website, webspiders shouldnt pick it up etc
+Your task is to scan the entire repository and generate a structured catalogue of issues, missing components, vulnerabilities, and improvement opportunities.
 
+For each finding provide:
+
+1. File path
+2. Code snippet
+3. Description of issue
+4. Severity (Critical / High / Medium / Low)
+5. Recommended fix
+6. Whether the issue blocks production readiness
+
+Return findings grouped by category.
+```
+
+---
+
+# PASS 1 — SECURITY AUDIT
+
+Prompt:
+
+```
+Scan the entire codebase for security vulnerabilities.
+
+Check for:
+
+Authentication issues
+Authorization flaws
+Insecure API endpoints
+Hardcoded secrets
+Unprotected admin routes
+SQL injection risks
+Improper input validation
+Missing rate limiting
+Sensitive data exposure
+Insecure file uploads
+Open redirects
+CORS misconfigurations
+
+Catalogue all findings.
+
+For each vulnerability provide:
+
+file path
+code snippet
+explanation of vulnerability
+risk level
+recommended secure coding fix
+```
+
+---
+
+# PASS 2 — API COVERAGE AUDIT
+
+Prompt:
+
+```
+Analyze the entire frontend and backend codebase.
+
+Identify every user action in the UI including:
+
+buttons
+forms
+page actions
+dashboard interactions
+
+Then determine:
+
+1. which API endpoints support these actions
+2. which actions do not have backend support
+3. which endpoints exist but are unused
+
+Create a catalogue containing:
+
+UI action
+frontend file location
+required API endpoint
+existing endpoint (if present)
+missing backend implementation
+```
+
+---
+
+# PASS 3 — DATABASE STRUCTURE AUDIT
+
+Prompt:
+
+```
+Scan the codebase and determine all database models, schemas, and queries.
+
+Generate a full database architecture catalogue including:
+
+tables
+columns
+relationships
+indexes
+constraints
+
+Then identify issues such as:
+
+missing indexes
+missing foreign keys
+nullable fields that should not be nullable
+duplicate data structures
+inconsistent naming
+orphaned tables
+unused tables
+inefficient queries
+
+Return a database improvement report.
+```
+
+---
+
+# PASS 4 — PERFORMANCE AUDIT
+
+Prompt:
+
+```
+Scan backend code and database queries to identify performance issues.
+
+Look for:
+
+N+1 queries
+inefficient loops
+missing query indexes
+large unpaginated API responses
+blocking synchronous operations
+slow middleware
+redundant API calls
+
+Catalogue performance issues with:
+
+file location
+problem description
+estimated performance impact
+recommended optimization
+```
+
+---
+
+# PASS 5 — FRONTEND INTEGRITY AUDIT
+
+Prompt:
+
+```
+Scan all frontend components and UI pages.
+
+Identify:
+
+buttons with no functionality
+forms with no submission handlers
+dead links
+unused components
+broken navigation paths
+duplicate components
+UI elements not connected to APIs
+
+Create a catalogue containing:
+
+component name
+file location
+issue description
+recommended fix
+```
+
+---
+
+# PASS 6 — ROLE & PERMISSION AUDIT
+
+Prompt:
+
+```
+Scan the codebase and identify all role based access control logic.
+
+Catalogue:
+
+user roles
+permission checks
+protected routes
+authorization middleware
+
+Then identify issues such as:
+
+missing permission checks
+routes accessible to wrong roles
+admin routes exposed publicly
+backend endpoints without role validation
+
+Generate a role security report.
+```
+
+---
+
+# PASS 7 — ADMIN PANEL EXPOSURE AUDIT
+
+Prompt:
+
+```
+Identify all admin related routes, pages, and APIs.
+
+Check whether:
+
+admin panels are publicly accessible
+admin routes are discoverable
+admin login pages are indexed
+admin APIs lack authentication
+
+Recommend secure approaches including:
+
+route protection
+domain separation
+IP restrictions
+robots.txt protection
+```
+
+---
+
+# PASS 8 — DEPENDENCY SECURITY AUDIT
+
+Prompt:
+
+```
+Scan all project dependencies.
+
+Identify:
+
+outdated packages
+security vulnerabilities
+unused dependencies
+large dependencies affecting build size
+
+Return a dependency health report.
+```
+
+---
+
+# PASS 9 — ERROR HANDLING AUDIT
+
+Prompt:
+
+```
+Analyze error handling across the entire backend.
+
+Identify:
+
+uncaught exceptions
+inconsistent error formats
+sensitive information leaked in error messages
+stack traces exposed in production
+
+Return an error handling improvement catalogue.
+```
+
+---
+
+# PASS 10 — STATE MACHINE AUDIT
+
+Prompt:
+
+```
+Identify all entities that have state transitions.
+
+Examples include:
+
+financing requests
+documents
+user verification
+applications
+
+Determine whether:
+
+state transitions are enforced
+invalid transitions are possible
+states are documented
+APIs enforce correct state flows
+
+Return a state transition audit report.
+```
+
+---
+
+# PASS 11 — LOGGING & AUDIT TRAIL
+
+Prompt:
+
+```
+Scan the codebase to determine whether critical system actions are logged.
+
+Check for logging of:
+
+authentication events
+admin actions
+financial data changes
+document uploads
+API failures
+
+Return a logging coverage report and identify missing audit logs.
+```
+
+---
+
+# PASS 12 — INFRASTRUCTURE CONFIGURATION AUDIT
+
+Prompt:
+
+```
+Scan configuration files and environment handling.
+
+Identify:
+
+hardcoded environment variables
+missing environment configs
+exposed API keys
+unsafe configuration defaults
+
+Return a configuration security report.
+```
+
+---
+
+# VERY IMPORTANT FINAL PASS
+
+After running all passes:
+
+Run this instruction.
+
+```
+Aggregate all audit reports into a single production readiness report.
+
+Group issues by:
+
+Security
+Architecture
+Database
+Performance
+API
+Frontend
+Infrastructure
+
+Rank issues by severity and list the top blockers preventing production deployment.
+```
+
+---
+
+# One Extremely Powerful Prompt (Use After Everything)
+
+This one reveals **hidden architectural problems**.
+
+```
+You are acting as a principal software architect performing a pre-production review.
+
+Based on the entire codebase determine:
+
+1. architectural weaknesses
+2. scaling limitations
+3. security risks
+4. maintainability problems
+5. areas where the system will fail under high usage
+
+Return a comprehensive architecture risk report.
+```
+
+------------------------------------------------
+
+
+Based on the system architecture discovered in the codebase:
+
+Identify all missing infrastructure required for a production-grade fintech platform.
+
+Generate:
+
+missing APIs
+missing database tables
+missing role permissions
+missing logging systems
+missing security protections
+missing monitoring systems
+
+Return a prioritized implementation roadmap.

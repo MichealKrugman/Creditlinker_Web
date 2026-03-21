@@ -250,54 +250,78 @@ function UploadModal({
 /* ─────────────────────────────────────────────────────────
    DOCUMENT ROW
 ───────────────────────────────────────────────────────── */
+function ActionButtons({ doc, onDeleteRequest }: { doc: UploadedDoc; onDeleteRequest: (doc: UploadedDoc) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9CA3AF" }}>
+        <Download size={12} />
+      </button>
+      <button style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9CA3AF" }}>
+        <Eye size={12} />
+      </button>
+      {doc.status !== "verified" && (
+        <button
+          onClick={() => onDeleteRequest(doc)}
+          style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)", background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#EF4444" }}
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DocumentRow({ doc, onDeleteRequest }: { doc: UploadedDoc; onDeleteRequest: (doc: UploadedDoc) => void }) {
   const sc = statusConfig(doc.status);
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 110px auto", alignItems: "center", gap: 14, padding: "12px 24px", transition: "background 0.1s" }}
+      {/* ── DESKTOP ROW ── */}
+      <div className="doc-desktop-row"
+        style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 110px auto", alignItems: "center", gap: 14, padding: "12px 24px", transition: "background 0.1s" }}
         onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFAFA")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
-        {/* Icon */}
         <div style={{ width: 28, height: 28, borderRadius: 6, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280" }}>
           <FileText size={13} />
         </div>
-
-        {/* Filename */}
         <p style={{ fontSize: 13, fontWeight: 500, color: "#0A2540", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", paddingRight: 8 }}>
           {doc.filename}
         </p>
-
-        {/* Size/date */}
         <p style={{ fontSize: 11, color: "#9CA3AF" }}>{doc.size}</p>
         <p style={{ fontSize: 11, color: "#9CA3AF" }}>{doc.uploaded_at}</p>
-
-        {/* Status + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Badge variant={sc.variant} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10 }}>
             {sc.icon} {sc.label}
           </Badge>
-          <button style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9CA3AF" }}>
-            <Download size={12} />
-          </button>
-          <button style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9CA3AF" }}>
-            <Eye size={12} />
-          </button>
-          {doc.status !== "verified" && (
-            <button
-              onClick={() => onDeleteRequest(doc)}
-              style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)", background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#EF4444" }}
-            >
-              <Trash2 size={12} />
-            </button>
-          )}
+          <ActionButtons doc={doc} onDeleteRequest={onDeleteRequest} />
         </div>
       </div>
 
-      {/* Rejection reason */}
+      {/* ── MOBILE CARD ── */}
+      <div className="doc-mobile-row" style={{ padding: "12px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280" }}>
+            <FileText size={14} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, marginBottom: 3 }}>
+              {doc.filename}
+            </p>
+            <p style={{ fontSize: 11, color: "#9CA3AF" }}>{doc.size} · {doc.uploaded_at}</p>
+          </div>
+          <Badge variant={sc.variant} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, flexShrink: 0 }}>
+            {sc.icon} {sc.label}
+          </Badge>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <ActionButtons doc={doc} onDeleteRequest={onDeleteRequest} />
+        </div>
+      </div>
+
+      {/* Rejection reason — shown on both ─ full width */}
       {doc.status === "rejected" && doc.rejection_reason && (
-        <div style={{ margin: "0 24px 12px", display: "flex", gap: 8, padding: "10px 14px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 8 }}>
+        <div style={{ margin: "0 16px 12px", display: "flex", gap: 8, padding: "10px 14px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 8 }}>
           <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12, color: "#991B1B", lineHeight: 1.6 }}>{doc.rejection_reason}</p>
         </div>
@@ -326,8 +350,8 @@ function CategoryCard({
     <div style={{ background: "white", border: `1px solid ${hasRejected ? "rgba(239,68,68,0.25)" : "#E5E7EB"}`, borderRadius: 14, overflow: "hidden" }}>
 
       {/* Category header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "18px 24px", borderBottom: isEmpty ? "none" : "1px solid #F3F4F6", gap: 12 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "16px 20px", borderBottom: isEmpty ? "none" : "1px solid #F3F4F6", gap: 12, flexWrap: "wrap" as const }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flex: 1, minWidth: 0 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 9, flexShrink: 0,
             background: allVerified ? "#ECFDF5" : hasRejected ? "#FEF2F2" : "#F3F4F6",
@@ -336,8 +360,8 @@ function CategoryCard({
           }}>
             {cat.icon}
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" as const }}>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>
                 {cat.label}
               </p>
@@ -368,29 +392,27 @@ function CategoryCard({
       {/* Documents list */}
       {cat.documents.length > 0 && (
         <div>
-          {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 110px auto", gap: 14, padding: "6px 24px 8px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6" }}>
+          {/* Desktop header — hidden on mobile */}
+          <div className="doc-desktop-row" style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 110px auto", gap: 14, padding: "6px 24px 8px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6" }}>
             {["", "Filename", "Size", "Uploaded", "Status"].map((h) => (
               <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
             ))}
           </div>
           {cat.documents.map((doc) => (
-            <DocumentRow key={doc.doc_id} doc={doc} />
+            <DocumentRow key={doc.doc_id} doc={doc} onDeleteRequest={onDeleteRequest} />
           ))}
         </div>
       )}
 
       {/* Empty state */}
       {isEmpty && (
-        <div style={{ padding: "20px 24px 22px", display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>
-              No documents uploaded yet.{cat.required ? " This category is required for verification." : ""}
-            </p>
-          </div>
+        <div style={{ padding: "16px 20px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" as const }}>
+          <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>
+            No documents uploaded yet.{cat.required ? " Required for verification." : ""}
+          </p>
           <button
             onClick={onUpload}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "2px dashed #E5E7EB", background: "none", fontSize: 12, fontWeight: 600, color: "#9CA3AF", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" as const }}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "2px dashed #E5E7EB", background: "none", fontSize: 12, fontWeight: 600, color: "#9CA3AF", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" as const, flexShrink: 0 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; }}
           >

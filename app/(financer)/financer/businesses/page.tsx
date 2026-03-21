@@ -13,9 +13,18 @@ import { Badge } from "@/components/ui/badge";
    MOCK DATA
    Replace with: GET /institution/discovery → DiscoveryMatch[]
 ───────────────────────────────────────────────────────── */
+/**
+ * business_name is ONLY populated once access_granted.
+ * Before that the business is anonymous — only the CL ID is known.
+ * branch_cl_id is set when this is a branch/franchise entity under a parent.
+ * parent_cl_id links the branch back to the root business.
+ */
 const BUSINESSES = [
   {
     id: "BIZ-7X9A",
+    business_name: null,           // anonymous until consent
+    branch_cl_id: null,
+    parent_cl_id: null,
     sector: "Food & Beverage",
     revenue_band: "₦5M – ₦20M/mo",
     data_months: 24,
@@ -26,6 +35,9 @@ const BUSINESSES = [
   },
   {
     id: "BIZ-3K2M",
+    business_name: null,
+    branch_cl_id: null,
+    parent_cl_id: null,
     sector: "Logistics",
     revenue_band: "₦10M – ₦50M/mo",
     data_months: 24,
@@ -36,6 +48,9 @@ const BUSINESSES = [
   },
   {
     id: "BIZ-9P4L",
+    business_name: null,
+    branch_cl_id: null,
+    parent_cl_id: null,
     sector: "Technology",
     revenue_band: "₦2M – ₦8M/mo",
     data_months: 12,
@@ -46,6 +61,9 @@ const BUSINESSES = [
   },
   {
     id: "BIZ-1R8T",
+    business_name: "Kemi Superstores Ltd",  // revealed after consent
+    branch_cl_id: null,
+    parent_cl_id: null,
     sector: "Retail",
     revenue_band: "₦8M – ₦30M/mo",
     data_months: 18,
@@ -55,7 +73,23 @@ const BUSINESSES = [
     dimensions: { revenue: 88, cashflow: 79, expense: 84, liquidity: 76, consistency: 82, risk: 74 },
   },
   {
+    id: "BIZ-1R8T",            // same parent as above
+    business_name: "Kemi Superstores — Ikeja Branch",
+    branch_cl_id: "BIZ-1R8T-041",  // branch entity ID
+    parent_cl_id: "BIZ-1R8T",
+    sector: "Retail",
+    revenue_band: "₦2M – ₦6M/mo",
+    data_months: 10,
+    capital_category: "Working Capital",
+    match_score: 79,
+    status: "access_granted" as const,
+    dimensions: { revenue: 74, cashflow: 71, expense: 80, liquidity: 68, consistency: 75, risk: 70 },
+  },
+  {
     id: "BIZ-5N2W",
+    business_name: null,
+    branch_cl_id: null,
+    parent_cl_id: null,
     sector: "Agriculture",
     revenue_band: "₦15M – ₦60M/mo",
     data_months: 20,
@@ -66,6 +100,9 @@ const BUSINESSES = [
   },
   {
     id: "BIZ-6G3H",
+    business_name: null,
+    branch_cl_id: null,
+    parent_cl_id: null,
     sector: "Healthcare",
     revenue_band: "₦3M – ₦12M/mo",
     data_months: 15,
@@ -192,29 +229,47 @@ function BusinessCard({ biz }: { biz: typeof BUSINESSES[0] }) {
         display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10,
       }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          {/* Anon avatar */}
+          {/* Avatar — shows initials if name is known, icon if anonymous */}
           <div style={{
             width: 38, height: 38, borderRadius: 9, flexShrink: 0,
-            background: "#F3F4F6",
+            background: biz.business_name ? "#0A2540" : "#F3F4F6",
             display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12, fontWeight: 800,
+            color: biz.business_name ? "#00D4FF" : "#9CA3AF",
           }}>
-            <Building2 size={16} color="#9CA3AF" />
+            {biz.business_name
+              ? biz.business_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+              : <Building2 size={16} color="#9CA3AF" />}
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" as const }}>
+              {/* Business name (revealed) or CL ID (anonymous) */}
               <p style={{
                 fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700,
                 color: "#0A2540", letterSpacing: "-0.02em",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                maxWidth: 180,
               }}>
-                {biz.id}
+                {biz.business_name ?? biz.id}
               </p>
-              <Badge variant={sc.variant} style={{ fontSize: 9, padding: "1px 6px" }}>
+              <Badge variant={sc.variant} style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>
                 {sc.label}
               </Badge>
             </div>
-            <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-              {biz.sector} · {biz.capital_category} · {biz.data_months}mo data
-            </p>
+            {/* CL ID tag — always visible, secondary when name is shown */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" as const }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", fontFamily: "monospace",
+                background: "#F3F4F6", padding: "1px 5px", borderRadius: 4, letterSpacing: "0.02em" }}>
+                {biz.branch_cl_id ?? biz.id}
+              </span>
+              {biz.branch_cl_id && (
+                <span style={{ fontSize: 9, color: "#9CA3AF" }}>
+                  Branch of <span style={{ fontWeight: 700 }}>{biz.parent_cl_id}</span>
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: "#9CA3AF" }}>·</span>
+              <span style={{ fontSize: 10, color: "#9CA3AF" }}>{biz.sector} · {biz.capital_category} · {biz.data_months}mo data</span>
+            </div>
           </div>
         </div>
         {/* Match score */}

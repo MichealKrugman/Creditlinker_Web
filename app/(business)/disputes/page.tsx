@@ -264,7 +264,7 @@ function DisputeCard({ dispute }: { dispute: DisputeRecord }) {
 
       {/* Header row */}
       <div
-        style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 24px", cursor: "pointer" }}
+        style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "18px 24px", cursor: "pointer", flexWrap: "wrap" as const }}
         onClick={() => setExpanded(v => !v)}
       >
         {/* Icon */}
@@ -277,7 +277,7 @@ function DisputeCard({ dispute }: { dispute: DisputeRecord }) {
           <AlertCircle size={18} />
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" as const }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>
               {dispute.institution}
@@ -286,10 +286,10 @@ function DisputeCard({ dispute }: { dispute: DisputeRecord }) {
               {sc.icon} {sc.label}
             </Badge>
             {dispute.initiated_by === "financer" && (
-              <Badge variant="secondary" style={{ fontSize: 10 }}>Raised by financer</Badge>
+              <Badge variant="secondary" style={{ fontSize: 10, whiteSpace: "nowrap" as const }}>Raised by financer</Badge>
             )}
             {dispute.direct_debit_triggered && (
-              <Badge variant="destructive" style={{ fontSize: 10 }}>Direct debit triggered</Badge>
+              <Badge variant="destructive" style={{ fontSize: 10, whiteSpace: "nowrap" as const }}>Direct debit triggered</Badge>
             )}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" as const }}>
@@ -302,7 +302,7 @@ function DisputeCard({ dispute }: { dispute: DisputeRecord }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, marginLeft: "auto" }}>
           <Link
             href={`/financing`}
             onClick={e => e.stopPropagation()}
@@ -364,7 +364,7 @@ function DisputeCard({ dispute }: { dispute: DisputeRecord }) {
 
           {/* Actions — only for pending disputes */}
           {dispute.status === "pending" && (
-            <div style={{ padding: "14px 24px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8 }}>
+            <div style={{ padding: "14px 24px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, flexWrap: "wrap" as const }}>
               <Button variant="outline" size="sm" style={{ gap: 5 }}
                 onClick={() => {
                   // TODO: open evidence upload modal
@@ -435,7 +435,7 @@ export default function DisputesPage() {
         </div>
 
         {/* ── FILTER PILLS ── */}
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
           {(["all", "pending", "resolved", "rejected"] as const).map(f => (
             <button
               key={f}

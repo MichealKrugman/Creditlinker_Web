@@ -352,7 +352,7 @@ function AssessmentDrawer({ item, onClose }: { item: ReadinessItem; onClose: () 
                     <p style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{c.label}</p>
                     <span style={{ fontSize: 10, fontWeight: 700, color: wl.color, background: wl.bg, padding: "2px 7px", borderRadius: 9999, flexShrink: 0 }}>{wl.label}</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${borderColor}` }}>
+                  <div className="fin-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${borderColor}` }}>
                     <div style={{ padding: "10px 14px", borderRight: `1px solid ${borderColor}` }}>
                       <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 3 }}>Your value</p>
                       <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{c.your_value}</p>
@@ -544,7 +544,7 @@ function SettleButton({ financingId, totalAmount }: { financingId: string; total
               </div>
 
               {/* Mode toggle */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1.5px solid #E5E7EB", borderRadius: 9, overflow: "hidden" }}>
+              <div className="fin-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1.5px solid #E5E7EB", borderRadius: 9, overflow: "hidden" }}>
                 {(["full", "partial"] as const).map((m, i) => (
                   <button
                     key={m}
@@ -849,7 +849,7 @@ export default function FinancingPage() {
             {ACTIVE_FINANCING.map((rec, i) => {
               const sc = statusConfig(rec.status);
               return (
-                <div key={rec.financing_id} style={{
+                <div key={rec.financing_id} className="fin-active-row" style={{
                   display: "grid",
                   gridTemplateColumns: "44px 1fr auto auto",
                   alignItems: "center", gap: 16,
@@ -891,7 +891,7 @@ export default function FinancingPage() {
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div className="fin-active-actions" style={{ display: "flex", gap: 6 }}>
                     <SettleButton financingId={rec.financing_id} totalAmount={rec.amount} />
                     <Link href="/disputes" style={{
                       display: "inline-flex", alignItems: "center", gap: 5,
