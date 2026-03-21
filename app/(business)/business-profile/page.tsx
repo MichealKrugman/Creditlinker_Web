@@ -665,7 +665,7 @@ function BranchStatusChip({ branch, onResendInvite }: {
         </span>
         <button
           onClick={() => onResendInvite(branch.id)}
-          style={{ fontSize: 10, fontWeight: 600, color: "#6B7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textDecorationOffset: 2, padding: 0 }}>
+          style={{ fontSize: 10, fontWeight: 600, color: "#6B7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2, padding: 0 }}>
           Resend
         </button>
       </div>
