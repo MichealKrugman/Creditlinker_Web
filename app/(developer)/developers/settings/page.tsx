@@ -188,7 +188,7 @@ export default function DeveloperSettingsPage() {
                   type="button"
                   onClick={() => setActive(s.id)}
                   style={{
-                    width: "100%", display: "flex", alignItems: "center", gap: 10,
+                    display: "flex", alignItems: "center", gap: 10,
                     padding: "9px 16px",
                     background: isActive ? "#F3F4F6" : "transparent",
                     border: "none", cursor: "pointer",
