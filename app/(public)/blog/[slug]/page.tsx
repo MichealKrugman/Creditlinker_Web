@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clock, Calendar, Info, AlertTriangle, Lightbulb, Quote } from "lucide-react";
@@ -178,8 +179,9 @@ function RelatedCard({ post }: { post: BlogPost }) {
 //  PAGE
 // ─────────────────────────────────────────────────────────────
 
-export default function BlogArticlePage({ params }: { params: { slug: string } }) {
-  const post = getPostBySlug(params.slug);
+export default function BlogArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
+  const post = getPostBySlug(slug);
   if (!post) notFound();
 
   const cat          = CATEGORY_CONFIG[post.category];
