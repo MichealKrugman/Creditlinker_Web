@@ -57,7 +57,7 @@ function IdentityCard() {
       </div>
 
       {/* Score + dimensions */}
-      <div style={{ padding: "22px 24px", display: "flex", gap: 22, alignItems: "center" }}>
+      <div className="home-card-inner" style={{ padding: "22px 24px", display: "flex", gap: 22, alignItems: "center" }}>
         {/* Ring */}
         <div style={{ flexShrink: 0, position: "relative", width: 124, height: 124 }}>
           <svg width="124" height="124" viewBox="0 0 124 124" style={{ transform: "rotate(-90deg)" }}>
@@ -138,18 +138,39 @@ export default function HomePage() {
         .trust-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; }
 
         @media (max-width: 960px) {
-          .home-grid { grid-template-columns: 1fr !important; gap: 48px !important; }
+          .home-grid { grid-template-columns: 1fr !important; gap: 36px !important; }
           .home-card-wrap { display: flex; justify-content: center; }
+          .home-grid-inner { padding: 56px 24px !important; }
+          .home-hero-section { min-height: auto !important; }
         }
         @media (max-width: 600px) {
-          .home-ctas { flex-direction: column; }
-          .home-ctas a { text-align: center; justify-content: center; }
+          .home-grid-inner { padding: 40px 20px 44px !important; }
+          /* Hide card on mobile — headline carries the story */
+          .home-card-wrap { display: none !important; }
+          /* Tighten hero text */
+          .home-body-text { font-size: 15px !important; line-height: 1.65 !important; margin-bottom: 28px !important; }
+          .home-eyebrow { margin-bottom: 16px !important; font-size: 11px !important; }
+          /* Stack CTAs full-width */
+          .home-ctas { flex-direction: column !important; gap: 10px !important; margin-bottom: 32px !important; }
+          .home-ctas a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; text-align: center !important; }
+          /* Trust row compact */
+          .trust-row { gap: 8px 14px !important; }
+          .trust-label { font-size: 11px !important; margin-bottom: 8px !important; }
+          /* Problem section */
+          .home-problem-section { padding: 44px 20px !important; }
+          .home-problem-body { display: none !important; }
+          /* CTA section */
+          .home-cta-section { padding: 44px 20px !important; }
+          .home-cta-body { font-size: 15px !important; }
+          .home-cta-btns { flex-direction: column !important; gap: 10px !important; }
+          .home-cta-btns a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
         }
       `}</style>
 
       {/* ══ HERO ══════════════════════════════════════════════════ */}
       <section
         aria-label="Hero"
+        className="home-hero-section"
         style={{
           minHeight: "calc(100vh - 64px)",
           display: "flex", alignItems: "center",
@@ -165,14 +186,14 @@ export default function HomePage() {
         }} />
 
         <div
-          className="home-grid"
-          style={{ position: "relative", maxWidth: 1200, margin: "0 auto", padding: "80px 32px" }}
+          className="home-grid home-grid-inner"
+          style={{ position: "relative", maxWidth: 1200, margin: "0 auto", padding: "80px 32px", width: "100%", boxSizing: "border-box" }}
         >
           {/* ── LEFT ── */}
           <div>
             {/* Eyebrow */}
             <div
-              className="animate-fade-up"
+              className="animate-fade-up home-eyebrow"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.2)",
@@ -213,7 +234,7 @@ export default function HomePage() {
 
             {/* Sub */}
             <p
-              className="animate-fade-up delay-200"
+              className="animate-fade-up delay-200 home-body-text"
               style={{
                 fontSize: "clamp(16px, 2vw, 19px)",
                 color: "#4B5563",
@@ -281,7 +302,7 @@ export default function HomePage() {
 
             {/* Social proof */}
             <div className="animate-fade-up delay-400">
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              <p className="trust-label" style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                 Used by businesses with accounts at
               </p>
               <div className="trust-row">
@@ -302,6 +323,7 @@ export default function HomePage() {
       {/* ══ THE PROBLEM (3 lines, no fluff) ═══════════════════════ */}
       <section
         aria-label="The problem"
+        className="home-problem-section"
         style={{ padding: "88px 32px", background: "#0A2540", position: "relative", overflow: "hidden" }}
       >
         <div aria-hidden style={{
@@ -319,7 +341,7 @@ export default function HomePage() {
             The financial system
             {" "}<span style={{ color: "#00D4FF" }}>can&apos;t see it.</span>
           </h2>
-          <p style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
+          <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
             Traditional credit systems were built for large enterprises with formal records.
             Most SMEs — even thriving ones — are invisible to lenders because the system
             looks for documents, not behavior. Creditlinker reads your actual financial activity
@@ -350,6 +372,7 @@ export default function HomePage() {
       {/* ══ FINAL CTA ═════════════════════════════════════════════ */}
       <section
         aria-label="Sign up"
+        className="home-cta-section"
         style={{ padding: "96px 32px", background: "white", textAlign: "center" }}
       >
         <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -364,12 +387,12 @@ export default function HomePage() {
             Build your financial identity.<br />
             <span style={{ color: "#00D4FF" }}>In minutes.</span>
           </h2>
-          <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.75, marginBottom: 40, maxWidth: 480, margin: "0 auto 40px" }}>
+          <p className="home-cta-body" style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.75, marginBottom: 40, maxWidth: 480, margin: "0 auto 40px" }}>
             Connect your accounts and financial records. We do the rest — and you
             get a verified Creditlinker ID that follows your business wherever
             capital is available.
           </p>
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="home-cta-btns" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/register"
               style={{

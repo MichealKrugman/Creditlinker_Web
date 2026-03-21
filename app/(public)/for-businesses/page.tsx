@@ -136,24 +136,33 @@ export default function ForBusinessesPage() {
     <>
       <style>{`
         @media (max-width: 900px) {
-          .fb-hero-grid    { grid-template-columns: 1fr !important; }
-          .fb-steps-grid   { grid-template-columns: 1fr !important; }
-          .fb-market-grid  { grid-template-columns: 1fr !important; }
-          .fb-consent-grid { grid-template-columns: 1fr !important; }
-          .fb-pain-grid    { grid-template-columns: 1fr 1fr !important; }
-          .fb-dim-grid     { grid-template-columns: 1fr 1fr !important; }
+          .fb-hero-grid    { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .fb-steps-grid   { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .fb-market-grid  { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .fb-consent-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .fb-pain-grid    { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+          .fb-dim-grid     { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
           .fb-sticky       { position: static !important; }
+          .fb-section      { padding: 56px 0 !important; }
+          .fb-section-pad  { padding: 0 20px !important; }
         }
         @media (max-width: 600px) {
-          .fb-pain-grid { grid-template-columns: 1fr !important; }
-          .fb-dim-grid  { grid-template-columns: 1fr !important; }
+          .fb-pain-grid    { grid-template-columns: 1fr !important; }
+          .fb-dim-grid     { grid-template-columns: 1fr !important; }
+          .fb-hero-grid    { gap: 32px !important; }
+          .fb-section      { padding: 48px 0 !important; }
+          .fb-section-pad  { padding: 0 16px !important; }
+          .fb-proof-strip  { gap: 16px !important; }
+          .fb-metric-row   { grid-template-columns: 1fr !important; }
+          .fb-cta-row      { flex-direction: column !important; align-items: stretch !important; }
+          .fb-cta-row a    { text-align: center !important; justify-content: center !important; }
         }
       `}</style>
 
       {/* ══ HERO ══════════════════════════════════════════════════ */}
-      <section aria-label="Page hero" style={{ position: "relative", overflow: "hidden", background: "radial-gradient(ellipse 900px 600px at 65% -60px, rgba(0,212,255,0.07) 0%, transparent 60%),radial-gradient(ellipse 500px 400px at 5% 75%, rgba(147,197,253,0.08) 0%, transparent 55%),#ffffff", paddingTop: 80, paddingBottom: 80 }}>
+      <section aria-label="Page hero" className="fb-section" style={{ position: "relative", overflow: "hidden", background: "radial-gradient(ellipse 900px 600px at 65% -60px, rgba(0,212,255,0.07) 0%, transparent 60%),radial-gradient(ellipse 500px 400px at 5% 75%, rgba(147,197,253,0.08) 0%, transparent 55%),#ffffff", paddingTop: 80, paddingBottom: 80 }}>
         <GridBg light />
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="fb-section-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fb-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 500px", gap: 72, alignItems: "center" }}>
 
             {/* Left */}
@@ -176,7 +185,7 @@ export default function ForBusinessesPage() {
                 lenders, equipment financiers, trade suppliers, and revenue financiers — evaluate
                 you on how your business actually operates.
               </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 40 }}>
+              <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 40 }}>
                 <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
                   Build my financial identity <ArrowRight size={15} aria-hidden="true" />
                 </Link>
@@ -186,7 +195,7 @@ export default function ForBusinessesPage() {
               </div>
 
               {/* Proof strip */}
-              <div style={{ display: "flex", alignItems: "center", gap: 28, paddingTop: 28, borderTop: "1px solid #E5E7EB", flexWrap: "wrap" }}>
+              <div className="fb-proof-strip" style={{ display: "flex", alignItems: "center", gap: 28, paddingTop: 28, borderTop: "1px solid #E5E7EB", flexWrap: "wrap" }}>
                 {[
                   { v: "500+",  l: "Businesses"         },
                   { v: "₦2.4B", l: "Data analyzed"      },
@@ -248,7 +257,7 @@ export default function ForBusinessesPage() {
                 </div>
 
                 {/* Metric row */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="fb-metric-row" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                   {[
                     { l: "Monthly Revenue",   v: "₦4.2M",    d: "↑ 12% MoM"  },
                     { l: "Linked Accounts",   v: "3 banks",  d: "Active"      },
@@ -277,8 +286,8 @@ export default function ForBusinessesPage() {
       </section>
 
       {/* ══ THE PROBLEM ═══════════════════════════════════════════ */}
-      <section aria-labelledby="problem-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="problem-heading" className="fb-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="fb-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="problem-heading"
             badge={<Badge><AlertCircle size={10} aria-hidden="true" /> The problem</Badge>}
@@ -321,8 +330,8 @@ export default function ForBusinessesPage() {
       </section>
 
       {/* ══ HOW IT WORKS ══════════════════════════════════════════ */}
-      <section id="how-it-works" aria-labelledby="hiw-heading" style={{ padding: "88px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section id="how-it-works" aria-labelledby="hiw-heading" className="fb-section" style={{ padding: "88px 0", background: "white" }}>
+        <div className="fb-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fb-steps-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
 
             {/* Left — steps */}
@@ -405,8 +414,8 @@ export default function ForBusinessesPage() {
       </section>
 
       {/* ══ CAPITAL MARKETPLACE ═══════════════════════════════════ */}
-      <section aria-labelledby="market-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="market-heading" className="fb-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="fb-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fb-market-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
 
             {/* Left — readiness card */}
@@ -467,11 +476,11 @@ export default function ForBusinessesPage() {
       </section>
 
       {/* ══ DATA CONTROL ══════════════════════════════════════════ */}
-      <section aria-labelledby="control-heading" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-labelledby="control-heading" className="fb-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "50%", left: "60%", transform: "translate(-50%,-50%)", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="fb-section-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fb-consent-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
 
             {/* Left — copy */}
@@ -549,8 +558,8 @@ export default function ForBusinessesPage() {
       </section>
 
       {/* ══ SIX DIMENSIONS ════════════════════════════════════════ */}
-      <section aria-labelledby="score-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="score-heading" className="fb-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="fb-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="score-heading"
             badge={<Badge><BarChart3 size={10} aria-hidden="true" /> Your identity explained</Badge>}
@@ -589,17 +598,17 @@ export default function ForBusinessesPage() {
       </section>
 
       {/* ══ CTA ═══════════════════════════════════════════════════ */}
-      <section aria-label="Call to action" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-label="Call to action" className="fb-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", inset: 0, background: "radial-gradient(ellipse 800px 400px at 50% 50%, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
-        <div style={{ position: "relative", maxWidth: 720, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
+        <div className="fb-section-pad" style={{ position: "relative", maxWidth: 720, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,4.5vw,52px)", letterSpacing: "-0.04em", color: "white", marginBottom: 18, lineHeight: 1.1 }}>
             Your business already<br />has a <span style={{ color: "#00D4FF" }}>strong financial story.</span>
           </h2>
           <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 44, lineHeight: 1.78, maxWidth: 540, margin: "0 auto 44px" }}>
             Let Creditlinker build the verified identity that tells it — and connect you to the lenders, equipment financiers, trade suppliers, and revenue financiers who are ready to act on it.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+          <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
               Build my financial identity <ArrowRight size={16} aria-hidden="true" />
             </Link>
