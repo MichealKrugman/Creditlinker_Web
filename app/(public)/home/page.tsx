@@ -202,7 +202,7 @@ export default function HomePage() {
               }}
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00D4FF", flexShrink: 0, display: "inline-block", animation: "pulse-dot 2s ease-in-out infinite" }} />
-              Your business has a financial story. Tell it.
+              Your business has a financial story. Start building it.
             </div>
 
             {/* Headline */}
@@ -228,7 +228,7 @@ export default function HomePage() {
                 backgroundClip: "text",
                 animation: "shimmer-text 5s linear infinite",
               }}>
-                We fix that.
+                Now it will.
               </span>
             </h1>
 
@@ -245,10 +245,10 @@ export default function HomePage() {
             >
               Creditlinker is your business&apos;s{" "}
               <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> — a verified,
-              portable profile built from your real financial activity: transactions,
-              ledger records, contracts, payment logs, and more. Any capital provider —
-              bank, fintech, DFI, cooperative, leasing company — can evaluate your
-              business on how it actually operates. Not a credit score. A complete picture.
+              portable profile built from real transactions, contracts, ledger records,
+              and payment history. Every capital provider — bank, fintech, DFI, or
+              cooperative — sees exactly how your business operates. Not a static score.
+              A living profile that gets stronger every month you run your business.
             </p>
 
             {/* CTAs */}
@@ -274,7 +274,7 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
                 }}
               >
-                Get my Creditlinker ID <ArrowRight size={17} />
+                Start building my Creditlinker ID <ArrowRight size={17} />
               </Link>
               <Link
                 href="/for-financers"
@@ -337,15 +337,14 @@ export default function HomePage() {
             color: "white", lineHeight: 1.1, marginBottom: 24,
             fontSize: "clamp(28px, 4vw, 48px)", letterSpacing: "-0.04em",
           }}>
-            Your business works hard.<br />
-            The financial system
-            {" "}<span style={{ color: "#00D4FF" }}>can&apos;t see it.</span>
+            Nigerian SMEs move billions.<br />
+            Lenders still{" "}<span style={{ color: "#00D4FF" }}>can&apos;t see them.</span>
           </h2>
           <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
-            Traditional credit systems were built for large enterprises with formal records.
-            Most SMEs — even thriving ones — are invisible to lenders because the system
-            looks for documents, not behavior. Creditlinker reads your actual financial activity
-            and turns it into a verified identity that capital providers can trust.
+            Traditional credit systems demand formal records, audited accounts, and paperwork most
+            SMEs don&apos;t have — even when the business is thriving. So capital goes to the few
+            who already have it. Creditlinker reads your real financial behavior and builds a verified
+            identity lenders can actually act on.
           </p>
           <Link
             href="/what-is-financial-identity"
@@ -369,6 +368,43 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ══ WHAT HAPPENS NEXT ══════════════════════════════════════ */}
+      <section
+        aria-label="How it works"
+        style={{ padding: "88px 32px", background: "#F8FAFC" }}
+      >
+        <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", color: "#00A8CC", textTransform: "uppercase", marginBottom: 16 }}>
+            What happens after you sign up
+          </p>
+          <h2 style={{
+            fontFamily: "var(--font-display)", fontWeight: 800, color: "#0A2540",
+            fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-0.04em",
+            lineHeight: 1.1, marginBottom: 56,
+          }}>
+            You&apos;re not just getting an ID.<br />
+            <span style={{ color: "#00D4FF" }}>You&apos;re building an asset.</span>
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 32 }}>
+            {[
+              { step: "01", title: "Connect", body: "Link your bank accounts and financial records. Takes about 2 minutes." },
+              { step: "02", title: "Analyze", body: "We process your real transaction history and business activity." },
+              { step: "03", title: "Get your ID", body: "Your Creditlinker ID is created — verified and ready to share with capital providers." },
+              { step: "04", title: "Compound", body: "Every month you operate, your profile gets stronger. More data = more trust = more access." },
+            ].map(item => (
+              <div key={item.step} style={{ textAlign: "left" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#00D4FF", letterSpacing: "0.12em", display: "block", marginBottom: 12 }}>{item.step}</span>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0A2540", marginBottom: 8 }}>{item.title}</h3>
+                <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.65 }}>{item.body}</p>
+              </div>
+            ))}
+          </div>
+          <p style={{ marginTop: 52, fontSize: 15, fontStyle: "italic", color: "#9CA3AF" }}>
+            Not a one-time score. A living financial identity that compounds with every transaction.
+          </p>
+        </div>
+      </section>
+
       {/* ══ FINAL CTA ═════════════════════════════════════════════ */}
       <section
         aria-label="Sign up"
@@ -384,13 +420,13 @@ export default function HomePage() {
             fontSize: "clamp(30px, 4.5vw, 54px)", letterSpacing: "-0.04em",
             lineHeight: 1.05, marginBottom: 20,
           }}>
-            Build your financial identity.<br />
-            <span style={{ color: "#00D4FF" }}>In minutes.</span>
+            Start your financial identity<br />
+            <span style={{ color: "#00D4FF" }}>in minutes.</span>
           </h2>
           <p className="home-cta-body" style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.75, marginBottom: 40, maxWidth: 480, margin: "0 auto 40px" }}>
-            Connect your accounts and financial records. We do the rest — and you
-            get a verified Creditlinker ID that follows your business wherever
-            capital is available.
+            Connect your accounts. We generate your Creditlinker ID immediately — then keep it growing
+            automatically as your business runs. The longer you operate, the stronger your profile,
+            and the more capital becomes accessible to you.
           </p>
           <div className="home-cta-btns" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
@@ -414,7 +450,7 @@ export default function HomePage() {
                 (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
               }}
             >
-              Get my Creditlinker ID <ArrowRight size={17} />
+              Start building my Creditlinker ID <ArrowRight size={17} />
             </Link>
             <Link
               href="/how-it-works"
@@ -436,7 +472,7 @@ export default function HomePage() {
                 (e.currentTarget as HTMLElement).style.background = "transparent";
               }}
             >
-              See how it works
+              See how your ID grows
             </Link>
           </div>
         </div>
