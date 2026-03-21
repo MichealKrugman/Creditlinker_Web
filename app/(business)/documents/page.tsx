@@ -429,6 +429,7 @@ function CategoryCard({
 ───────────────────────────────────────────────────────── */
 export default function DocumentsPage() {
   const [activeCategory, setActiveCategory] = useState<DocumentCategory | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<UploadedDoc | null>(null);
 
   return (
     <>
@@ -496,6 +497,7 @@ export default function DocumentsPage() {
               key={cat.id}
               cat={cat}
               onUpload={() => setActiveCategory(cat)}
+              onDeleteRequest={(doc) => setPendingDelete(doc)}
             />
           ))}
         </div>
