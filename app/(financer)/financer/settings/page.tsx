@@ -679,7 +679,7 @@ function MemberRow({
 
   const isMobile = useIsMobile();
 
-  const triggerBtn = (ref?: React.RefObject<HTMLButtonElement>) => (
+  const triggerBtn = (ref?: React.RefObject<HTMLButtonElement | null>) => (
   canEdit ? (
   <button
   data-menu-trigger
