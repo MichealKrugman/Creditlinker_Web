@@ -204,7 +204,7 @@ export default function ForFinancersPage() {
                 provenance and consent-gated access.
               </p>
               <div className="ff-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
-                <Link href="/financer/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
+                <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
                   Register as a provider <ArrowRight size={15} aria-hidden="true" />
                 </Link>
                 <a href="#how-it-works" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#0A2540", fontWeight: 600, fontSize: 15, border: "1.5px solid #D1D5DB", padding: "12px 20px", borderRadius: 10 }}>
@@ -249,7 +249,7 @@ export default function ForFinancersPage() {
 
                 <div style={{ background: "#071a2e", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>+122 more match your criteria</p>
-                  <Link href="/financer/register" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)", padding: "5px 12px", borderRadius: 7 }}>
+                  <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)", padding: "5px 12px", borderRadius: 7 }}>
                     View all <ChevronRight size={13} aria-hidden="true" />
                   </Link>
                 </div>
@@ -490,7 +490,7 @@ export default function ForFinancersPage() {
                     <p style={{ fontSize: 12, color: "#6B7280" }}>Consent granted</p>
                     <p style={{ fontSize: 28, fontWeight: 800, color: "#10B981", lineHeight: 1, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>14</p>
                   </div>
-                  <Link href="/financer/register" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0A2540", color: "white", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+                  <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0A2540", color: "white", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
                     Get started <ArrowRight size={13} aria-hidden="true" />
                   </Link>
                 </div>
@@ -749,7 +749,7 @@ export default function ForFinancersPage() {
                 waiting on the other side of signup.
               </p>
               <div className="ff-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
-                <Link href="/financer/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
+                <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
                   Register as a provider <ArrowRight size={16} aria-hidden="true" />
                 </Link>
                 <Link href="/contact" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: 500, border: "1.5px solid rgba(255,255,255,0.14)", padding: "13px 22px", borderRadius: 10 }}>
