@@ -182,7 +182,7 @@ export default function ForBusinessesPage() {
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 500 }}>
                 Creditlinker builds a verified, six-dimensional financial identity from your real
                 banking data, accounting ledgers, and operational records. Capital providers —
-                lenders, equipment financiers, trade suppliers, and revenue financiers — evaluate
+                financers, equipment financiers, trade suppliers, and revenue financiers — evaluate
                 you on how your business actually operates.
               </p>
               <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 40 }}>
@@ -298,7 +298,7 @@ export default function ForBusinessesPage() {
 
           <div className="fb-pain-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 40 }}>
             {[
-              { title: "No credit bureau history",   desc: "Most SMEs have never taken a formal loan. Bureau scores are empty or misleading — despite years of strong banking activity that proves the business works." },
+              { title: "No credit bureau history",   desc: "Most SMEs have never taken formal financing. Bureau scores are empty or misleading — despite years of strong banking activity that proves the business works." },
               { title: "Self-reported documents",     desc: "Financial statements are easy to fabricate. Financers discount them — and your real revenue history, cash flow patterns, and expense discipline go unseen." },
               { title: "Collateral requirements",     desc: "Collateral-first lending excludes profitable, asset-light businesses entirely. Your consistent revenue and strong cashflow become irrelevant criteria." },
             ].map((p) => (
@@ -424,7 +424,7 @@ export default function ForBusinessesPage() {
                 <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Capital readiness</p>
                 <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#0A2540", marginBottom: 20 }}>Across 14 financing categories</p>
 
-                <ReadinessRow type="Working Capital Loan"  cat="Debt"          score={88} status="Ready"     c="#10B981" bg="#ECFDF5" />
+                <ReadinessRow type="Working Capital Financing"  cat="Debt"          score={88} status="Ready"     c="#10B981" bg="#ECFDF5" />
                 <ReadinessRow type="Invoice Financing"     cat="Revenue-based" score={76} status="Ready"     c="#10B981" bg="#ECFDF5" />
                 <ReadinessRow type="Trade Credit"          cat="Trade"         score={71} status="Ready"     c="#10B981" bg="#ECFDF5" />
                 <ReadinessRow type="Revenue Advance"       cat="Revenue-based" score={65} status="Review"    c="#F59E0B" bg="#FFFBEB" />
@@ -448,14 +448,14 @@ export default function ForBusinessesPage() {
                 14 capital categories.<br />One verified identity.
               </h2>
               <p style={{ fontSize: 16, color: "#4B5563", lineHeight: 1.78, marginBottom: 28 }}>
-                Creditlinker connects you to the full spectrum of capital — not just bank loans.
-                Lenders, equipment financiers, trade suppliers, and revenue financiers all evaluate
+                Creditlinker connects you to the full spectrum of capital — not just bank financing.
+                Financers, equipment financiers, trade suppliers, and revenue financiers all evaluate
                 your identity against their own criteria. You see your readiness score per category
                 before approaching a single provider.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
                 {[
-                  { cat: "Debt capital",          types: "Working capital loans · Term loans · Overdraft facilities"             },
+                  { cat: "Debt capital",          types: "Working capital financing · Term financing · Overdraft facilities"             },
                   { cat: "Asset-based financing",  types: "Equipment financing · Inventory financing · Asset leasing"             },
                   { cat: "Revenue-based",          types: "Invoice financing · Revenue advances · Receivables purchase"           },
                   { cat: "Trade-based",            types: "Trade credit · Supplier financing · Deferred payment"                  },
@@ -606,7 +606,7 @@ export default function ForBusinessesPage() {
             Your business already<br />has a <span style={{ color: "#00D4FF" }}>strong financial story.</span>
           </h2>
           <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 44, lineHeight: 1.78, maxWidth: 540, margin: "0 auto 44px" }}>
-            Let Creditlinker build the verified identity that tells it — and connect you to the lenders, equipment financiers, trade suppliers, and revenue financiers who are ready to act on it.
+            Let Creditlinker build the verified identity that tells it — and connect you to the financers, equipment financiers, trade suppliers, and revenue financiers who are ready to act on it.
           </p>
           <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>

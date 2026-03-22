@@ -150,9 +150,9 @@ function ProviderCard({ icon, type, desc, examples, dark = false }: { icon: Reac
 ───────────────────────────────────────────────────────── */
 export default function ForFinancersPage() {
   const businesses = [
-    { name: "Aduke Bakeries Ltd.",    sector: "Food & Beverage",  type: "Working Capital",  score: 742, risk: "Low",    rc: "#10B981", providerType: "Lender"              },
+    { name: "Aduke Bakeries Ltd.",    sector: "Food & Beverage",  type: "Working Capital",  score: 742, risk: "Low",    rc: "#10B981", providerType: "Financer"             },
     { name: "Lagosfresh Produce",     sector: "Agriculture",      type: "Invoice Finance",  score: 721, risk: "Low",    rc: "#10B981", providerType: "Revenue financer"    },
-    { name: "Buildwise Contractors",  sector: "Construction",     type: "Equipment Loan",   score: 698, risk: "Medium", rc: "#F59E0B", providerType: "Equipment financier" },
+    { name: "Buildwise Contractors",  sector: "Construction",     type: "Equipment Financing", score: 698, risk: "Medium", rc: "#F59E0B", providerType: "Equipment financier" },
     { name: "TechServe Solutions",    sector: "Technology",       type: "Revenue Advance",  score: 715, risk: "Low",    rc: "#10B981", providerType: "Revenue financer"    },
     { name: "Nour Fashion Hub",       sector: "Retail",           type: "Trade Credit",     score: 681, risk: "Medium", rc: "#F59E0B", providerType: "Trade supplier"      },
   ];
@@ -196,7 +196,7 @@ export default function ForFinancersPage() {
                 </span>
               </h1>
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 520 }}>
-                Creditlinker gives lenders, equipment financiers, trade suppliers, and revenue
+                Creditlinker gives financers, equipment financiers, trade suppliers, and revenue
                 financers access to verified, six-dimensional financial identities built from real
                 bank transactions, accounting ledger data, and operational records — with full data
                 provenance and consent-gated access.
@@ -291,15 +291,15 @@ export default function ForFinancersPage() {
           <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
             <ProviderCard
               icon={<Banknote size={20} aria-hidden="true" />}
-              type="Lenders"
+              type="Financers"
               desc="Banks, microfinance institutions, and credit funds evaluating businesses for debt capital facilities."
-              examples={["Working capital", "Term loans", "Overdraft"]}
+              examples={["Working capital", "Term financing", "Overdraft"]}
             />
             <ProviderCard
               icon={<Layers size={20} aria-hidden="true" />}
               type="Equipment financiers"
               desc="Institutions financing physical assets — machinery, vehicles, and production equipment for growing businesses."
-              examples={["Equipment loans", "Asset leasing", "Hire purchase"]}
+              examples={["Equipment financing", "Asset leasing", "Hire purchase"]}
             />
             <ProviderCard
               icon={<TrendingUp size={20} aria-hidden="true" />}

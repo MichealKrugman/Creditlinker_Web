@@ -327,7 +327,7 @@ export default function HowItWorksPage() {
             {[
               { label: "Data source",      before: "Self-reported documents",    after: "Verified bank, ledger & ops data" },
               { label: "Score basis",       before: "Credit bureau proxy",        after: "6 independent dimensions"        },
-              { label: "Capital types",     before: "Collateral-backed loans",    after: "14 categories, 5 types"          },
+              { label: "Capital types",     before: "Collateral-backed financing",  after: "14 categories, 5 types"          },
               { label: "Access control",    before: "Financer owns your data",    after: "You grant & revoke consent"      },
               { label: "Time to decision",  before: "4–12 weeks",                after: "Hours after linking data"        },
               { label: "Coverage",          before: "Formal credit history",      after: "Any bank-active business"        },
@@ -378,7 +378,7 @@ export default function HowItWorksPage() {
               />
               <TimelineStep n="5" icon={<Eye size={18} aria-hidden="true" />}
                 title="Grant consent to matched capital providers"
-                desc="Creditlinker anonymously matches your profile to lenders, equipment financiers, trade suppliers, and revenue financiers whose criteria fit your dimensions. You decide exactly which providers can see which data, for how long. Revoke anytime. Every access is logged."
+                desc="Creditlinker anonymously matches your profile to financers, equipment financiers, trade suppliers, and revenue financiers whose criteria fit your dimensions. You decide exactly which providers can see which data, for how long. Revoke anytime. Every access is logged."
                 detail="Full audit trail of every access event"
               />
               <TimelineStep n="6" icon={<Banknote size={18} aria-hidden="true" />}
@@ -536,7 +536,7 @@ export default function HowItWorksPage() {
                 id="fin-journey-heading"
                 badge={<Badge><Landmark size={10} aria-hidden="true" /> For capital providers</Badge>}
                 title={<>Evaluate businesses<br />with verified evidence.</>}
-                sub="Whether you're a lender, equipment financier, trade supplier, or revenue financer — Creditlinker gives you access to six-dimensional financial identities built from real data."
+                sub="Whether you're a financer, equipment financier, trade supplier, or revenue financer — Creditlinker gives you access to six-dimensional financial identities built from real data."
               />
               <TimelineStep n="1" icon={<Landmark size={18} aria-hidden="true" />}
                 title="Register as an institution"
@@ -572,7 +572,7 @@ export default function HowItWorksPage() {
                 </div>
                 <div style={{ padding: 20 }}>
                   {[
-                    { label: "Capital type",     value: "Working Capital Loan",   big: false },
+                    { label: "Capital type",     value: "Working Capital Financing", big: false },
                     { label: "Amount",           value: "₦5,000,000",             big: true  },
                     { label: "Interest rate",    value: "24% p.a.",               big: false },
                     { label: "Tenor",            value: "12 months",              big: false },
@@ -619,7 +619,7 @@ export default function HowItWorksPage() {
               icon={<Landmark size={22} aria-hidden="true" />}
               label="For capital providers"
               title="Evaluate with verified data"
-              desc="Access six-dimensional financial profiles built from normalized transaction and operational data. Whether you're a lender, equipment financier, trade supplier, or revenue financer — the data is verified and the access is consent-gated."
+              desc="Access six-dimensional financial profiles built from normalized transaction and operational data. Whether you're a financer, equipment financier, trade supplier, or revenue financer — the data is verified and the access is consent-gated."
               href="/for-financers"
               cta="See provider features"
               dark

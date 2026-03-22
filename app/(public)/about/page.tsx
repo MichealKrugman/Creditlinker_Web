@@ -205,7 +205,7 @@ export default function AboutPage() {
                 {[
                   { icon: <BarChart3 size={16} />, title: "Financial activity exists, but isn't structured", desc: "Businesses transact every day — payments in, expenses out, recurring suppliers. That data lives in bank statements that nobody reads systematically." },
                   { icon: <Globe2 size={16} />,    title: "Credit bureaus don't reflect operational reality", desc: "Bureau records capture formal credit events. They miss cash flow, revenue patterns, expense discipline, and liquidity — the signals that actually predict repayment." },
-                  { icon: <Lock size={16} />,      title: "Capital providers have no trusted data layer", desc: "Lenders and financers operate on unverified financials, guesswork, and collateral — because there's no infrastructure that turns real financial activity into a verifiable identity." },
+                  { icon: <Lock size={16} />,      title: "Capital providers have no trusted data layer", desc: "Financers operate on unverified financials, guesswork, and collateral — because there's no infrastructure that turns real financial activity into a verifiable identity." },
                 ].map((item) => (
                   <div key={item.title} style={{ display: "flex", gap: 16, padding: "20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 14 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
@@ -291,7 +291,7 @@ export default function AboutPage() {
           <SectionHeading
             id="diff-heading"
             badge={<Badge><BarChart3 size={10} aria-hidden="true" /> Why we&apos;re different</Badge>}
-            title={<>Not a lender.<br />Not a credit bureau.<br />Infrastructure.</>}
+            title={<>Not a financer.<br />Not a credit bureau.<br />Infrastructure.</>}
             sub="Creditlinker doesn't extend capital or adjudicate credit. It builds the data layer that makes better capital decisions possible."
             center
           />
@@ -302,7 +302,7 @@ export default function AboutPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", background: "#0A2540", padding: "14px 24px" }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Capability</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center" }}>Credit bureaus</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center" }}>Traditional lenders</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center" }}>Traditional financers</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#00D4FF", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center" }}>Creditlinker</span>
             </div>
             {[
@@ -378,8 +378,8 @@ export default function AboutPage() {
             {[
               {
                 id: "faq-1",
-                q: "Is Creditlinker a lender?",
-                a: "No. Creditlinker is financial identity infrastructure. We don't extend capital or set interest rates. We build the verified financial identity layer that allows capital providers — lenders, equipment financiers, trade suppliers — to evaluate businesses using real financial data."
+                q: "Is Creditlinker a financer?",
+                a: "No. Creditlinker is financial identity infrastructure. We don't extend capital or set interest rates. We build the verified financial identity layer that allows capital providers — financers, equipment financiers, trade suppliers — to evaluate businesses using real financial data."
               },
               {
                 id: "faq-2",
@@ -399,7 +399,7 @@ export default function AboutPage() {
               {
                 id: "faq-5",
                 q: "What types of financing can businesses access through Creditlinker?",
-                a: "Fourteen capital categories including working capital loans, term loans, overdraft facilities, equipment financing, inventory financing, invoice financing, receivables purchases, revenue advances, trade credit, supplier financing, and deferred service agreements. The platform matches businesses to capital providers based on their financial identity and their capital preferences."
+                a: "Fourteen capital categories including working capital financing, term financing, overdraft facilities, equipment financing, inventory financing, invoice financing, receivables purchases, revenue advances, trade credit, supplier financing, and deferred service agreements. The platform matches businesses to capital providers based on their financial identity and their capital preferences."
               },
               {
                 id: "faq-6",

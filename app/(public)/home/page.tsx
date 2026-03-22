@@ -338,13 +338,13 @@ export default function HomePage() {
             fontSize: "clamp(28px, 4vw, 48px)", letterSpacing: "-0.04em",
           }}>
             Nigerian SMEs move billions.<br />
-            Lenders still{" "}<span style={{ color: "#00D4FF" }}>can&apos;t see them.</span>
+            Financers still{" "}<span style={{ color: "#00D4FF" }}>can&apos;t see them.</span>
           </h2>
           <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
             Traditional credit systems demand formal records, audited accounts, and paperwork most
             SMEs don&apos;t have — even when the business is thriving. So capital goes to the few
             who already have it. Creditlinker reads your real financial behavior and builds a verified
-            identity lenders can actually act on.
+            identity financers can actually act on.
           </p>
           <Link
             href="/what-is-financial-identity"
