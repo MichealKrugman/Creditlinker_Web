@@ -244,11 +244,26 @@ export default function HomePage() {
               }}
             >
               Creditlinker is your business&apos;s{" "}
-              <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> — a verified,
-              portable profile built from real transactions, contracts, ledger records,
-              and payment history. Every capital provider — bank, fintech, DFI, or
-              cooperative — sees exactly how your business operates. Not a static score.
-              A living profile that gets stronger every month you run your business.
+              <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> — a verified
+              profile built from your business transactions, contracts, ledger records,
+              and payment history. Every capital provider sees exactly how your business
+              operates. Not a static score. A living profile that gets stronger every
+              month you run your business.
+            </p>
+            <p
+              className="animate-fade-up delay-200"
+              style={{
+                fontSize: "clamp(14px, 1.6vw, 16px)",
+                color: "#6B7280",
+                lineHeight: 1.65,
+                marginBottom: 40,
+                maxWidth: 500,
+                borderLeft: "2px solid #00D4FF",
+                paddingLeft: 14,
+              }}
+            >
+              Accounting software tracks your finances.{" "}
+              <strong style={{ color: "#0A2540" }}>Creditlinker turns them into something capital providers trust.</strong>
             </p>
 
             {/* CTAs */}
@@ -338,13 +353,15 @@ export default function HomePage() {
             fontSize: "clamp(28px, 4vw, 48px)", letterSpacing: "-0.04em",
           }}>
             Nigerian SMEs move billions.<br />
-            Financers still{" "}<span style={{ color: "#00D4FF" }}>can&apos;t see them.</span>
+            Financers still can&apos;t see them.<br />
+            <span style={{ color: "#00D4FF" }}>Creditlinker changes that.</span>
           </h2>
           <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
             Traditional credit systems demand formal records, audited accounts, and paperwork most
             SMEs don&apos;t have — even when the business is thriving. So capital goes to the few
             who already have it. Creditlinker reads your real financial behavior and builds a verified
-            identity financers can actually act on.
+            identity financers can act on —{" "}
+            <strong style={{ color: "rgba(255,255,255,0.75)" }}>making your business visible to capital for the first time.</strong>
           </p>
           <Link
             href="/what-is-financial-identity"
@@ -450,7 +467,7 @@ export default function HomePage() {
                 (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
               }}
             >
-              Start building my Creditlinker ID <ArrowRight size={17} />
+              Make my business visible to capital <ArrowRight size={17} />
             </Link>
             <Link
               href="/how-it-works"
