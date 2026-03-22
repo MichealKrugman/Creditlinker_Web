@@ -170,8 +170,10 @@ export default function ForFinancersPage() {
           .ff-sticky       { position: static !important; }
         }
         @media (max-width: 600px) {
-          .ff-type-grid { grid-template-columns: 1fr !important; }
-          .ff-cta-btns  { flex-direction: column !important; align-items: stretch !important; }
+          .ff-type-grid    { grid-template-columns: 1fr !important; }
+          .ff-cta-btns     { flex-direction: column !important; align-items: stretch !important; }
+          .ff-match-strip  { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+          .ff-match-strip a { text-align: center !important; justify-content: center !important; }
         }
       `}</style>
 
@@ -479,7 +481,7 @@ export default function ForFinancersPage() {
                 </div>
 
                 {/* Match result */}
-                <div style={{ background: "#F9FAFB", borderTop: "1px solid #E5E7EB", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div className="ff-match-strip" style={{ background: "#F9FAFB", borderTop: "1px solid #E5E7EB", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <p style={{ fontSize: 12, color: "#6B7280" }}>Businesses matched</p>
                     <p style={{ fontSize: 28, fontWeight: 800, color: "#0A2540", lineHeight: 1, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>127</p>
