@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -38,7 +39,7 @@ function GridBg({ light = false }: { light?: boolean }) {
 
 function SectionHeading({ id, badge, title, sub, center = false }: { id?: string; badge?: React.ReactNode; title: React.ReactNode; sub?: string; center?: boolean }) {
   return (
-    <div style={{ textAlign: center ? "center" : "left", marginBottom: 56 }}>
+    <div className="fb-section-heading" style={{ textAlign: center ? "center" : "left", marginBottom: 56 }}>
       {badge && <div style={{ marginBottom: 16 }}>{badge}</div>}
       <h2 id={id} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,46px)", letterSpacing: "-0.035em", color: "#0A2540", lineHeight: 1.1, marginBottom: sub ? 16 : 0 }}>{title}</h2>
       {sub && <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, maxWidth: center ? 560 : 500, margin: center ? "0 auto" : undefined }}>{sub}</p>}
@@ -87,7 +88,7 @@ function StepRow({ n, icon, title, desc, last = false }: { n: string; icon: Reac
         </div>
         {!last && <div style={{ width: 2, flex: 1, minHeight: 32, marginTop: 6, background: "linear-gradient(to bottom, rgba(0,212,255,0.25), rgba(0,212,255,0.04))" }} />}
       </div>
-      <div style={{ paddingBottom: last ? 0 : 36, flex: 1, minWidth: 0 }}>
+      <div className="fb-step-content" style={{ paddingBottom: last ? 0 : 36, flex: 1, minWidth: 0 }}>
         <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#0A2540", marginBottom: 6, letterSpacing: "-0.02em" }}>{title}</h3>
         <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.75 }}>{desc}</p>
       </div>
@@ -147,15 +148,48 @@ export default function ForBusinessesPage() {
           .fb-section-pad  { padding: 0 20px !important; }
         }
         @media (max-width: 600px) {
-          .fb-pain-grid    { grid-template-columns: 1fr !important; }
-          .fb-dim-grid     { grid-template-columns: 1fr !important; }
-          .fb-hero-grid    { gap: 32px !important; }
-          .fb-section      { padding: 48px 0 !important; }
-          .fb-section-pad  { padding: 0 16px !important; }
-          .fb-proof-strip  { gap: 16px !important; }
-          .fb-metric-row   { grid-template-columns: 1fr !important; }
-          .fb-cta-row      { flex-direction: column !important; align-items: stretch !important; }
-          .fb-cta-row a    { text-align: center !important; justify-content: center !important; }
+          .fb-pain-grid        { grid-template-columns: 1fr !important; }
+          .fb-dim-grid         { grid-template-columns: 1fr !important; }
+          .fb-hero-grid        { gap: 0 !important; }
+          .fb-section          { padding: 44px 0 !important; }
+          .fb-section-pad      { padding: 0 16px !important; }
+          .fb-proof-strip      { flex-wrap: wrap !important; gap: 16px 0 !important; }
+          .fb-proof-divider    { display: none !important; }
+          .fb-proof-strip > div { flex: 0 0 50% !important; }
+          .fb-metric-row       { grid-template-columns: 1fr !important; }
+          .fb-cta-row          { flex-direction: column !important; align-items: stretch !important; }
+          .fb-cta-row a        { text-align: center !important; justify-content: center !important; }
+          /* Hide heavy decorative panels — content carries the page on mobile */
+          .fb-hide-mobile      { display: none !important; }
+          /* Tighten dimension cards — hide improve tips */
+          .fb-dim-improve      { display: none !important; }
+          /* Shorten step padding */
+          .fb-steps-grid       { gap: 0 !important; }
+          /* Compact all cards */
+          .fb-pain-grid > div  { padding: 16px !important; border-radius: 12px !important; }
+          .fb-pain-grid > div > div { width: 32px !important; height: 32px !important; margin-bottom: 10px !important; border-radius: 8px !important; }
+          .fb-pain-grid h3     { font-size: 13px !important; margin-bottom: 6px !important; }
+          .fb-pain-grid p      { font-size: 12px !important; }
+          .fb-dim-grid > div   { padding: 16px !important; border-radius: 12px !important; }
+          .fb-dim-grid h3      { font-size: 13px !important; }
+          .fb-dim-grid > div > span { font-size: 18px !important; }
+          /* Section headings tighter */
+          .fb-section-heading  { margin-bottom: 28px !important; }
+          .fb-section-heading h2 { font-size: 26px !important; margin-bottom: 10px !important; }
+          .fb-section-heading p  { font-size: 14px !important; }
+          /* Step rows tighter */
+          .fb-step-content     { padding-bottom: 20px !important; }
+          .fb-step-content h3  { font-size: 14px !important; }
+          .fb-step-content p   { font-size: 13px !important; }
+          /* Capital list tighter */
+          .fb-cap-list > div   { padding: 8px 0 !important; }
+          .fb-cap-list span    { font-size: 12px !important; }
+          /* Fix banner */
+          .fb-fix-banner       { padding: 20px !important; border-radius: 12px !important; }
+          .fb-fix-banner p:first-child { font-size: 16px !important; }
+          .fb-fix-banner p:last-child  { font-size: 13px !important; }
+          /* Section padding */
+          .fb-section          { padding: 36px 0 !important; }
         }
       `}</style>
 
@@ -195,26 +229,26 @@ export default function ForBusinessesPage() {
               </div>
 
               {/* Proof strip */}
-              <div className="fb-proof-strip" style={{ display: "flex", alignItems: "center", gap: 28, paddingTop: 28, borderTop: "1px solid #E5E7EB", flexWrap: "wrap" }}>
+              <div className="fb-proof-strip" style={{ display: "flex", alignItems: "center", gap: 0, paddingTop: 28, borderTop: "1px solid #E5E7EB" }}>
                 {[
                   { v: "500+",  l: "Businesses"         },
-                  { v: "₦2.4B", l: "Data analyzed"      },
+                  { v: "\u20a62.4B", l: "Data analyzed"      },
                   { v: "14",    l: "Capital categories"  },
                   { v: "30+",   l: "Capital providers"   },
                 ].map((s, i, arr) => (
-                  <div key={s.l} style={{ display: "flex", alignItems: "center", gap: 28 }}>
-                    <div>
+                  <React.Fragment key={s.l}>
+                    <div style={{ flex: "0 0 auto" }}>
                       <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", lineHeight: 1, letterSpacing: "-0.03em" }}>{s.v}</div>
                       <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 3 }}>{s.l}</div>
                     </div>
-                    {i < arr.length - 1 && <div style={{ width: 1, height: 32, background: "#E5E7EB", flexShrink: 0 }} />}
-                  </div>
+                    {i < arr.length - 1 && <div className="fb-proof-divider" style={{ width: 1, height: 32, background: "#E5E7EB", flexShrink: 0, margin: "0 24px" }} />}
+                  </React.Fragment>
                 ))}
               </div>
             </div>
 
-            {/* Right — identity card */}
-            <div>
+            {/* Right — identity card (hidden on mobile) */}
+            <div className="fb-hide-mobile">
               <div style={{ background: "linear-gradient(160deg, #0e2d4e 0%, #071a2e 100%)", borderRadius: 20, overflow: "hidden", boxShadow: "0 40px 120px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06)", position: "relative" }}>
                 <GridBg />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -312,7 +346,7 @@ export default function ForBusinessesPage() {
             ))}
           </div>
 
-          <div style={{ background: "#0A2540", borderRadius: 16, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
+          <div className="fb-fix-banner" style={{ background: "#0A2540", borderRadius: 16, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
             <GridBg />
             <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
               <div style={{ maxWidth: 620 }}>
@@ -364,8 +398,8 @@ export default function ForBusinessesPage() {
               </Link>
             </div>
 
-            {/* Right — pipeline run panel */}
-            <div className="fb-sticky" style={{ position: "sticky", top: 88 }}>
+            {/* Right — pipeline run panel (hidden on mobile) */}
+            <div className="fb-sticky fb-hide-mobile" style={{ position: "sticky", top: 88 }}>
               <div style={{ background: "#0A2540", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 80px rgba(10,37,64,0.18), 0 0 0 1px rgba(255,255,255,0.06)" }}>
                 <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>Live pipeline · Aduke Bakeries</p>
@@ -418,8 +452,8 @@ export default function ForBusinessesPage() {
         <div className="fb-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fb-market-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
 
-            {/* Left — readiness card */}
-            <div>
+            {/* Left — readiness card (hidden on mobile) */}
+            <div className="fb-hide-mobile">
               <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 18, padding: 28, boxShadow: "0 8px 40px rgba(0,0,0,0.06)" }}>
                 <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Capital readiness</p>
                 <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#0A2540", marginBottom: 20 }}>Across 14 financing categories</p>
@@ -453,7 +487,7 @@ export default function ForBusinessesPage() {
                 your identity against their own criteria. You see your readiness score per category
                 before approaching a single provider.
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
+              <div className="fb-cap-list" style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
                 {[
                   { cat: "Debt capital",          types: "Working capital financing · Term financing · Overdraft facilities"             },
                   { cat: "Asset-based financing",  types: "Equipment financing · Inventory financing · Asset leasing"             },
@@ -515,8 +549,8 @@ export default function ForBusinessesPage() {
               </div>
             </div>
 
-            {/* Right — consent UI */}
-            <div>
+            {/* Right — consent UI (hidden on mobile) */}
+            <div className="fb-hide-mobile">
               <div style={{ background: "white", borderRadius: 18, padding: 28, boxShadow: "0 32px 80px rgba(0,0,0,0.28)" }}>
                 <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Active consent</p>
                 <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#0A2540", marginBottom: 4 }}>FastCash Microfinance</h3>
@@ -578,7 +612,7 @@ export default function ForBusinessesPage() {
                   <div style={{ height: "100%", width: `${d.score}%`, background: d.color, borderRadius: 9999 }} />
                 </div>
                 <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7, marginBottom: 14, flex: 1 }}>{d.weight}</p>
-                <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#374151", lineHeight: 1.6 }}>
+                <div className="fb-dim-improve" style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#374151", lineHeight: 1.6 }}>
                   <span style={{ fontWeight: 700, color: "#0A2540" }}>How to improve: </span>
                   {d.improve}
                 </div>
