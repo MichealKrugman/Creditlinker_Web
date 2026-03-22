@@ -38,7 +38,7 @@ function GridBg({ light = false }: { light?: boolean }) {
 
 function SectionHeading({ id, badge, title, sub, center = false, dark = false }: { id?: string; badge?: React.ReactNode; title: React.ReactNode; sub?: string; center?: boolean; dark?: boolean }) {
   return (
-    <div style={{ textAlign: center ? "center" : "left", marginBottom: 56 }}>
+    <div className="fd-section-heading" style={{ textAlign: center ? "center" : "left", marginBottom: 56 }}>
       {badge && <div style={{ marginBottom: 16 }}>{badge}</div>}
       <h2 id={id} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,46px)", letterSpacing: "-0.035em", color: dark ? "white" : "#0A2540", lineHeight: 1.1, marginBottom: sub ? 16 : 0 }}>{title}</h2>
       {sub && <p style={{ fontSize: 17, color: dark ? "rgba(255,255,255,0.5)" : "#4B5563", lineHeight: 1.78, maxWidth: center ? 580 : 520, margin: center ? "0 auto" : undefined }}>{sub}</p>}
@@ -80,10 +80,10 @@ function EndpointRow({ method, path, desc, auth }: { method: "GET" | "POST" | "P
     <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 0", borderBottom: "1px solid #F3F4F6" }}>
       <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: mc.color, background: mc.bg, padding: "3px 9px", borderRadius: 6, flexShrink: 0, marginTop: 1, fontFamily: "monospace" }}>{method}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <code style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace", display: "block", marginBottom: 4 }}>{path}</code>
+        <code className="fd-endpoint-path" style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace", display: "block", marginBottom: 4 }}>{path}</code>
         <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{desc}</p>
       </div>
-      <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 5, flexShrink: 0, fontFamily: "monospace", whiteSpace: "nowrap" }}>{auth}</span>
+      <span className="fd-endpoint-auth" style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 5, flexShrink: 0, fontFamily: "monospace", whiteSpace: "nowrap" }}>{auth}</span>
     </div>
   );
 }
@@ -101,7 +101,7 @@ function TierCard({ tier, tag, desc, permissions, dark = false }: { tier: string
       <p style={{ fontSize: 14, color: dark ? "rgba(255,255,255,0.45)" : "#6B7280", lineHeight: 1.75, marginBottom: 20 }}>{desc}</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
         {permissions.map((p) => (
-          <div key={p} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+          <div key={p} className="fd-perm-item" style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
             <CheckCircle2 size={14} aria-hidden="true" style={{ color: "#00D4FF", flexShrink: 0, marginTop: 2 }} />
             <span style={{ fontSize: 13, color: dark ? "rgba(255,255,255,0.55)" : "#374151", lineHeight: 1.55 }}>{p}</span>
           </div>
@@ -194,28 +194,61 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
     <>
       <style>{`
         @media (max-width: 900px) {
-          .fd-hero-grid   { grid-template-columns: 1fr !important; }
-          .fd-tier-grid   { grid-template-columns: 1fr !important; }
-          .fd-feat-grid   { grid-template-columns: 1fr 1fr !important; }
-          .fd-api-grid    { grid-template-columns: 1fr !important; }
-          .fd-event-grid  { grid-template-columns: 1fr 1fr !important; }
-          .fd-webhook-grid{ grid-template-columns: 1fr !important; }
+          .fd-hero-grid    { grid-template-columns: 1fr !important; }
+          .fd-tier-grid    { grid-template-columns: 1fr !important; }
+          .fd-feat-grid    { grid-template-columns: 1fr 1fr !important; }
+          .fd-api-grid     { grid-template-columns: 1fr !important; }
+          .fd-event-grid   { grid-template-columns: 1fr 1fr !important; }
+          .fd-webhook-grid { grid-template-columns: 1fr !important; }
+          .fd-sticky       { position: static !important; }
         }
         @media (max-width: 600px) {
-          .fd-feat-grid  { grid-template-columns: 1fr !important; }
-          .fd-event-grid { grid-template-columns: 1fr !important; }
-          .fd-cta-btns   { flex-direction: column !important; }
+          .fd-feat-grid    { grid-template-columns: 1fr 1fr !important; }
+          .fd-event-grid   { grid-template-columns: 1fr !important; }
+          .fd-cta-btns     { flex-direction: column !important; align-items: stretch !important; }
+          .fd-cta-btns a   { text-align: center !important; justify-content: center !important; }
+          /* Hide heavy decorative panels on mobile */
+          .fd-hide-mobile  { display: none !important; }
+          /* Section padding */
+          .fd-section      { padding: 44px 0 !important; }
+          .fd-section-pad  { padding: 0 16px !important; }
+          /* Tier cards */
+          .fd-tier-grid > div { padding: 16px !important; border-radius: 12px !important; }
+          .fd-tier-grid h3     { font-size: 17px !important; margin-bottom: 6px !important; }
+          .fd-tier-grid p      { font-size: 12px !important; margin-bottom: 12px !important; }
+          .fd-tier-grid span[style*='border-radius: 9999'] { font-size: 10px !important; padding: 2px 8px !important; }
+          .fd-tier-grid .fd-perm-item span { font-size: 11px !important; }
+          /* Feature cards */
+          .fd-feat-grid > div  { padding: 14px !important; border-radius: 10px !important; }
+          .fd-feat-grid h3     { font-size: 13px !important; margin-bottom: 4px !important; }
+          .fd-feat-grid p      { font-size: 12px !important; }
+          .fd-feat-grid > div > div:first-child { width: 34px !important; height: 34px !important; border-radius: 9px !important; margin-bottom: 10px !important; }
+          /* Event cards */
+          .fd-event-grid > div { padding: 14px 16px !important; border-radius: 10px !important; }
+          .fd-event-grid p     { font-size: 11px !important; }
+          /* Section headings */
+          .fd-section-heading  { margin-bottom: 24px !important; }
+          .fd-section-heading h2 { font-size: 24px !important; margin-bottom: 8px !important; }
+          .fd-section-heading p  { font-size: 14px !important; }
+          /* Fix endpoint row overflow */
+          .fd-endpoint-path { font-size: 11px !important; word-break: break-all !important; }
+          .fd-endpoint-auth { display: none !important; }
+          /* Fix webhook event code overflow */
+          .fd-event-code    { min-width: 0 !important; font-size: 11px !important; word-break: break-all !important; }
+          /* Quick links wrap tighter */
+          .fd-quick-links   { gap: 8px !important; }
+          .fd-quick-links a { font-size: 12px !important; padding: 5px 10px !important; }
         }
       `}</style>
 
       {/* ══ HERO ══════════════════════════════════════════════════ */}
-      <section aria-label="Page hero" style={{ position: "relative", overflow: "hidden", background: "#0d1117", paddingTop: 80, paddingBottom: 80 }}>
+      <section aria-label="Page hero" className="fd-section" style={{ position: "relative", overflow: "hidden", background: "#0d1117", paddingTop: 80, paddingBottom: 80 }}>
         <GridBg />
         {/* Cyan glow */}
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "-20%", right: "-5%", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 65%)" }} />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", bottom: "-10%", left: "10%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(129,140,248,0.06) 0%, transparent 65%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="fd-section-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fd-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 560px", gap: 72, alignItems: "center" }}>
 
             {/* Left */}
@@ -245,7 +278,7 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
               </div>
 
               {/* Quick links */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <div className="fd-quick-links" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {[
                   { label: "API Reference",  icon: <Code2 size={12} />,     href: "/developers/api-reference" },
                   { label: "SDKs",           icon: <Package size={12} />,   href: "/developers/sdks"          },
@@ -260,8 +293,8 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
               </div>
             </div>
 
-            {/* Right — quickstart code */}
-            <div>
+            {/* Right — quickstart code (hidden on mobile) */}
+            <div className="fd-hide-mobile">
               <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
                 <Zap size={13} aria-hidden="true" style={{ color: "#00D4FF" }} />
                 <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>QUICKSTART</span>
@@ -299,8 +332,8 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
       </section>
 
       {/* ══ THREE ACCESS TIERS ════════════════════════════════════ */}
-      <section aria-labelledby="tiers-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="tiers-heading" className="fd-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="fd-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="tiers-heading"
             badge={<Badge><Key size={10} aria-hidden="true" /> Partner access tiers</Badge>}
@@ -354,8 +387,8 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
       </section>
 
       {/* ══ API REFERENCE ═════════════════════════════════════════ */}
-      <section aria-labelledby="api-heading" style={{ padding: "88px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="api-heading" className="fd-section" style={{ padding: "88px 0", background: "white" }}>
+        <div className="fd-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fd-api-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
 
             {/* Left — endpoints */}
@@ -399,8 +432,8 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
               </div>
             </div>
 
-            {/* Right — base URL + auth snippet */}
-            <div className="fd-sticky" style={{ position: "sticky", top: 88 }}>
+            {/* Right — base URL + auth snippet (hidden on mobile) */}
+            <div className="fd-sticky fd-hide-mobile" style={{ position: "sticky", top: 88 }}>
               <div style={{ background: "#0d1117", borderRadius: 18, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }}>
                 <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>BASE URL</p>
@@ -452,11 +485,11 @@ POST /auth/realms/creditlinker/
       </section>
 
       {/* ══ WEBHOOKS ══════════════════════════════════════════════ */}
-      <section aria-labelledby="webhook-heading" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-labelledby="webhook-heading" className="fd-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "30%", right: "-8%", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="fd-section-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="fd-webhook-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
 
             {/* Left — copy */}
@@ -489,15 +522,15 @@ POST /auth/realms/creditlinker/
                   { event: "DISPUTE_OPENED",          desc: "Financing dispute initiated"                  },
                 ].map((e, i, arr) => (
                   <div key={e.event} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px", borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                    <code style={{ fontSize: 12, color: "#00D4FF", fontFamily: "monospace", flexShrink: 0, minWidth: 200 }}>{e.event}</code>
+                    <code className="fd-event-code" style={{ fontSize: 12, color: "#00D4FF", fontFamily: "monospace", flexShrink: 0, minWidth: 200 }}>{e.event}</code>
                     <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>{e.desc}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Right — webhook code */}
-            <div>
+            {/* Right — webhook code (hidden on mobile) */}
+            <div className="fd-hide-mobile">
               <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
                 <Webhook size={13} aria-hidden="true" style={{ color: "rgba(255,255,255,0.3)" }} />
                 <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em" }}>WEBHOOK HANDLER</span>
@@ -522,8 +555,8 @@ POST /auth/realms/creditlinker/
       </section>
 
       {/* ══ DEVELOPER TOOLS ═══════════════════════════════════════ */}
-      <section aria-labelledby="tools-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="tools-heading" className="fd-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="fd-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="tools-heading"
             badge={<Badge><Package size={10} aria-hidden="true" /> Developer tools</Badge>}
@@ -577,8 +610,8 @@ POST /auth/realms/creditlinker/
       </section>
 
       {/* ══ EVENTS (system events table) ════════════════════════ */}
-      <section aria-labelledby="system-events-heading" style={{ padding: "88px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="system-events-heading" className="fd-section" style={{ padding: "88px 0", background: "white" }}>
+        <div className="fd-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="system-events-heading"
             badge={<Badge><Zap size={10} aria-hidden="true" /> Event-driven architecture</Badge>}
@@ -612,11 +645,11 @@ POST /auth/realms/creditlinker/
       </section>
 
       {/* ══ CTA ═══════════════════════════════════════════════════ */}
-      <section aria-label="Call to action" style={{ padding: "88px 0", background: "#0d1117", position: "relative", overflow: "hidden" }}>
+      <section aria-label="Call to action" className="fd-section" style={{ padding: "88px 0", background: "#0d1117", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", inset: 0, background: "radial-gradient(ellipse 800px 400px at 50% 50%, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="fd-section-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }} className="fd-hero-grid">
             <div>
               <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,4vw,52px)", letterSpacing: "-0.04em", color: "white", marginBottom: 18, lineHeight: 1.1 }}>
@@ -638,8 +671,8 @@ POST /auth/realms/creditlinker/
               </div>
             </div>
 
-            {/* Terminal-style checklist */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "24px 26px" }}>
+            {/* Terminal-style checklist (hidden on mobile) */}
+            <div className="fd-hide-mobile" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "24px 26px" }}>
               <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", marginBottom: 16 }}>Getting started checklist</p>
               {[
                 { step: "Sign up and create your developer account",          done: true  },
