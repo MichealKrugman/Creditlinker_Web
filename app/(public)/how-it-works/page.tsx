@@ -364,7 +364,7 @@ export default function HowItWorksPage() {
               />
               <TimelineStep n="2" icon={<Database size={18} aria-hidden="true" />}
                 title="Connect your financial data sources"
-                desc="Link bank accounts via Mono's Open Banking API, upload accounting ledger exports, or add operational data such as equipment, inventory, and contract records. The more sources you connect, the richer and more credible your identity."
+                desc="Link your bank accounts, upload accounting ledger exports, or add operational data such as equipment, inventory, and contract records. The more sources you connect, the richer and more credible your identity."
                 detail="30+ Nigerian banks · bank + ledger + operational"
               />
               <TimelineStep n="3" icon={<Cpu size={18} aria-hidden="true" />}

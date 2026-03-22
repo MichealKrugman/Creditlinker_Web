@@ -47,7 +47,7 @@ const PIPELINE = [
   {
     step: "01",
     label: "Connect",
-    body: "Link your bank account via Mono or upload statements directly.",
+    body: "Link your bank accounts or upload statements directly.",
   },
   {
     step: "02",

@@ -280,7 +280,7 @@ export default function AboutPage() {
             <ValueCard dark icon={<Zap size={20} aria-hidden="true" />}         title="Multidimensional" desc="A single credit score compresses too much. Six independent dimensions let capital providers understand the actual shape of a business's financial health." />
             <ValueCard dark icon={<Lock size={20} aria-hidden="true" />}        title="Data provenance" desc="Every computed metric tracks its source data — which account, which transactions, which time range. Capital providers know exactly where signals came from." />
             <ValueCard dark icon={<Users size={20} aria-hidden="true" />}       title="Two-sided trust" desc="Reputation signals are built for both businesses and capital providers. Bad actors on either side surface over time. The platform rewards reliability." />
-            <ValueCard dark icon={<Globe2 size={20} aria-hidden="true" />}      title="Built for Africa" desc="Designed around NGN-denominated transaction data, Mono Open Banking, and the financing realities of African SMEs — not imported from elsewhere." />
+            <ValueCard dark icon={<Globe2 size={20} aria-hidden="true" />}      title="Built for Africa" desc="Designed around NGN-denominated transaction data and the financing realities of African SMEs — not imported from elsewhere." />
           </div>
         </div>
       </section>
@@ -394,7 +394,7 @@ export default function AboutPage() {
               {
                 id: "faq-4",
                 q: "What data does Creditlinker use to build a financial identity?",
-                a: "Primarily bank transaction histories, connected via Mono Open Banking or uploaded directly as CSV or PDF bank statements. We also incorporate accounting ledger data, operational financial signals, and verified business profile information. All data feeds into a scoring pipeline that produces a versioned, persistent financial identity."
+                a: "Primarily bank transaction histories, connected directly or uploaded as CSV or PDF bank statements. We also incorporate accounting ledger data, operational financial signals, and verified business profile information. All data feeds into a scoring pipeline that produces a versioned, persistent financial identity."
               },
               {
                 id: "faq-5",

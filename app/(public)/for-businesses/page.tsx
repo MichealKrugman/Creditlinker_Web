@@ -382,7 +382,7 @@ export default function ForBusinessesPage() {
               />
               <StepRow n="2" icon={<Layers size={16} aria-hidden="true" />}
                 title="Connect your financial data sources"
-                desc="Link bank accounts via Mono's Open Banking API, upload accounting ledger exports, or add operational data — equipment, inventory, contracts, receivables. The more you connect, the richer your identity."
+                desc="Link your bank accounts, upload accounting ledger exports, or add operational data — equipment, inventory, contracts, receivables. The more you connect, the richer your identity."
               />
               <StepRow n="3" icon={<Cpu size={16} aria-hidden="true" />}
                 title="Feature store and scoring run automatically"
