@@ -125,12 +125,12 @@ function ReadinessRow({ type, cat, score, status, c, bg }: { type: string; cat: 
 export default function ForBusinessesPage() {
   // Six real dimensions
   const sixDimensions = [
-    { dim: "Revenue Stability",       score: 85, color: "#10B981", weight: "How consistent and predictable your revenue inflows are.", improve: "Link all active accounts and extend your data coverage window." },
-    { dim: "Cashflow Predictability", score: 78, color: "#38BDF8", weight: "How reliably you generate positive operating cash flow.",   improve: "Reduce large unexplained debit spikes relative to inflows."   },
-    { dim: "Expense Discipline",      score: 81, color: "#818CF8", weight: "How well you control operating costs relative to revenue.",  improve: "Identify and reduce irregular, non-operational expense bursts." },
-    { dim: "Liquidity Strength",      score: 74, color: "#F59E0B", weight: "The level of cash reserves and buffers in your accounts.",   improve: "Maintain a higher average month-end balance across accounts."  },
-    { dim: "Financial Consistency",   score: 88, color: "#00D4FF", weight: "How complete and regular your financial data patterns are.",  improve: "Connect all your business accounts and upload ledger data."   },
-    { dim: "Risk Profile",            score: 91, color: "#F472B6", weight: "Absence of anomalies and irregular behavior in your data.",   improve: "Maintain predictable patterns — high score means clean data."  },
+    { dim: "Revenue Stability",       score: 85, color: "#10B981", weight: "How consistent and predictable your revenue has been over time.", improve: "Link all active accounts and extend your data coverage window." },
+    { dim: "Cashflow Predictability", score: 78, color: "#38BDF8", weight: "How reliably your business generates positive cash flow.",        improve: "Reduce large unexplained debit spikes relative to inflows."   },
+    { dim: "Expense Discipline",      score: 81, color: "#818CF8", weight: "How well your business controls its costs relative to what it earns.", improve: "Identify and reduce irregular, non-operational expense bursts." },
+    { dim: "Liquidity Strength",      score: 74, color: "#F59E0B", weight: "The level of cash reserves your business holds at any given time.",  improve: "Maintain a higher average month-end balance across accounts."  },
+    { dim: "Financial Consistency",   score: 88, color: "#00D4FF", weight: "How regular and complete your financial activity has been.",          improve: "Connect all your business accounts and upload ledger data."   },
+    { dim: "Risk Profile",            score: 91, color: "#F472B6", weight: "Whether your financial data shows any unusual or irregular patterns.", improve: "Maintain predictable patterns — high score means clean data."  },
   ];
 
   return (
@@ -214,10 +214,8 @@ export default function ForBusinessesPage() {
                 </span>
               </h1>
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 500 }}>
-                Creditlinker builds a verified, six-dimensional financial identity from your real
-                banking data, accounting ledgers, and operational records. Capital providers —
-                financers, equipment financiers, trade suppliers, and revenue financiers — evaluate
-                you on how your business actually operates.
+                Creditlinker builds a verified financial profile from your real financial activity —
+                giving every capital provider a clear, trusted picture of how your business operates.
               </p>
               <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 40 }}>
                 <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
@@ -326,15 +324,15 @@ export default function ForBusinessesPage() {
             id="problem-heading"
             badge={<Badge><AlertCircle size={10} aria-hidden="true" /> The problem</Badge>}
             title={<>African SMEs are viable.<br />The system just can&apos;t prove it.</>}
-            sub="Traditional credit systems rely on bureau scores, collateral, and self-reported documents — all of which exclude businesses that operate entirely through their bank accounts and have real, measurable financial performance."
+            sub="Traditional credit systems ask for documents, collateral, and a borrowing history most SMEs simply do not have — even when the business is profitable and consistently active."
             center
           />
 
           <div className="fb-pain-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 40 }}>
             {[
-              { title: "No credit bureau history",   desc: "Most SMEs have never taken formal financing. Bureau scores are empty or misleading — despite years of strong banking activity that proves the business works." },
-              { title: "Self-reported documents",     desc: "Financial statements are easy to fabricate. Financers discount them — and your real revenue history, cash flow patterns, and expense discipline go unseen." },
-              { title: "Collateral requirements",     desc: "Collateral-first lending excludes profitable, asset-light businesses entirely. Your consistent revenue and strong cashflow become irrelevant criteria." },
+              { title: "No formal credit history",      desc: "Most SMEs have never taken a formal loan, so their credit record is blank — despite years of consistent banking activity that proves the business works." },
+              { title: "Documents that don't hold up",   desc: "Financial statements can be manipulated, and financers know it. So your real numbers rarely receive the weight they deserve." },
+              { title: "Collateral most SMEs don't have", desc: "Most growing businesses have no land or equipment to pledge. Without collateral, even a consistently profitable business gets turned away." },
             ].map((p) => (
               <div key={p.title} style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.14)", borderRadius: 16, padding: "24px 24px 20px" }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#EF4444", marginBottom: 16 }}>
@@ -352,7 +350,7 @@ export default function ForBusinessesPage() {
               <div style={{ maxWidth: 620 }}>
                 <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: "white", marginBottom: 8, letterSpacing: "-0.025em" }}>Creditlinker fixes this.</p>
                 <p style={{ fontSize: 15, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>
-                  We build your verified financial identity directly from your bank transaction history, accounting ledger data, and operational records — the evidence that already proves your business works. Six independent financial dimensions. No documents. No collateral. No bureau.
+                  We build your financial identity directly from your banking activity — the evidence that already proves your business works. No documents. No collateral. No credit history required.
                 </p>
               </div>
               <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0, background: "#00D4FF", color: "#0A2540", padding: "12px 22px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
@@ -378,19 +376,19 @@ export default function ForBusinessesPage() {
               />
               <StepRow n="1" icon={<Database size={16} aria-hidden="true" />}
                 title="Register your business"
-                desc="Create an account with your business name and details. We generate a persistent financial identity anchored to your business — versioned over time as your data and profile evolve."
+                desc="Create an account with your business name and details. We create a verified financial identity for your business — one that updates and strengthens as your business continues to operate."
               />
               <StepRow n="2" icon={<Layers size={16} aria-hidden="true" />}
                 title="Connect your financial data sources"
                 desc="Link your bank accounts, upload accounting ledger exports, or add operational data — equipment, inventory, contracts, receivables. The more you connect, the richer your identity."
               />
               <StepRow n="3" icon={<Cpu size={16} aria-hidden="true" />}
-                title="Feature store and scoring run automatically"
-                desc="Our pipeline normalizes and reconciles your data, then populates a financial feature store with 40+ computed metrics — revenue growth, operating margin, cash reserve ratio, receivable turnover. Scoring models pull from this store without recalculating from raw data."
+                title="We analyze your data automatically"
+                desc="We extract over 40 financial signals from your data — revenue trends, cash flow patterns, expense consistency. The entire process runs in seconds."
               />
               <StepRow n="4" icon={<ShieldCheck size={16} aria-hidden="true" />}
-                title="Receive your six-dimensional identity"
-                desc="Get your identity score (0–1000), risk level, six independent financial dimension scores, a data quality rating, and capital readiness across 14 financing categories. Connect to matched capital providers on your terms."
+                title="Receive your verified financial identity"
+                desc="You receive a verified identity score, a risk rating, and a clear view of your readiness across 14 financing categories. From there, you decide who gets access to your profile."
                 last
               />
               <Link href="/how-it-works" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: "#0A2540", marginTop: 12, textDecoration: "underline", textUnderlineOffset: 4 }}>
@@ -482,10 +480,8 @@ export default function ForBusinessesPage() {
                 14 capital categories.<br />One verified identity.
               </h2>
               <p style={{ fontSize: 16, color: "#4B5563", lineHeight: 1.78, marginBottom: 28 }}>
-                Creditlinker connects you to the full spectrum of capital — not just bank financing.
-                Financers, equipment financiers, trade suppliers, and revenue financiers all evaluate
-                your identity against their own criteria. You see your readiness score per category
-                before approaching a single provider.
+                Your financial identity is evaluated across 14 financing categories. You can see
+                exactly how ready you are for each one before speaking to a single provider.
               </p>
               <div className="fb-cap-list" style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
                 {[
@@ -525,16 +521,15 @@ export default function ForBusinessesPage() {
                 <span style={{ color: "#00D4FF" }}>Always.</span>
               </h2>
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, marginBottom: 36, maxWidth: 440 }}>
-                Creditlinker is built on a consent-first model. No capital provider sees any dimension
-                of your financial identity without your explicit, time-bounded, revocable grant. You
-                define the scope, set the expiry, and can revoke instantly.
+                No capital provider can access your financial data without your explicit permission.
+                You decide what they can see, how long they have access, and you can revoke it at any time.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {[
-                  { title: "Dimension-level permission control",  desc: "Grant score-only, full identity, or transaction detail — independently per capital provider. Mix and match per your comfort level." },
-                  { title: "Time-bounded access with hard expiry", desc: "Every grant expires automatically at 7, 30, or 90 days. Access ends without you lifting a finger." },
-                  { title: "Instant revocation",                   desc: "Revoke any provider's access in one action. They lose visibility immediately, in real time." },
-                  { title: "Immutable access audit log",           desc: "Every access event logged with actor, timestamp, action type, and purpose. You always know exactly who saw what." },
+                  { title: "Choose exactly what they see",       desc: "Grant one provider access to your score only, another to your full profile. Every permission is set by you, independently per provider." },
+                  { title: "Access expires automatically",         desc: "Every grant expires at 7, 30, or 90 days. Access ends on its own without you having to do anything." },
+                  { title: "Revoke access instantly",              desc: "Remove any provider's access in one action. They lose visibility immediately, in real time." },
+                  { title: "A complete record of every access",    desc: "Every time your data is accessed, it is logged. You can always see who viewed your profile and when." },
                 ].map((f) => (
                   <div key={f.title} style={{ display: "flex", gap: 14 }}>
                     <div aria-hidden="true" style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, color: "#00D4FF" }}>
@@ -598,7 +593,7 @@ export default function ForBusinessesPage() {
             id="score-heading"
             badge={<Badge><BarChart3 size={10} aria-hidden="true" /> Your identity explained</Badge>}
             title={<>Six dimensions.<br />Your full financial picture.</>}
-            sub="Each dimension is scored independently on a scale of 0–100. Capital providers see the full shape of your business — not a single compressed number that hides your story."
+            sub="Each area of your financial health is scored independently, from 0 to 100. Capital providers see the full picture of your business — not a single number that oversimplifies it."
             center
           />
           <div className="fb-dim-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
@@ -624,7 +619,7 @@ export default function ForBusinessesPage() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "white", marginBottom: 6 }}>Plus a separate data quality score</p>
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>
-                Your identity also carries a <code style={{ color: "#00D4FF", background: "rgba(0,212,255,0.1)", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>data_quality_score</code> indicating how reliable the underlying data is. Capital providers use this to understand how much confidence to place in each dimension when making their decision.
+                Your identity also carries a data quality score — so capital providers know how much confidence to place in each dimension when reviewing your profile.
               </p>
             </div>
           </div>
@@ -640,7 +635,7 @@ export default function ForBusinessesPage() {
             Your business already<br />has a <span style={{ color: "#00D4FF" }}>strong financial story.</span>
           </h2>
           <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 44, lineHeight: 1.78, maxWidth: 540, margin: "0 auto 44px" }}>
-            Let Creditlinker build the verified identity that tells it — and connect you to the financers, equipment financiers, trade suppliers, and revenue financiers who are ready to act on it.
+            Let Creditlinker build the verified identity that tells it — and connect you to the right capital providers.
           </p>
           <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
