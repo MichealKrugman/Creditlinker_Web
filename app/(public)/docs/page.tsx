@@ -60,7 +60,7 @@ function CopyButton({ text }: { text: string }) {
 
 function CodeBlock({ title, lang, code, dark = true }: { title?: string; lang: string; code: string; dark?: boolean }) {
   return (
-    <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#E5E7EB"}`, background: dark ? "#0d1117" : "#F9FAFB", marginBottom: 20 }}>
+    <div className="docs-code-block" style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#E5E7EB"}`, background: dark ? "#0d1117" : "#F9FAFB", marginBottom: 20 }}>
       {title && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", background: dark ? "rgba(255,255,255,0.04)" : "white", borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "#E5E7EB"}` }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: dark ? "rgba(255,255,255,0.4)" : "#6B7280", fontFamily: "monospace" }}>{title}</span>
@@ -81,7 +81,7 @@ function DocTabs({ tabs }: { tabs: { label: string; content: React.ReactNode }[]
   const [active, setActive] = useState(0);
   return (
     <div>
-      <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", marginBottom: 20, gap: 0 }}>
+      <div className="docs-tabs-bar" style={{ display: "flex", borderBottom: "1px solid #E5E7EB", marginBottom: 20, gap: 0 }}>
         {tabs.map((t, i) => (
           <button key={t.label} onClick={() => setActive(i)} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 600, color: active === i ? "#0A2540" : "#9CA3AF", background: "none", border: "none", borderBottom: active === i ? "2px solid #0A2540" : "2px solid transparent", marginBottom: -1, cursor: "pointer", transition: "color 0.15s" }}>
             {t.label}
@@ -111,16 +111,16 @@ function Callout({ type = "info", children }: { type?: "info" | "warning" | "tip
 
 function EndpointRow({ method, path, desc, auth, badge }: { method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; path: string; desc: string; auth: string; badge?: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 0", borderBottom: "1px solid #F3F4F6" }}>
+    <div className="docs-endpoint-row" style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 0", borderBottom: "1px solid #F3F4F6" }}>
       <MethodBadge method={method} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
-          <code style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{path}</code>
+          <code className="docs-endpoint-path" style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{path}</code>
           {badge && <InlineBadge color="#818CF8">{badge}</InlineBadge>}
         </div>
         <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{desc}</p>
       </div>
-      <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 5, flexShrink: 0, fontFamily: "monospace", whiteSpace: "nowrap" as const }}>{auth}</span>
+      <span className="docs-endpoint-auth" style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 5, flexShrink: 0, fontFamily: "monospace", whiteSpace: "nowrap" as const }}>{auth}</span>
     </div>
   );
 }
@@ -309,28 +309,133 @@ export default function DocsPage() {
   return (
     <div style={{ minHeight: "100vh", background: "white" }}>
       <style>{`
+        /* ── Base containment ── */
+        .docs-content {
+          overflow-x: hidden;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .docs-content *, .docs-content *::before, .docs-content *::after {
+          box-sizing: border-box;
+        }
+
+        /* ── Tables: always horizontally scrollable ── */
+        .docs-table-wrap {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          max-width: 100%;
+        }
+        .docs-table-wrap > div {
+          min-width: 480px;
+        }
+
+        /* ── Code block wrapper ── */
+        .docs-code-block {
+          max-width: 100%;
+          overflow: hidden;
+        }
+        .docs-content pre {
+          max-width: 100%;
+          overflow-x: auto;
+        }
+
+        /* ── Inline code: allow wrapping ── */
+        .docs-content p > code,
+        .docs-content li > code {
+          word-break: break-word;
+          overflow-wrap: anywhere;
+          white-space: pre-wrap;
+        }
+
+        /* ── Mobile menu button hidden by default ── */
+        .docs-mobile-menu-btn { display: none; }
+
+        /* ── Breakpoint: tablet / small desktop ── */
         @media (max-width: 1024px) {
           .docs-layout { grid-template-columns: 1fr !important; }
           .docs-sidebar { display: none !important; }
           .docs-toc     { display: none !important; }
+          .docs-mobile-menu-btn { display: flex !important; }
+        }
+
+        /* ── Breakpoint: mobile ── */
+        @media (max-width: 768px) {
+          .docs-content       { padding: 24px 16px 80px !important; }
+          .docs-cards-grid    { grid-template-columns: 1fr !important; }
+          .docs-url-grid      { grid-template-columns: 1fr !important; }
+          .docs-metrics-grid  { grid-template-columns: 1fr !important; }
+          .docs-topbar-label  { display: none !important; }
+          .docs-topbar-apiref { display: none !important; }
+        }
+
+        /* ── Breakpoint: small mobile ── */
+        @media (max-width: 600px) {
+          .docs-content       { padding: 20px 12px 80px !important; }
+
+          /* Endpoint rows: wrap and hide auth badge */
+          .docs-endpoint-row  { flex-wrap: wrap; gap: 8px !important; }
+          .docs-endpoint-auth { display: none !important; }
+          /* Long API paths wrap instead of overflowing */
+          .docs-endpoint-path {
+            word-break: break-all !important;
+            white-space: pre-wrap !important;
+            font-size: 12px !important;
+          }
+
+          /* Tab bar: scroll horizontally if tabs don't fit */
+          .docs-tabs-bar {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            flex-wrap: nowrap !important;
+          }
+          .docs-tabs-bar button {
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+
+          /* Pipeline event codes: hide to save space */
+          .docs-pipeline-event { display: none !important; }
+
+          /* URL / Base-URL cards: wrap long URLs */
+          .docs-url-card code {
+            word-break: break-all;
+            font-size: 11px !important;
+          }
+
+          /* Dimension key codes: hide to save space */
+          .docs-dimension-key { display: none !important; }
+
+          /* Token/identity table rows: stack on tiny screens */
+          .docs-table-wrap > div {
+            min-width: 420px;
+          }
         }
       `}</style>
 
       {/* TOP BAR */}
       <div style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E5E7EB", height: 56 }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px", height: "100%", display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              className="docs-mobile-menu-btn"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation"
+              style={{ alignItems: "center", justifyContent: "center", width: 36, height: 36, background: "none", border: "1px solid #E5E7EB", borderRadius: 8, cursor: "pointer", color: "#374151", flexShrink: 0 }}
+            >
+              <Menu size={16} />
+            </button>
             <Link href="/" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#0A2540", textDecoration: "none", letterSpacing: "-0.03em" }}>
               Creditlinker
             </Link>
-            <span style={{ color: "#E5E7EB" }}>·</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#6B7280" }}>Documentation</span>
+            <span className="docs-topbar-label" style={{ color: "#E5E7EB" }}>·</span>
+            <span className="docs-topbar-label" style={{ fontSize: 13, fontWeight: 600, color: "#6B7280" }}>Documentation</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#0A5060", background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.2)", padding: "2px 8px", borderRadius: 9999 }}>
               v1.0
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Link href="/developers/api-reference" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#6B7280", textDecoration: "none" }}>
+            <Link className="docs-topbar-apiref" href="/developers/api-reference" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#6B7280", textDecoration: "none" }}>
               API Reference <ExternalLink size={11} />
             </Link>
             <Link href="/developers/api-keys" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0A2540", color: "white", padding: "6px 14px", borderRadius: 7, fontWeight: 700, fontSize: 12 }}>
@@ -339,6 +444,25 @@ export default function DocsPage() {
           </div>
         </div>
       </div>
+
+      {/* MOBILE NAV OVERLAY */}
+      {mobileNavOpen && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)" }}
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <div style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: 280, maxWidth: "85vw", background: "white", zIndex: 51, overflowY: "auto", padding: "20px 16px", boxShadow: "4px 0 24px rgba(0,0,0,0.12)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#0A2540", letterSpacing: "-0.03em" }}>Navigation</span>
+              <button onClick={() => setMobileNavOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: 4 }} aria-label="Close navigation">
+                <X size={18} />
+              </button>
+            </div>
+            <Sidebar />
+          </div>
+        </>
+      )}
 
       {/* LAYOUT */}
       <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px" }}>
@@ -350,7 +474,7 @@ export default function DocsPage() {
           </div>
 
           {/* MAIN CONTENT */}
-          <div ref={contentRef} style={{ padding: "40px 48px 120px", minWidth: 0 }}>
+          <div ref={contentRef} className="docs-content" style={{ padding: "40px 48px 120px", minWidth: 0 }}>
 
             <DocSection id="introduction">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
@@ -366,7 +490,7 @@ export default function DocsPage() {
               <P>
                 The platform is built around four core actors: <strong>Businesses</strong> that build financial identities, <strong>Capital providers (Institutions)</strong> that evaluate and fund them, <strong>Partners</strong> that integrate the identity layer into their own products, and <strong>Admins</strong> that operate the platform.
               </P>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 28 }}>
+              <div className="docs-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 28 }}>
                 {[
                   { icon: <Zap size={16} />,    title: "Quickstart",       desc: "Be up and running in 5 minutes",   id: "quickstart"       },
                   { icon: <Code2 size={16} />,   title: "API Reference",    desc: "Full endpoint documentation",      id: "api-business"     },
@@ -454,7 +578,7 @@ console.log(identity.riskProfile)   // "low"`} />
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiJ9..."`} />
               <Callout type="warning">Never expose API keys or client secrets in client-side code or public repositories. Use environment variables and server-side token exchange.</Callout>
               <H3>Token roles</H3>
-              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+              <div className="docs-table-wrap" style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
                 {[
                   { role: "business_owner", desc: "Access to business-facing endpoints — score, consent, financing, data sources", color: "#10B981" },
                   { role: "institution",    desc: "Access to institution endpoints — discovery, consent-gated profiles, offers",     color: "#38BDF8" },
@@ -472,12 +596,12 @@ console.log(identity.riskProfile)   // "low"`} />
             <DocSection id="base-url">
               <H2>Base URL &amp; Versioning</H2>
               <P>All API requests use versioned base URLs. The current stable version is <code>v1</code>.</P>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+              <div className="docs-url-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
                 {[
                   { label: "Production", url: "https://api.creditlinker.io/v1",    color: "#10B981" },
                   { label: "Sandbox",    url: "https://sandbox.creditlinker.io/v1", color: "#818CF8" },
                 ].map((e) => (
-                  <div key={e.label} style={{ background: "#0d1117", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div key={e.label} className="docs-url-card" style={{ background: "#0d1117", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.06)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: e.color, display: "inline-block" }} />
                       <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{e.label}</span>
@@ -500,7 +624,7 @@ console.log(identity.riskProfile)   // "low"`} />
     "docs": "https://docs.creditlinker.io/consent-model"
   }
 }`} />
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
                 {[
                   { code: "200", label: "OK",                    desc: "Request succeeded"                                        },
                   { code: "201", label: "Created",               desc: "Resource created successfully"                           },
@@ -530,7 +654,7 @@ console.log(identity.riskProfile)   // "low"`} />
               <P>A financial identity is the core output of the Creditlinker platform. It is a persistent, versioned profile built from a business's real financial data — bank transactions, accounting records, and operational signals — processed through a seven-stage pipeline.</P>
               <P>Unlike a traditional credit score, a financial identity is multidimensional. It captures the full financial shape of a business across six independent dimensions, plus a data quality score, a set of derived feature store metrics, capital readiness assessments, and risk flags.</P>
               <H3>Identity fields</H3>
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
                 {[
                   { field: "financial_identity_id",  type: "string",    desc: "Stable UUID anchoring the identity — persists across pipeline runs"          },
                   { field: "persistent_business_id", type: "string",    desc: "Permanent business identifier — survives ownership and registration changes" },
@@ -570,7 +694,7 @@ console.log(identity.riskProfile)   // "low"`} />
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                         <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", margin: 0 }}>{d.name}</p>
-                        <code style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>score.dimensions.{d.key}</code>
+                        <code className="docs-dimension-key" style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>score.dimensions.{d.key}</code>
                       </div>
                       <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65, margin: 0 }}>{d.desc}</p>
                     </div>
@@ -602,7 +726,7 @@ console.log(identity.riskProfile)   // "low"`} />
                       <div style={{ paddingBottom: i < 6 ? 6 : 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: "white" }}>{step.label}</span>
-                          <code style={{ fontSize: 10, color: "rgba(0,212,255,0.6)", fontFamily: "monospace" }}>{step.event}</code>
+                          <code className="docs-pipeline-event" style={{ fontSize: 10, color: "rgba(0,212,255,0.6)", fontFamily: "monospace" }}>{step.event}</code>
                         </div>
                         <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", margin: 0, lineHeight: 1.55 }}>{step.desc}</p>
                       </div>
@@ -616,7 +740,7 @@ console.log(identity.riskProfile)   // "low"`} />
               <H2>Feature Store</H2>
               <P>The feature store holds 40+ derived financial metrics computed from normalized transaction data. Scoring models and capital readiness assessments pull from this store rather than recomputing from raw data on each query.</P>
               <H3>Available metrics</H3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+              <div className="docs-metrics-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
                 {[
                   "monthlyRevenueAvg", "revenueGrowth6mo", "revenueVolatility", "revenueConcentration",
                   "operatingMargin", "expenseRatio", "payrollRatio", "discretionarySpendRatio",
@@ -775,7 +899,7 @@ console.log(consent.validUntil) // "2026-06-14T00:00:00Z"`} />
 
             <DocSection id="permissions">
               <H2>Permission Scopes</H2>
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
                 {[
                   { scope: "can_view_score",              desc: "View the overall identity score and all six dimensional scores"        },
                   { scope: "can_view_identity",           desc: "View the full filtered financial identity profile (feature store, readiness assessments, risk flags)" },
@@ -904,7 +1028,7 @@ app.post('/webhooks/creditlinker', async (req, res) => {
 
             <DocSection id="webhook-events">
               <H2>Event Reference</H2>
-              <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
+              <div className="docs-table-wrap" style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
                 {[
                   { category: "Pipeline",  color: "#38BDF8", events: [
                     { type: "DATA_INGESTED",             desc: "New financial data received and queued for processing"    },
@@ -1054,7 +1178,7 @@ console.log(readiness['equipment_financing'].readinessScore)   // 67`} />
             <DocSection id="rate-limits">
               <H2>Rate Limits</H2>
               <P>Rate limits are enforced per API key. Exceeding the limit returns a <code>429 Too Many Requests</code> response with a <code>Retry-After</code> header.</P>
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
                 {[
                   { tier: "Sandbox",        limit: "100 req / min",   burst: "200 req"   },
                   { tier: "Read tier",      limit: "1,000 req / min", burst: "2,000 req" },
