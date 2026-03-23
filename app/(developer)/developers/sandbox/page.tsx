@@ -223,7 +223,8 @@ export default function SandboxPage() {
       </div>
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 14, alignItems: "start" }}>
+      <style>{`@media (max-width: 768px) { .dev-sb-grid { grid-template-columns: 1fr !important; } .dev-sb-picker { max-height: 200px !important; } }`}</style>
+      <div className="dev-sb-grid" style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 14, alignItems: "start" }}>
 
         {/* LEFT — endpoint picker */}
         <div style={{
@@ -233,7 +234,7 @@ export default function SandboxPage() {
           <div style={{ padding: "14px 16px", borderBottom: "1px solid #F3F4F6" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540" }}>Endpoints</p>
           </div>
-          <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
+          <div className="dev-sb-picker" style={{ overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
             {ENDPOINTS.map(group => (
               <div key={group.group}>
                 {/* Group header */}
@@ -298,8 +299,9 @@ export default function SandboxPage() {
             }}>
               <MethodBadge method={selectedEndpoint.method} />
               <code style={{
-                flex: 1, fontSize: 13, fontFamily: "var(--font-mono, monospace)",
+                flex: 1, fontSize: 12, fontFamily: "var(--font-mono, monospace)",
                 color: "rgba(255,255,255,0.85)",
+                wordBreak: "break-all", minWidth: 0,
               }}>
                 https://api.creditlinker.io{selectedEndpoint.path}
               </code>

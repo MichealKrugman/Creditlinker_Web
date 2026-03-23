@@ -146,7 +146,8 @@ export default function DeveloperOverviewPage() {
             <span style={{ fontSize: 13, color: "#6B7280" }}>Last request 2 min ago</span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="dev-ov-btns" style={{ display: "flex", gap: 8 }}>
+          <style>{`@media (max-width: 480px) { .dev-ov-btns { display: none !important; } }`}</style>
           <Button variant="outline" size="sm" href="/developers/docs" style={{ gap: 6 }}>
             <BookOpen size={13} /> Read the docs
           </Button>
@@ -164,7 +165,8 @@ export default function DeveloperOverviewPage() {
       </div>
 
       {/* ── MAIN GRID ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 14, alignItems: "start" }}>
+      <style>{`@media (max-width: 768px) { .dev-ov-grid { grid-template-columns: 1fr !important; } }`}</style>
+      <div className="dev-ov-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 14, alignItems: "start" }}>
 
         {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

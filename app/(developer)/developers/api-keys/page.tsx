@@ -110,13 +110,15 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
   const masked = apiKey.prefix + "•".repeat(20) + apiKey.secret.slice(-6);
 
   return (
+    <>
+    <style>{`@media (max-width: 600px) { .dev-key-actions { display: none !important; } .dev-key-meta { flex-wrap: wrap !important; } }`}</style>
     <div style={{
-      padding: "18px 24px",
+      padding: "16px 16px",
       borderBottom: "1px solid #F3F4F6",
       opacity: isRevoked ? 0.55 : 1,
       transition: "opacity 0.2s",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
 
         {/* Key icon */}
         <div style={{
@@ -140,12 +142,13 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
           </div>
 
           {/* Secret */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
             <code style={{
               fontSize: 12, fontFamily: "var(--font-mono, 'Courier New', monospace)",
               color: "#374151", background: "#F3F4F6",
               padding: "3px 8px", borderRadius: 5,
               letterSpacing: "0.04em",
+              wordBreak: "break-all", maxWidth: "100%",
             }}>
               {revealed ? apiKey.secret : masked}
             </code>
@@ -199,6 +202,7 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
         {/* Actions */}
         {!isRevoked && (
           <button
+            className="dev-key-actions"
             onClick={() => onRevoke(apiKey.id)}
             title="Revoke key"
             style={{
@@ -217,6 +221,7 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
         )}
       </div>
     </div>
+    </>
   );
 }
 

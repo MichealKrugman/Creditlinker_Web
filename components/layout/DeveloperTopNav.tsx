@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Bell, Search, Settings, LogOut,
-  ChevronDown, X,
+  ChevronDown, X, Menu,
   LayoutDashboard, Key, Package, BookOpen,
   Code2, Webhook, FlaskConical, Activity,
   ScrollText, LifeBuoy,
@@ -44,7 +44,7 @@ const SEARCH_LINKS = [
   { label: 'Settings',      href: '/developers/settings',       icon: <Settings        size={14} /> },
 ];
 
-export function DeveloperTopNav() {
+export function DeveloperTopNav({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const pathname   = usePathname();
   const router     = useRouter();
   const title      = ROUTE_TITLES[pathname] ?? 'Developer Portal';
@@ -98,17 +98,35 @@ export function DeveloperTopNav() {
       zIndex: 40,
     }}>
 
-      {/* Page title */}
-      <h1 style={{
-        fontFamily: 'var(--font-display)',
-        fontWeight: 700,
-        fontSize: 16,
-        color: '#0A2540',
-        letterSpacing: '-0.02em',
-        margin: 0,
-      }}>
-        {title}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuToggle}
+          className="dev-hamburger"
+          style={{
+            display: 'none', width: 34, height: 34, borderRadius: 8,
+            border: '1px solid #E5E7EB', background: 'white',
+            alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: '#6B7280',
+          }}
+          aria-label="Open menu"
+        >
+          <Menu size={16} />
+        </button>
+        <style>{`.dev-hamburger { display: flex !important; } @media (min-width: 769px) { .dev-hamburger { display: none !important; } }`}</style>
+
+        {/* Page title */}
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          fontSize: 16,
+          color: '#0A2540',
+          letterSpacing: '-0.02em',
+          margin: 0,
+        }}>
+          {title}
+        </h1>
+      </div>
 
       {/* Right controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -233,9 +251,10 @@ export function DeveloperTopNav() {
             }}>
               D
             </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#0A2540' }}>
+            <span className="dev-email-label" style={{ fontSize: 13, fontWeight: 600, color: '#0A2540' }}>
               dev@mycompany.io
             </span>
+            <style>{`@media (max-width: 480px) { .dev-email-label { display: none !important; } }`}</style>
             <ChevronDown
               size={13}
               style={{

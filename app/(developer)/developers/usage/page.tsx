@@ -200,7 +200,8 @@ export default function UsagePage() {
       </div>
 
       {/* ── MAIN GRID ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, alignItems: "start" }}>
+      <style>{`@media (max-width: 768px) { .dev-usage-grid { grid-template-columns: 1fr !important; } }`}</style>
+      <div className="dev-usage-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, alignItems: "start" }}>
 
         {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -246,7 +247,7 @@ export default function UsagePage() {
                   }}>
                     {ep.method}
                   </span>
-                  <code style={{ flex: 1, fontSize: 12, color: "#374151", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <code style={{ flex: 1, fontSize: 11, color: "#374151", fontFamily: "var(--font-mono, monospace)", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, whiteSpace: "nowrap" }}>
                     {ep.path}
                   </code>
                   <div style={{ textAlign: "right" as const, flexShrink: 0 }}>

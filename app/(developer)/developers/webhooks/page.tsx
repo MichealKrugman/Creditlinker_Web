@@ -113,7 +113,7 @@ function WebhookRow({
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-            <code style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-mono, monospace)" }}>
+            <code style={{ fontSize: 12, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-mono, monospace)", wordBreak: "break-all" }}>
               {hook.url}
             </code>
             <Badge variant={hook.status === "active" ? "success" : "outline"} style={{ fontSize: 9 }}>
@@ -148,7 +148,8 @@ function WebhookRow({
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div className="dev-wh-actions" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <style>{`@media (max-width: 600px) { .dev-wh-actions { flex-wrap: wrap !important; gap: 6px !important; } }`}</style>
           <Button
             variant="outline" size="sm"
             onClick={handleTest}
@@ -259,7 +260,7 @@ function AddWebhookModal({ onClose, onAdd }: {
     }} onClick={onClose}>
       <div style={{
         background: "white", borderRadius: 16, boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
-        width: "100%", maxWidth: 520, overflow: "hidden",
+        width: "100%", maxWidth: 520, overflow: "hidden", margin: "0 16px",
       }} onClick={e => e.stopPropagation()}>
 
         <div style={{ padding: "22px 24px 16px", borderBottom: "1px solid #F3F4F6" }}>
@@ -427,7 +428,7 @@ export default function WebhooksPage() {
               padding: "10px 24px",
               borderBottom: i < EVENT_TYPES.length - 1 ? "1px solid #F3F4F6" : "none",
             }}>
-              <code style={{ fontSize: 12, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-mono, monospace)", minWidth: 180, flexShrink: 0 }}>
+              <code style={{ fontSize: 12, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-mono, monospace)", flexShrink: 0 }}>
                 {et.value}
               </code>
               <span style={{ fontSize: 13, color: "#6B7280" }}>{et.desc}</span>

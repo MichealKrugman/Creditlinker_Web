@@ -221,6 +221,7 @@ export default function LogsPage() {
       </div>
 
       {/* ── TABLE ── */}
+      <style>{`@media (max-width: 600px) { .dev-log-time { display: none !important; } .dev-log-path { font-size: 11px !important; } }`}</style>
       <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
         {/* Column heads */}
         <div style={{
@@ -228,8 +229,8 @@ export default function LogsPage() {
           padding: "10px 22px", background: "#F9FAFB",
           borderBottom: "1px solid #E5E7EB",
         }}>
-          {[{ w: 13, label: "" }, { w: 36, label: "Status" }, { w: 40, label: "Method" }, { label: "Path", flex: 1 }, { w: 60, label: "Duration" }, { w: 80, label: "Time" }, { w: 13, label: "" }].map((col, i) => (
-            <span key={i} style={{
+          {[{ w: 13, label: "" }, { w: 36, label: "Status" }, { w: 40, label: "Method" }, { label: "Path", flex: 1 }, { w: 60, label: "Duration" }, { w: 80, label: "Time", cls: "dev-log-time" }, { w: 13, label: "" }].map((col, i) => (
+            <span key={i} className={(col as any).cls} style={{
               fontSize: 10, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.06em", textTransform: "uppercase",
               ...(col.flex ? { flex: 1 } : { width: col.w, flexShrink: 0 }),
             }}>

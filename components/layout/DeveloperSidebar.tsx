@@ -46,15 +46,16 @@ function LogoMark() {
    NAV ITEM
 ───────────────────────────────────────────────────────── */
 function NavItem({
-  label, route, icon: Icon, active, accent,
+  label, route, icon: Icon, active, accent, onClick,
 }: {
   label: string; route: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  active: boolean; accent?: boolean;
+  active: boolean; accent?: boolean; onClick?: () => void;
 }) {
   return (
     <Link
       href={route}
+      onClick={onClick}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -119,7 +120,7 @@ function NavItem({
 /* ─────────────────────────────────────────────────────────
    SIDEBAR
 ───────────────────────────────────────────────────────── */
-export function DeveloperSidebar() {
+export function DeveloperSidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -133,7 +134,16 @@ export function DeveloperSidebar() {
       left: 0, top: 0, bottom: 0,
       zIndex: 50,
       borderRight: '1px solid rgba(255,255,255,0.06)',
-    }}>
+      transform: isOpen ? 'translateX(0)' : undefined,
+      transition: 'transform 0.25s ease',
+    }}
+      className="dev-sidebar"
+    >
+      <style>{`
+        @media (max-width: 768px) {
+          .dev-sidebar { transform: ${isOpen ? 'translateX(0)' : 'translateX(-100%)'}; }
+        }
+      `}</style>
 
       {/* Logo */}
       <div style={{
@@ -187,6 +197,7 @@ export function DeveloperSidebar() {
             key={item.route}
             {...item}
             active={pathname === item.route}
+            onClick={onClose}
           />
         ))}
       </nav>

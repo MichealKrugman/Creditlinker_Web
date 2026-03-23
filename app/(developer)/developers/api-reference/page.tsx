@@ -416,10 +416,11 @@ function EndpointRow({ ep }: { ep: ApiEndpoint }) {
       <button
         onClick={() => setOpen(v => !v)}
         style={{
-          display: "flex", alignItems: "center", gap: 12,
+          display: "flex", alignItems: "center", gap: 10,
           width: "100%", padding: "12px 16px",
           background: "transparent", border: "none",
           cursor: "pointer", textAlign: "left" as const,
+          flexWrap: "wrap",
         }}
       >
         {/* Method */}
@@ -436,20 +437,22 @@ function EndpointRow({ ep }: { ep: ApiEndpoint }) {
 
         {/* Path */}
         <code style={{
-          fontSize: 13, color: "#0A2540",
+          fontSize: 12, color: "#0A2540",
           fontFamily: "var(--font-mono, monospace)",
-          fontWeight: 600, flex: 1,
+          fontWeight: 600, flex: 1, minWidth: 0,
+          wordBreak: "break-all",
         }}>
           {ep.path}
         </code>
 
-        {/* Summary */}
-        <span style={{ fontSize: 13, color: "#6B7280", flex: 1, textAlign: "left" as const }}>
+        {/* Summary — hidden on mobile */}
+        <span className="dev-ep-summary" style={{ fontSize: 13, color: "#6B7280", flex: 1, textAlign: "left" as const }}>
           {ep.summary}
         </span>
+        <style>{`@media (max-width: 600px) { .dev-ep-summary, .dev-ep-role { display: none !important; } }`}</style>
 
         {/* Role badge */}
-        <span style={{
+        <span className="dev-ep-role" style={{
           fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
           padding: "2px 7px", borderRadius: 9999,
           background: "#F3F4F6", color: "#6B7280",
@@ -472,11 +475,12 @@ function EndpointRow({ ep }: { ep: ApiEndpoint }) {
             <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.65 }}>{ep.description}</p>
           </div>
 
-          <div style={{
+          <div className="dev-ep-detail" style={{
             display: "grid",
             gridTemplateColumns: ep.parameters?.length ? "1fr 1fr" : "1fr",
             gap: 0,
           }}>
+          <style>{`@media (max-width: 600px) { .dev-ep-detail { grid-template-columns: 1fr !important; } }`}</style>
             {/* Parameters */}
             {ep.parameters && ep.parameters.length > 0 && (
               <div style={{ padding: "14px 16px" }}>
