@@ -177,7 +177,7 @@ function ContactForm() {
   return (
     <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Row: name + email */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="dev-support-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={labelStyle}>Name <span style={{ color: "#EF4444" }}>*</span></label>
           <input
@@ -313,7 +313,8 @@ export default function SupportPage() {
       </div>
 
       {/* ── MAIN GRID ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 16, alignItems: "start" }}>
+      <style>{`@media (max-width: 768px) { .dev-support-grid { grid-template-columns: 1fr !important; } .dev-support-form-row { grid-template-columns: 1fr !important; } }`}</style>
+      <div className="dev-support-grid" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 16, alignItems: "start" }}>
 
         {/* LEFT — FAQ */}
         <div>

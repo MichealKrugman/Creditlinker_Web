@@ -88,7 +88,7 @@ function LogRow({ entry }: { entry: LogEntry }) {
         </span>
 
         {/* Path */}
-        <code style={{ flex: 1, fontSize: 12, color: "#374151", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <code style={{ flex: 1, fontSize: 12, color: "#374151", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
           {entry.path}
         </code>
 
@@ -103,7 +103,7 @@ function LogRow({ entry }: { entry: LogEntry }) {
         </span>
 
         {/* Time */}
-        <span style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0 }}>{entry.time}</span>
+        <span className="dev-log-time" style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0 }}>{entry.time}</span>
 
         {/* Expand icon */}
         <span style={{ color: "#D1D5DB", flexShrink: 0 }}>
@@ -128,7 +128,8 @@ function LogRow({ entry }: { entry: LogEntry }) {
             ))}
           </div>
           {/* Bodies */}
-          <div style={{ display: "grid", gridTemplateColumns: entry.request_body ? "1fr 1fr" : "1fr", gap: 12 }}>
+          <div className="dev-log-bodies" style={{ display: "grid", gridTemplateColumns: entry.request_body ? "1fr 1fr" : "1fr", gap: 12 }}>
+          <style>{`@media (max-width: 600px) { .dev-log-bodies { grid-template-columns: 1fr !important; } }`}</style>
             {entry.request_body && (
               <div>
                 <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Request Body</p>

@@ -12,9 +12,9 @@ import {
 /* ─────────────────────────────────────────────────────────
    SHARED CARD SHELL
 ───────────────────────────────────────────────────────── */
-function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({ children, style = {}, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, ...style }}>
+    <div className={className} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, ...style }}>
       {children}
     </div>
   );
@@ -175,11 +175,19 @@ export default function DeveloperSettingsPage() {
       </div>
 
       {/* ── BODY: sidebar nav + content ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, alignItems: "start" }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .dev-settings-grid { grid-template-columns: 1fr !important; }
+          .dev-settings-nav  { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; padding: 8px !important; gap: 4px !important; }
+          .dev-settings-nav button { width: auto !important; margin: 0 !important; padding: 7px 12px !important; }
+          .dev-settings-form-row { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+      <div className="dev-settings-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, alignItems: "start" }}>
 
         {/* Section nav */}
         <nav aria-label="Settings sections">
-          <Card style={{ padding: "8px 0" }}>
+          <Card className="dev-settings-nav" style={{ padding: "8px 0" }}>
             {SECTIONS.map((s) => {
               const isActive = active === s.id;
               return (
@@ -227,7 +235,7 @@ export default function DeveloperSettingsPage() {
                       <p style={{ fontSize: 12, color: "#6B7280" }}>ade@techserve.ng · Developer account</p>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div className="dev-settings-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <Field label="First name" value="Ade" />
                     <Field label="Last name"  value="Adesanya" />
                   </div>
@@ -252,7 +260,7 @@ export default function DeveloperSettingsPage() {
                     </div>
                     <Badge variant="warning">Sandbox</Badge>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div className="dev-settings-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     {[
                       { label: "Requests used",  value: "847 / 1,000" },
                       { label: "Resets on",      value: "1 Apr 2026"  },

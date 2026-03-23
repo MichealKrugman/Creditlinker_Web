@@ -118,7 +118,7 @@ function SdkCard({ sdk }: { sdk: typeof SDKS[number] }) {
       borderRadius: 14, overflow: "hidden",
     }}>
       {/* Header */}
-      <div style={{ padding: "18px 22px 14px", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <div style={{ padding: "18px 22px 14px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 38, height: 38, borderRadius: 9,
@@ -230,7 +230,8 @@ export default function SdksPage() {
       </div>
 
       {/* SDK cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(440px, 1fr))", gap: 16 }}>
+      <div className="dev-sdk-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(440px, 1fr))", gap: 16 }}>
+      <style>{`@media (max-width: 600px) { .dev-sdk-grid { grid-template-columns: 1fr !important; } }`}</style>
         {SDKS.map(sdk => <SdkCard key={sdk.name} sdk={sdk} />)}
       </div>
 

@@ -608,7 +608,8 @@ function ArticleView({ articleKey, onBack }: { articleKey: string; onBack: () =>
   const headings = article.content.filter(b => b.type === "h2" || b.type === "h3") as { type: string; text: string }[];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 28, alignItems: "start" }}>
+    <div className="dev-docs-article" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 28, alignItems: "start" }}>
+    <style>{`@media (max-width: 768px) { .dev-docs-article { grid-template-columns: 1fr !important; } .dev-docs-toc { display: none !important; } }`}</style>
       <article>
         <button
           onClick={onBack}
@@ -689,7 +690,7 @@ function ArticleView({ articleKey, onBack }: { articleKey: string; onBack: () =>
       </article>
 
       {headings.length > 0 && (
-        <div style={{ position: "sticky", top: 80 }}>
+        <div className="dev-docs-toc" style={{ position: "sticky", top: 80 }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>On this page</p>
           {headings.map((h, i) => (
             <p key={i} style={{ fontSize: 12, color: "#6B7280", marginBottom: 8, paddingLeft: h.type === "h3" ? 10 : 0, lineHeight: 1.4 }}>
@@ -764,7 +765,8 @@ export default function DocsPage() {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "start" }}>
+      <style>{`@media (max-width: 768px) { .dev-docs-grid { grid-template-columns: 1fr !important; } .dev-docs-sidebar { display: none !important; } }`}</style>
+      <div className="dev-docs-grid" style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "start" }}>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {filteredSections.map(section => (
@@ -826,7 +828,7 @@ export default function DocsPage() {
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, position: "sticky", top: 80 }}>
+        <div className="dev-docs-sidebar" style={{ display: "flex", flexDirection: "column", gap: 14, position: "sticky", top: 80 }}>
           <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: "1px solid #F3F4F6" }}>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540" }}>Popular Articles</p>
