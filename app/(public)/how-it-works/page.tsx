@@ -265,8 +265,8 @@ export default function HowItWorksPage() {
                 <span style={{ color: "#00D4FF" }}>financial identity.</span>
               </h1>
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 480 }}>
-                Creditlinker ingests your real banking, ledger, and operational data — normalizes,
-                enriches, and reconciles it — then computes six independent financial health dimensions
+                Creditlinker ingests your real banking, ledger, and operational data. It normalizes,
+                enriches, and reconciles it, then computes six independent financial health dimensions
                 that capital providers use to evaluate your business on how it actually operates.
               </p>
               <div className="hiw-hero-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
@@ -369,7 +369,7 @@ export default function HowItWorksPage() {
               />
               <TimelineStep n="3" icon={<Cpu size={18} aria-hidden="true" />}
                 title="Pipeline and feature store update automatically"
-                desc="Our engine ingests, normalizes, reconciles, and enriches your data. A dedicated financial feature store computes 40+ derived metrics — monthly revenue growth, operating margin, cash reserve ratio, receivable turnover, expense ratios — stored and versioned so scoring models never recalculate from scratch."
+                desc="Our engine ingests, normalizes, reconciles, and enriches your data. A dedicated financial feature store computes 40+ derived metrics: monthly revenue growth, operating margin, cash reserve ratio, receivable turnover, and expense ratios. These are stored and versioned so scoring models never recalculate from scratch."
                 detail="Typical runtime: under 90 seconds"
               />
               <TimelineStep n="4" icon={<ShieldCheck size={18} aria-hidden="true" />}
@@ -505,7 +505,7 @@ export default function HowItWorksPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {[
                   { title: "Permission-level control",  desc: "Grant score-only, full identity, or transaction detail — independently per provider. Mix and match based on your comfort level." },
-                  { title: "Time-bounded expiry",       desc: "Every grant has a hard expiry date. Access ends automatically — 7, 30, or 90 days. No manual cleanup required." },
+                  { title: "Time-bounded expiry",       desc: "Every grant has a hard expiry date. Access ends automatically at 7, 30, or 90 days. No manual cleanup required." },
                   { title: "Instant revocation",        desc: "Revoke any provider's access in one action. They lose visibility immediately, in real time." },
                   { title: "Immutable audit log",       desc: "Every data access is logged with actor, timestamp, and action type. You always know exactly who saw what and when." },
                 ].map((f) => (
@@ -536,7 +536,7 @@ export default function HowItWorksPage() {
                 id="fin-journey-heading"
                 badge={<Badge><Landmark size={10} aria-hidden="true" /> For capital providers</Badge>}
                 title={<>Evaluate businesses<br />with verified evidence.</>}
-                sub="Whether you're a financer, equipment financier, trade supplier, or revenue financer — Creditlinker gives you access to six-dimensional financial identities built from real data."
+                sub="Whether you're a financer, equipment financier, trade supplier, or revenue financer. Creditlinker gives you access to six-dimensional financial identities built from real data."
               />
               <TimelineStep n="1" icon={<Landmark size={18} aria-hidden="true" />}
                 title="Register as an institution"
