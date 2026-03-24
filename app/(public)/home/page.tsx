@@ -57,7 +57,7 @@ function IdentityCard() {
       </div>
 
       {/* Score + dimensions */}
-      <div className="home-card-inner" style={{ padding: "22px 24px", display: "flex", gap: 22, alignItems: "center" }}>
+      <div className="home-card-inner" style={{ padding: "22px 24px", display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
         {/* Ring */}
         <div style={{ flexShrink: 0, position: "relative", width: 124, height: 124 }}>
           <svg width="124" height="124" viewBox="0 0 124 124" style={{ transform: "rotate(-90deg)" }}>
@@ -135,7 +135,13 @@ export default function HomePage() {
           align-items: center;
         }
         .home-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
-        .trust-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; }
+        .home-ticker { display: flex; align-items: center; width: max-content; animation: ticker-scroll 40s linear infinite; }
+        .home-ticker:hover { animation-play-state: paused; }
+        .home-ticker-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #9CA3AF; white-space: nowrap; padding: 0 20px; transition: color 0.2s; }
+        .home-ticker-item:hover { color: #0A2540; }
+        .home-ticker-dot { width: 5px; height: 5px; border-radius: 50%; background: #00D4FF; flex-shrink: 0; box-shadow: 0 0 8px 2px rgba(0,212,255,0.8); animation: dot-pulse 2s ease-in-out infinite; animation-delay: var(--dot-delay, 0s); }
+        @keyframes dot-pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.4); } }
+        @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
         @media (max-width: 960px) {
           .home-grid { grid-template-columns: 1fr !important; gap: 36px !important; }
@@ -143,7 +149,7 @@ export default function HomePage() {
           .home-grid-inner { padding: 56px 24px !important; }
           .home-hero-section { min-height: auto !important; }
         }
-        @media (max-width: 600px) {
+        @media (max-width: 680px) {
           .home-grid-inner { padding: 40px 20px 44px !important; }
           /* Hide card on mobile — headline carries the story */
           .home-card-wrap { display: none !important; }
@@ -159,6 +165,8 @@ export default function HomePage() {
           /* Problem section */
           .home-problem-section { padding: 44px 20px !important; }
           .home-problem-body { display: none !important; }
+          /* How it works section */
+          .home-how-section { padding: 44px 20px !important; }
           /* CTA section */
           .home-cta-section { padding: 44px 20px !important; }
           .home-cta-body { font-size: 15px !important; }
@@ -175,7 +183,7 @@ export default function HomePage() {
           minHeight: "calc(100vh - 64px)",
           display: "flex", alignItems: "center",
           background: "radial-gradient(ellipse 800px 600px at 80% 40%, rgba(0,212,255,0.06) 0%, transparent 65%), #ffffff",
-          position: "relative", overflow: "hidden",
+          position: "relative", overflow: "hidden", overflowX: "hidden",
         }}
       >
         {/* Dot grid */}
@@ -190,19 +198,19 @@ export default function HomePage() {
           style={{ position: "relative", maxWidth: 1200, margin: "0 auto", padding: "80px 32px", width: "100%", boxSizing: "border-box" }}
         >
           {/* ── LEFT ── */}
-          <div>
+          <div style={{ minWidth: 0 }}>
             {/* Eyebrow */}
             <div
               className="animate-fade-up home-eyebrow"
               style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
+                display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", maxWidth: "100%", boxSizing: "border-box" as const,
                 background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.2)",
                 color: "#0A5060", fontSize: 12, fontWeight: 700,
                 padding: "5px 14px", borderRadius: 9999, marginBottom: 28,
               }}
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00D4FF", flexShrink: 0, display: "inline-block", animation: "pulse-dot 2s ease-in-out infinite" }} />
-              Your business has a financial story. Start building it.
+              Financial identity for businesses
             </div>
 
             {/* Headline */}
@@ -216,6 +224,9 @@ export default function HomePage() {
                 marginBottom: 28,
                 fontSize: "clamp(42px, 5.5vw, 72px)",
                 letterSpacing: "-0.045em",
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                maxWidth: "100%",
               }}
             >
               Capital doesn&apos;t know<br />
@@ -243,27 +254,10 @@ export default function HomePage() {
                 maxWidth: 500,
               }}
             >
-              Creditlinker is your business&apos;s{" "}
-              <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> — a verified
-              profile built from your business transactions, contracts, ledger records,
-              and payment history. Every capital provider sees exactly how your business
-              operates. Not a static score. A living profile that gets stronger every
-              month you run your business.
-            </p>
-            <p
-              className="animate-fade-up delay-200"
-              style={{
-                fontSize: "clamp(14px, 1.6vw, 16px)",
-                color: "#6B7280",
-                lineHeight: 1.65,
-                marginBottom: 40,
-                maxWidth: 500,
-                borderLeft: "2px solid #00D4FF",
-                paddingLeft: 14,
-              }}
-            >
-              Accounting software tracks your finances.{" "}
-              <strong style={{ color: "#0A2540" }}>Creditlinker turns them into something capital providers trust.</strong>
+              Creditlinker builds a verified{" "}
+              <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> from your business
+              transaction history and connects you to capital providers who can act on it.
+              Your profile updates every month as your business operates.
             </p>
 
             {/* CTAs */}
@@ -318,12 +312,17 @@ export default function HomePage() {
             {/* Social proof */}
             <div className="animate-fade-up delay-400">
               <p className="trust-label" style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                Used by businesses with accounts at
+                Works with accounts at
               </p>
-              <div className="trust-row">
-                {["Access Bank", "GTBank", "UBA", "Zenith Bank", "Stanbic IBTC", "Polaris", "First Bank"].map(b => (
-                  <span key={b} style={{ fontSize: 13, fontWeight: 600, color: "#9CA3AF" }}>{b}</span>
-                ))}
+              <div style={{ overflow: "hidden", position: "relative", width: "100%", maskImage: "linear-gradient(90deg, transparent 0%, black 15%, black 85%, transparent 100%)", WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 15%, black 85%, transparent 100%)" }}>
+                <div className="home-ticker">
+                  {["Access Bank", "GTBank", "UBA", "Zenith Bank", "First Bank", "Fidelity Bank", "Stanbic IBTC", "Standard Chartered", "Sterling Bank", "Union Bank", "Unity Bank", "FCMB", "Ecobank", "Keystone Bank", "Polaris Bank", "Providus Bank", "Wema Bank", "ALAT by Wema", "Kuda Bank", "Moniepoint", "Opay", "Globus Bank", "Jaiz Bank", "TAJ Bank", "Titan Trust Bank", "SunTrust Bank", "AltBank", "VULTe", "Access Bank", "GTBank", "UBA", "Zenith Bank", "First Bank", "Fidelity Bank", "Stanbic IBTC", "Standard Chartered", "Sterling Bank", "Union Bank", "Unity Bank", "FCMB", "Ecobank", "Keystone Bank", "Polaris Bank", "Providus Bank", "Wema Bank", "ALAT by Wema", "Kuda Bank", "Moniepoint", "Opay", "Globus Bank", "Jaiz Bank", "TAJ Bank", "Titan Trust Bank", "SunTrust Bank", "AltBank", "VULTe"].map((b, i) => (
+                    <span key={i} className="home-ticker-item">
+                      <span className="home-ticker-dot" />
+                      {b}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -357,11 +356,8 @@ export default function HomePage() {
             <span style={{ color: "#00D4FF" }}>Creditlinker changes that.</span>
           </h2>
           <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
-            Traditional credit systems demand formal records, audited accounts, and paperwork most
-            SMEs don&apos;t have — even when the business is thriving. So capital goes to the few
-            who already have it. Creditlinker reads your real financial behavior and builds a verified
-            identity financers can act on,{" "}
-            <strong style={{ color: "rgba(255,255,255,0.75)" }}>making your business visible to capital for the first time.</strong>
+            Most Nigerian SMEs don&apos;t have audited accounts or formal credit history, but they have real financial activity. Creditlinker reads that activity and turns it into something{" "}
+            <strong style={{ color: "rgba(255,255,255,0.75)" }}>capital providers can evaluate and act on.</strong>
           </p>
           <Link
             href="/what-is-financial-identity"
@@ -388,7 +384,8 @@ export default function HomePage() {
       {/* ══ WHAT HAPPENS NEXT ══════════════════════════════════════ */}
       <section
         aria-label="How it works"
-        style={{ padding: "88px 32px", background: "#F8FAFC" }}
+        className="home-how-section"
+        style={{ padding: "88px 32px", background: "#F8FAFC", overflowX: "hidden" }}
       >
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
           <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", color: "#00A8CC", textTransform: "uppercase", marginBottom: 16 }}>
@@ -399,15 +396,14 @@ export default function HomePage() {
             fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-0.04em",
             lineHeight: 1.1, marginBottom: 56,
           }}>
-            You&apos;re not just getting an ID.<br />
-            <span style={{ color: "#00D4FF" }}>You&apos;re building an asset.</span>
+            How it works.
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 32 }}>
             {[
               { step: "01", title: "Connect", body: "Link your bank accounts and financial records. Takes about 2 minutes." },
               { step: "02", title: "Analyze", body: "We process your real transaction history and business activity." },
-              { step: "03", title: "Get your ID", body: "Your Creditlinker ID is created — verified and ready to share with capital providers." },
-              { step: "04", title: "Compound", body: "Every month you operate, your profile gets stronger. More data = more trust = more access." },
+              { step: "03", title: "Get your ID", body: "Your Creditlinker ID is created, verified and ready to share with capital providers." },
+              { step: "04", title: "Compound", body: "Every month you operate, your profile adds more verified data. Capital providers see a deeper, more reliable picture of your business." },
             ].map(item => (
               <div key={item.step} style={{ textAlign: "left" }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "#00D4FF", letterSpacing: "0.12em", display: "block", marginBottom: 12 }}>{item.step}</span>
@@ -416,9 +412,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <p style={{ marginTop: 52, fontSize: 15, fontStyle: "italic", color: "#9CA3AF" }}>
-            Not a one-time score. A living financial identity that compounds with every transaction.
-          </p>
+
         </div>
       </section>
 
@@ -441,9 +435,7 @@ export default function HomePage() {
             <span style={{ color: "#00D4FF" }}>in minutes.</span>
           </h2>
           <p className="home-cta-body" style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.75, marginBottom: 40, maxWidth: 480, margin: "0 auto 40px" }}>
-            Connect your accounts. We generate your Creditlinker ID immediately — then keep it growing
-            automatically as your business runs. The longer you operate, the stronger your profile,
-            and the more capital becomes accessible to you.
+            Connect your bank accounts and we generate your Creditlinker ID from your real transaction history. Share it with capital providers directly from your dashboard.
           </p>
           <div className="home-cta-btns" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
