@@ -257,7 +257,7 @@ export default function HomePage() {
               Creditlinker builds a verified{" "}
               <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> from your business
               transaction history and connects you to capital providers who can act on it.
-              Your profile updates every month as your business operates.
+              Your profile updates continuously as your business operates.
             </p>
 
             {/* CTAs */}
