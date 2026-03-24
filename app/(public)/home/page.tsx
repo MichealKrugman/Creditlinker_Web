@@ -360,7 +360,7 @@ export default function HomePage() {
             Traditional credit systems demand formal records, audited accounts, and paperwork most
             SMEs don&apos;t have — even when the business is thriving. So capital goes to the few
             who already have it. Creditlinker reads your real financial behavior and builds a verified
-            identity financers can act on —{" "}
+            identity financers can act on,{" "}
             <strong style={{ color: "rgba(255,255,255,0.75)" }}>making your business visible to capital for the first time.</strong>
           </p>
           <Link

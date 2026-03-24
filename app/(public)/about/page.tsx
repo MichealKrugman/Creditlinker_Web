@@ -100,17 +100,26 @@ export default function AboutPage() {
     <>
       <style>{`
         @media (max-width: 900px) {
-          .ab-hero-grid   { grid-template-columns: 1fr !important; }
-          .ab-stats-grid  { grid-template-columns: 1fr 1fr !important; }
-          .ab-val-grid    { grid-template-columns: 1fr 1fr !important; }
-          .ab-team-grid   { grid-template-columns: 1fr 1fr !important; }
-          .ab-problem-grid{ grid-template-columns: 1fr !important; }
+          .ab-hero-grid    { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .ab-stats-grid   { grid-template-columns: 1fr 1fr !important; }
+          .ab-val-grid     { grid-template-columns: 1fr 1fr !important; }
+          .ab-team-grid    { grid-template-columns: 1fr 1fr !important; }
+          .ab-problem-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .ab-section      { padding: 60px 0 !important; }
+          .ab-pad          { padding: 0 20px !important; }
         }
         @media (max-width: 600px) {
-          .ab-stats-grid  { grid-template-columns: 1fr !important; }
-          .ab-val-grid    { grid-template-columns: 1fr !important; }
-          .ab-team-grid   { grid-template-columns: 1fr !important; }
-          .ab-cta-btns    { flex-direction: column !important; }
+          .ab-stats-grid   { grid-template-columns: 1fr 1fr !important; }
+          .ab-val-grid     { grid-template-columns: 1fr !important; }
+          .ab-team-grid    { grid-template-columns: 1fr !important; }
+          .ab-cta-btns     { flex-direction: column !important; align-items: stretch !important; }
+          .ab-cta-btns a   { justify-content: center !important; }
+          .ab-section      { padding: 48px 0 !important; }
+          .ab-pad          { padding: 0 16px !important; }
+          .ab-compare-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+          .ab-compare-wrap > div { min-width: 600px !important; }
+          .ab-hero-pad     { padding: 64px 16px !important; }
+          .ab-hiring       { flex-direction: column !important; }
         }
       `}</style>
 
@@ -120,7 +129,7 @@ export default function AboutPage() {
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "-20%", right: "-5%", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 65%)" }} />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", bottom: "-15%", left: "5%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(129,140,248,0.06) 0%, transparent 65%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="ab-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="ab-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 520px", gap: 80, alignItems: "center" }}>
 
             {/* Left */}
@@ -136,9 +145,7 @@ export default function AboutPage() {
                 <span style={{ color: "#00D4FF" }}>access to capital.</span>
               </h1>
               <p style={{ fontSize: 17, color: "rgba(255,255,255,0.55)", lineHeight: 1.78, marginBottom: 36, maxWidth: 520 }}>
-                Creditlinker was founded on a simple observation: African SMEs are financially active,
-                operationally real, and chronically underserved by traditional credit infrastructure.
-                We're building the layer that fixes that.
+                Creditlinker was founded on a simple observation: SMEs globally are financially active, operationally real, and chronically underserved by traditional credit infrastructure. We started by solving this in Africa, where the gap is most visible, and we are building the infrastructure layer that fixes it everywhere.
               </p>
               <div className="ab-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 <Link href="/for-businesses" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
@@ -154,7 +161,7 @@ export default function AboutPage() {
             <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32 }}>
               <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "rgba(0,212,255,0.6)", textTransform: "uppercase", marginBottom: 16 }}>Our mission</p>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(18px,2vw,24px)", color: "white", lineHeight: 1.45, letterSpacing: "-0.025em", marginBottom: 28 }}>
-                "Transform fragmented financial data into persistent, verifiable financial identities — and connect those identities to the capital they deserve."
+                &ldquo;Transform fragmented financial data into persistent, verifiable financial identities and connect those identities to the capital they deserve.&rdquo;
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 0, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
@@ -178,7 +185,7 @@ export default function AboutPage() {
 
       {/* ══ STATS ══════════════════════════════════════════════════ */}
       <section aria-label="Platform statistics" style={{ padding: "72px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="ab-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="ab-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
             <StatPill value="14" label="Financing types supported" />
             <StatPill value="6" label="Independent financial dimensions" />
@@ -189,8 +196,8 @@ export default function AboutPage() {
       </section>
 
       {/* ══ THE PROBLEM WE SOLVE ══════════════════════════════════ */}
-      <section aria-labelledby="problem-heading" style={{ padding: "88px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="problem-heading" className="ab-section" style={{ padding: "88px 0", background: "white" }}>
+        <div className="ab-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <div className="ab-problem-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
 
             {/* Left */}
@@ -205,7 +212,7 @@ export default function AboutPage() {
                 {[
                   { icon: <BarChart3 size={16} />, title: "Financial activity exists, but isn't structured", desc: "Businesses transact every day — payments in, expenses out, recurring suppliers. That data lives in bank statements that nobody reads systematically." },
                   { icon: <Globe2 size={16} />,    title: "Credit bureaus don't reflect operational reality", desc: "Bureau records capture formal credit events. They miss cash flow, revenue patterns, expense discipline, and liquidity — the signals that actually predict repayment." },
-                  { icon: <Lock size={16} />,      title: "Capital providers have no trusted data layer", desc: "Financers operate on unverified financials, guesswork, and collateral — because there's no infrastructure that turns real financial activity into a verifiable identity." },
+                  { icon: <Lock size={16} />,      title: "Capital providers have no trusted data layer", desc: "Financers operate on unverified financials, guesswork, and collateral, because there is no infrastructure that turns real financial activity into a verifiable identity." },
                 ].map((item) => (
                   <div key={item.title} style={{ display: "flex", gap: 16, padding: "20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 14 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
@@ -225,7 +232,7 @@ export default function AboutPage() {
               <SectionHeading
                 badge={<Badge><CheckCircle2 size={10} aria-hidden="true" /> What we built</Badge>}
                 title={<>Financial identity<br />infrastructure.</>}
-                sub="Creditlinker is the data layer between businesses and capital — turning raw financial activity into a verified, multidimensional identity that any capital provider can query with consent."
+                sub="Creditlinker is the data layer between businesses and capital, turning raw financial activity into a verified, multidimensional identity that any capital provider can query with consent."
               />
 
               {/* Pipeline visualization */}
@@ -261,11 +268,11 @@ export default function AboutPage() {
       </section>
 
       {/* ══ OUR VALUES ═══════════════════════════════════════════ */}
-      <section aria-labelledby="values-heading" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-labelledby="values-heading" className="ab-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "20%", right: "-8%", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+        <div className="ab-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="values-heading"
             badge={<Badge><Heart size={10} aria-hidden="true" /> What we stand for</Badge>}
@@ -286,17 +293,18 @@ export default function AboutPage() {
       </section>
 
       {/* ══ HOW WE'RE DIFFERENT ══════════════════════════════════ */}
-      <section aria-labelledby="diff-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="diff-heading" className="ab-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="ab-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="diff-heading"
             badge={<Badge><BarChart3 size={10} aria-hidden="true" /> Why we&apos;re different</Badge>}
             title={<>Not a financer.<br />Not a credit bureau.<br />Infrastructure.</>}
-            sub="Creditlinker doesn't extend capital or adjudicate credit. It builds the data layer that makes better capital decisions possible."
+            sub="Creditlinker does not extend capital or adjudicate credit. It builds the data layer that makes better capital decisions possible."
             center
           />
 
           {/* Comparison table */}
+          <div className="ab-compare-wrap">
           <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
             {/* Header */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", background: "#0A2540", padding: "14px 24px" }}>
@@ -332,28 +340,26 @@ export default function AboutPage() {
               );
             })}
           </div>
+          </div>
         </div>
       </section>
 
       {/* ══ TEAM ════════════════════════════════════════════════ */}
-      <section aria-labelledby="team-heading" style={{ padding: "88px 0", background: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="team-heading" className="ab-section" style={{ padding: "88px 0", background: "white" }}>
+        <div className="ab-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="team-heading"
             badge={<Badge><Users size={10} aria-hidden="true" /> The team</Badge>}
-            title={<>Built by people who<br />understand both sides.</>}
-            sub="Our team brings together financial infrastructure, open banking, credit modeling, and product experience — all applied to the African market."
+            title={<>Founded on a clear<br />mission.</>}
+            sub="Creditlinker is built by someone who understands both sides of the problem: the businesses that need capital and the infrastructure that should connect them."
             center
           />
-          <div className="ab-team-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 48 }}>
-            <TeamCard initials="AO" name="Adewale Okafor" role="Founder & CEO" bg="linear-gradient(135deg,#0A2540,#1a4a7a)" />
-            <TeamCard initials="FN" name="Fatima Nwosu"   role="CTO"          bg="linear-gradient(135deg,#064e3b,#0A5060)" />
-            <TeamCard initials="CE" name="Chidi Eze"      role="Head of Data & Scoring" bg="linear-gradient(135deg,#4c1d95,#1e3a8a)" />
-            <TeamCard initials="AB" name="Amina Bello"    role="Head of Partnerships"   bg="linear-gradient(135deg,#7c2d12,#92400e)" />
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 48 }}>
+            <TeamCard initials="GM" name="Giwa Micheal" role="Founder" bg="linear-gradient(135deg,#0A2540,#1a4a7a)" />
           </div>
 
           {/* Hiring callout */}
-          <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: "28px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
+          <div className="ab-hiring" style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: "28px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
             <div>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "#0A2540", marginBottom: 6, letterSpacing: "-0.02em" }}>We&apos;re growing the team.</p>
               <p style={{ fontSize: 14, color: "#6B7280" }}>Looking for engineers, credit analysts, and business development leads who care about African SME infrastructure.</p>
@@ -366,8 +372,8 @@ export default function AboutPage() {
       </section>
 
       {/* ══ FAQ (Shadcn Accordion) ════════════════════════════════ */}
-      <section aria-labelledby="faq-heading" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 32px" }}>
+      <section aria-labelledby="faq-heading" className="ab-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
+        <div className="ab-pad" style={{ maxWidth: 860, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="faq-heading"
             badge={<Badge>Questions</Badge>}
@@ -426,11 +432,11 @@ export default function AboutPage() {
       </div>
 
       {/* ══ CTA ══════════════════════════════════════════════════ */}
-      <section aria-label="Call to action" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-label="Call to action" className="ab-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", inset: 0, background: "radial-gradient(ellipse 800px 400px at 50% 50%, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
 
-        <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
+        <div className="ab-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <div style={{ marginBottom: 16 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", padding: "5px 14px", borderRadius: 9999, fontSize: 12, fontWeight: 600 }}>
               Get started

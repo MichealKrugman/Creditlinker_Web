@@ -17,6 +17,9 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
+  const AUTH_ROUTES = ['/login', '/register'];
+  const isAuthPage = AUTH_ROUTES.includes(pathname);
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 16);
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -26,6 +29,8 @@ export function Navbar() {
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  if (isAuthPage) return null;
 
   return (
     <>
@@ -192,6 +197,7 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
+              onClick={() => setMenuOpen(false)}
               style={{
                 padding: 'var(--space-4)',
                 fontSize: 'var(--text-lg)',
@@ -205,8 +211,8 @@ export function Navbar() {
             </Link>
           ))}
           <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <Link href="/login" style={{ padding: 'var(--space-4)', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontWeight: 600, color: 'var(--color-primary)' }}>Log in</Link>
-            <Link href="/register" style={{ padding: 'var(--space-4)', textAlign: 'center', background: 'var(--color-primary)', borderRadius: 'var(--radius-md)', fontWeight: 600, color: '#fff' }}>Get Started</Link>
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding: 'var(--space-4)', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontWeight: 600, color: 'var(--color-primary)' }}>Log in</Link>
+            <Link href="/register" onClick={() => setMenuOpen(false)} style={{ padding: 'var(--space-4)', textAlign: 'center', background: 'var(--color-primary)', borderRadius: 'var(--radius-md)', fontWeight: 600, color: '#fff' }}>Get Started</Link>
           </div>
         </div>
       )}

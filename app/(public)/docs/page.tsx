@@ -3,124 +3,27 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  BookOpen, Zap, Key, Code2, Webhook, Database, ShieldCheck, Package,
-  ArrowRight, ChevronRight, CheckCircle2, Copy, Check, ExternalLink,
-  Layers, Lock, RefreshCw, AlertCircle, FileText, BarChart3, Globe2,
-  Terminal, ArrowUpRight, Search, Menu, X,
+  BookOpen, ChevronRight, CheckCircle2, ExternalLink,
+  Layers, Lock, AlertCircle, BarChart3,
+  ShieldCheck, Database, Eye, Search, Menu, X,
+  HelpCircle, Zap, RefreshCw, UserCheck, Globe2,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────
    PRIMITIVES
 ───────────────────────────────────────────────────────── */
 
-function GridBg({ light = false }: { light?: boolean }) {
-  const c = light ? "rgba(10,37,64,0.03)" : "rgba(255,255,255,0.025)";
-  return (
-    <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", inset: 0, backgroundImage: `linear-gradient(${c} 1px,transparent 1px),linear-gradient(90deg,${c} 1px,transparent 1px)`, backgroundSize: "48px 48px" }} />
-  );
-}
-
-function InlineBadge({ children, color = "#00D4FF" }: { children: React.ReactNode; color?: string }) {
-  return (
-    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color, background: `${color}15`, border: `1px solid ${color}30`, padding: "2px 8px", borderRadius: 5, fontFamily: "monospace", whiteSpace: "nowrap" as const }}>
-      {children}
-    </span>
-  );
-}
-
-function MethodBadge({ method }: { method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE" }) {
-  const colors: Record<string, { bg: string; color: string }> = {
-    GET:    { bg: "rgba(56,189,248,0.12)",  color: "#38BDF8" },
-    POST:   { bg: "rgba(16,185,129,0.12)",  color: "#10B981" },
-    PATCH:  { bg: "rgba(245,158,11,0.12)",  color: "#F59E0B" },
-    PUT:    { bg: "rgba(129,140,248,0.12)", color: "#818CF8" },
-    DELETE: { bg: "rgba(239,68,68,0.12)",   color: "#EF4444" },
-  };
-  const m = colors[method];
-  return (
-    <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: m.color, background: m.bg, padding: "2px 8px", borderRadius: 5, fontFamily: "monospace", flexShrink: 0 }}>
-      {method}
-    </span>
-  );
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: copied ? "#10B981" : "rgba(255,255,255,0.35)", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, transition: "color 0.15s" }}
-      aria-label="Copy code"
-    >
-      {copied ? <Check size={13} /> : <Copy size={13} />}
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
-}
-
-function CodeBlock({ title, lang, code, dark = true }: { title?: string; lang: string; code: string; dark?: boolean }) {
-  return (
-    <div className="docs-code-block" style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#E5E7EB"}`, background: dark ? "#0d1117" : "#F9FAFB", marginBottom: 20 }}>
-      {title && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", background: dark ? "rgba(255,255,255,0.04)" : "white", borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "#E5E7EB"}` }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: dark ? "rgba(255,255,255,0.4)" : "#6B7280", fontFamily: "monospace" }}>{title}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: dark ? "rgba(0,212,255,0.6)" : "#0A5060", background: dark ? "rgba(0,212,255,0.08)" : "rgba(0,212,255,0.06)", border: `1px solid ${dark ? "rgba(0,212,255,0.15)" : "rgba(0,212,255,0.18)"}`, padding: "1px 7px", borderRadius: 4 }}>{lang}</span>
-            <CopyButton text={code} />
-          </div>
-        </div>
-      )}
-      <pre style={{ margin: 0, padding: "18px 20px", overflowX: "auto", fontSize: 13, lineHeight: 1.72, color: dark ? "#e6edf3" : "#0A2540", fontFamily: "'Fira Code','Cascadia Code','JetBrains Mono',Menlo,monospace" }}>
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-function DocTabs({ tabs }: { tabs: { label: string; content: React.ReactNode }[] }) {
-  const [active, setActive] = useState(0);
-  return (
-    <div>
-      <div className="docs-tabs-bar" style={{ display: "flex", borderBottom: "1px solid #E5E7EB", marginBottom: 20, gap: 0 }}>
-        {tabs.map((t, i) => (
-          <button key={t.label} onClick={() => setActive(i)} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 600, color: active === i ? "#0A2540" : "#9CA3AF", background: "none", border: "none", borderBottom: active === i ? "2px solid #0A2540" : "2px solid transparent", marginBottom: -1, cursor: "pointer", transition: "color 0.15s" }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {tabs[active].content}
-    </div>
-  );
-}
-
-function Callout({ type = "info", children }: { type?: "info" | "warning" | "tip" | "danger"; children: React.ReactNode }) {
+function Callout({ type = "info", children }: { type?: "info" | "warning" | "tip"; children: React.ReactNode }) {
   const styles = {
     info:    { bg: "#EFF6FF", border: "#BFDBFE", color: "#1E40AF", icon: <AlertCircle size={14} /> },
     warning: { bg: "#FFFBEB", border: "#FDE68A", color: "#92400E", icon: <AlertCircle size={14} /> },
     tip:     { bg: "#ECFDF5", border: "#A7F3D0", color: "#065F46", icon: <CheckCircle2 size={14} /> },
-    danger:  { bg: "#FEF2F2", border: "#FECACA", color: "#991B1B", icon: <AlertCircle size={14} /> },
   };
   const s = styles[type];
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", gap: 10, marginBottom: 20 }}>
       <span style={{ color: s.color, flexShrink: 0, marginTop: 1 }}>{s.icon}</span>
-      <div style={{ fontSize: 13, color: s.color, lineHeight: 1.7 }}>{children}</div>
-    </div>
-  );
-}
-
-function EndpointRow({ method, path, desc, auth, badge }: { method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; path: string; desc: string; auth: string; badge?: string }) {
-  return (
-    <div className="docs-endpoint-row" style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 0", borderBottom: "1px solid #F3F4F6" }}>
-      <MethodBadge method={method} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
-          <code className="docs-endpoint-path" style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{path}</code>
-          {badge && <InlineBadge color="#818CF8">{badge}</InlineBadge>}
-        </div>
-        <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{desc}</p>
-      </div>
-      <span className="docs-endpoint-auth" style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 5, flexShrink: 0, fontFamily: "monospace", whiteSpace: "nowrap" as const }}>{auth}</span>
+      <div style={{ fontSize: 14, color: s.color, lineHeight: 1.75 }}>{children}</div>
     </div>
   );
 }
@@ -150,7 +53,7 @@ function UL({ items }: { items: string[] }) {
     <ul style={{ paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
       {items.map((item) => (
         <li key={item} style={{ display: "flex", gap: 10, fontSize: 14, color: "#4B5563", lineHeight: 1.65 }}>
-          <ChevronRight size={14} style={{ color: "#00D4FF", flexShrink: 0, marginTop: 3 }} />
+          <CheckCircle2 size={14} style={{ color: "#00D4FF", flexShrink: 0, marginTop: 3 }} />
           {item}
         </li>
       ))}
@@ -158,88 +61,105 @@ function UL({ items }: { items: string[] }) {
   );
 }
 
+function StepCard({ number, title, desc }: { number: string; title: string; desc: string }) {
+  return (
+    <div style={{ display: "flex", gap: 16, padding: "20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 14 }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{number}</div>
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", marginBottom: 4 }}>{title}</p>
+        <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7, margin: 0 }}>{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function DimensionCard({ name, color, desc }: { name: string; color: string; desc: string }) {
+  return (
+    <div style={{ display: "flex", gap: 14, padding: "16px 20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
+      <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 5 }} />
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", marginBottom: 4 }}>{name}</p>
+        <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65, margin: 0 }}>{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function QA({ q, a }: { q: string; a: React.ReactNode }) {
+  return (
+    <div style={{ paddingBottom: 24, marginBottom: 24, borderBottom: "1px solid #F3F4F6" }}>
+      <p style={{ fontSize: 15, fontWeight: 700, color: "#0A2540", marginBottom: 8 }}>{q}</p>
+      <div style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.8 }}>{a}</div>
+    </div>
+  );
+}
+
 const NAV = [
   {
-    group: "Getting Started",
-    icon: <Zap size={13} />,
+    group: "Overview",
+    icon: <BookOpen size={13} />,
     items: [
-      { id: "introduction",    label: "Introduction"           },
-      { id: "quickstart",      label: "Quickstart"             },
-      { id: "authentication",  label: "Authentication"         },
-      { id: "base-url",        label: "Base URL & Versioning"  },
-      { id: "errors",          label: "Errors & Status Codes"  },
+      { id: "introduction",   label: "What is Creditlinker?"    },
+      { id: "who-is-it-for",  label: "Who is it for?"           },
+      { id: "how-it-works",   label: "How it works"             },
     ],
   },
   {
-    group: "Core Concepts",
-    icon: <Layers size={13} />,
+    group: "Your Financial Profile",
+    icon: <BarChart3 size={13} />,
     items: [
-      { id: "financial-identity",  label: "Financial Identity"       },
-      { id: "dimensions",          label: "6 Financial Dimensions"   },
-      { id: "pipeline",            label: "Data Pipeline"            },
-      { id: "feature-store",       label: "Feature Store"            },
-      { id: "data-quality",        label: "Data Quality Score"       },
-      { id: "provenance",          label: "Data Provenance"          },
+      { id: "what-is-profile",    label: "What is a profile?"         },
+      { id: "six-dimensions",     label: "The 6 health dimensions"    },
+      { id: "profile-quality",    label: "Profile quality"            },
+      { id: "profile-updates",    label: "When your profile updates"  },
     ],
   },
   {
-    group: "Data Sources",
+    group: "How We Collect Data",
     icon: <Database size={13} />,
     items: [
-      { id: "mono-openbanking",  label: "Mono Open Banking"      },
-      { id: "csv-upload",        label: "CSV Import"             },
-      { id: "pdf-upload",        label: "PDF Bank Statements"    },
-      { id: "manual-entry",      label: "Manual Entry"           },
+      { id: "data-overview",    label: "What data we use"          },
+      { id: "bank-connection",  label: "Connecting your bank"      },
+      { id: "statements",       label: "Uploading statements"      },
+      { id: "data-we-dont-use", label: "What we don't collect"     },
     ],
   },
   {
-    group: "Consent & Access",
+    group: "How Lenders Evaluate You",
+    icon: <Eye size={13} />,
+    items: [
+      { id: "lender-view",       label: "What lenders see"           },
+      { id: "discovery",         label: "How lenders find you"       },
+      { id: "evaluation",        label: "The evaluation process"     },
+    ],
+  },
+  {
+    group: "Your Consent & Control",
     icon: <Lock size={13} />,
     items: [
-      { id: "consent-model",     label: "Consent Model"          },
-      { id: "granting-consent",  label: "Granting Consent"       },
-      { id: "revoking-consent",  label: "Revoking Consent"       },
-      { id: "permissions",       label: "Permission Scopes"      },
-      { id: "access-logs",       label: "Access Logs"            },
+      { id: "consent-explained",  label: "How consent works"         },
+      { id: "granting-access",    label: "Granting access"           },
+      { id: "revoking-access",    label: "Revoking access"           },
+      { id: "what-lenders-see",   label: "Permission levels"         },
+      { id: "access-history",     label: "Viewing access history"    },
     ],
   },
   {
-    group: "API Reference",
-    icon: <Code2 size={13} />,
-    items: [
-      { id: "api-business",      label: "Business API"           },
-      { id: "api-institution",   label: "Institution API"        },
-      { id: "api-partner",       label: "Partner API"            },
-      { id: "api-admin",         label: "Admin API"              },
-    ],
-  },
-  {
-    group: "Webhooks",
-    icon: <Webhook size={13} />,
-    items: [
-      { id: "webhook-overview",  label: "Overview"               },
-      { id: "webhook-events",    label: "Event Reference"        },
-      { id: "webhook-security",  label: "Signature Verification" },
-      { id: "webhook-retries",   label: "Retries & Delivery"     },
-    ],
-  },
-  {
-    group: "SDK",
-    icon: <Package size={13} />,
-    items: [
-      { id: "sdk-install",       label: "Installation"           },
-      { id: "sdk-typescript",    label: "TypeScript SDK"         },
-      { id: "sdk-examples",      label: "Examples"               },
-    ],
-  },
-  {
-    group: "Security",
+    group: "Security & Privacy",
     icon: <ShieldCheck size={13} />,
     items: [
-      { id: "security-overview", label: "Overview"               },
-      { id: "api-keys",          label: "API Key Management"     },
-      { id: "rate-limits",       label: "Rate Limits"            },
-      { id: "data-encryption",   label: "Data Encryption"        },
+      { id: "security",        label: "How we protect your data"  },
+      { id: "privacy",         label: "Your privacy rights"        },
+      { id: "data-retention",  label: "Data retention"            },
+    ],
+  },
+  {
+    group: "Common Questions",
+    icon: <HelpCircle size={13} />,
+    items: [
+      { id: "faq-profile",    label: "About your profile"        },
+      { id: "faq-lenders",    label: "About lenders"             },
+      { id: "faq-data",       label: "About your data"           },
     ],
   },
 ];
@@ -435,11 +355,11 @@ export default function DocsPage() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Link className="docs-topbar-apiref" href="/developers/api-reference" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#6B7280", textDecoration: "none" }}>
-              API Reference <ExternalLink size={11} />
+            <Link className="docs-topbar-apiref" href="/developers" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#6B7280", textDecoration: "none" }}>
+              Developer docs <ExternalLink size={11} />
             </Link>
-            <Link href="/developers/api-keys" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0A2540", color: "white", padding: "6px 14px", borderRadius: 7, fontWeight: 700, fontSize: 12 }}>
-              Get API key
+            <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0A2540", color: "white", padding: "6px 14px", borderRadius: 7, fontWeight: 700, fontSize: 12 }}>
+              Get started
             </Link>
           </div>
         </div>
@@ -474,731 +394,514 @@ export default function DocsPage() {
           </div>
 
           {/* MAIN CONTENT */}
-          <div ref={contentRef} className="docs-content" style={{ padding: "40px 48px 120px", minWidth: 0 }}>
+          <div ref={contentRef} className="docs-content" style={{ padding: "40px 48px 120px", minWidth: 0, maxWidth: "100%", overflowX: "hidden" }}>
 
+            {/* ═══════════════════════════════════════
+                OVERVIEW
+            ═══════════════════════════════════════ */}
             <DocSection id="introduction">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <BookOpen size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Getting Started</span>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Overview</span>
               </div>
-              <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,3.5vw,42px)", letterSpacing: "-0.04em", color: "#0A2540", marginBottom: 16, lineHeight: 1.1 }}>
-                Creditlinker Documentation
+              <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,3.5vw,40px)", letterSpacing: "-0.04em", color: "#0A2540", marginBottom: 16, lineHeight: 1.15 }}>
+                How Creditlinker works
               </h1>
               <P>
-                Creditlinker is financial identity infrastructure for businesses. This documentation covers everything you need to integrate with the Creditlinker API — from linking bank accounts and running the data pipeline to querying financial identities and building capital-access products on top of the platform.
-              </P>
-              <P>
-                The platform is built around four core actors: <strong>Businesses</strong> that build financial identities, <strong>Capital providers (Institutions)</strong> that evaluate and fund them, <strong>Partners</strong> that integrate the identity layer into their own products, and <strong>Admins</strong> that operate the platform.
+                Creditlinker helps Nigerian businesses build a verified financial identity from their real banking activity — and use that identity to access the capital they deserve. This guide explains what that means for you, how your data is used, and what rights you have at every step.
               </P>
               <div className="docs-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 28 }}>
                 {[
-                  { icon: <Zap size={16} />,    title: "Quickstart",       desc: "Be up and running in 5 minutes",   id: "quickstart"       },
-                  { icon: <Code2 size={16} />,   title: "API Reference",    desc: "Full endpoint documentation",      id: "api-business"     },
-                  { icon: <Webhook size={16} />, title: "Webhooks",         desc: "Real-time identity change events", id: "webhook-overview" },
-                  { icon: <Package size={16} />, title: "TypeScript SDK",   desc: "Install and use the official SDK", id: "sdk-install"      },
+                  { icon: <BarChart3 size={16} />, title: "Your profile",        desc: "How your financial identity is built",  id: "what-is-profile"   },
+                  { icon: <Database size={16} />,  title: "Your data",           desc: "What we collect and how",              id: "data-overview"     },
+                  { icon: <Eye size={16} />,        title: "Lender access",      desc: "What lenders can and can't see",       id: "lender-view"       },
+                  { icon: <Lock size={16} />,       title: "Your control",       desc: "Consent, permissions & revocation",    id: "consent-explained" },
                 ].map((card) => (
                   <button
                     key={card.title}
                     onClick={() => scrollTo(card.id)}
-                    style={{ display: "flex", gap: 12, padding: 16, background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, textAlign: "left", cursor: "pointer" }}
+                    style={{ display: "flex", gap: 12, padding: 16, background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, textAlign: "left", cursor: "pointer", width: "100%" }}
                   >
                     <div style={{ width: 36, height: 36, borderRadius: 9, background: "#F0FDFF", border: "1px solid rgba(0,212,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#00D4FF", flexShrink: 0 }}>
                       {card.icon}
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 3 }}>{card.title}</p>
-                      <p style={{ fontSize: 12, color: "#9CA3AF" }}>{card.desc}</p>
+                      <p style={{ fontSize: 12, color: "#9CA3AF", margin: 0 }}>{card.desc}</p>
                     </div>
                   </button>
                 ))}
               </div>
+              <Callout type="info">
+                This documentation is for business owners and anyone curious about how Creditlinker works. If you're a developer integrating with our API, visit our <Link href="/developers" style={{ color: "#1E40AF", fontWeight: 600 }}>developer portal</Link>.
+              </Callout>
             </DocSection>
 
-            <DocSection id="quickstart">
-              <H2>Quickstart</H2>
-              <P>Get a financial identity query running in under 5 minutes using the TypeScript SDK.</P>
-              <H3>1. Install the SDK</H3>
-              <CodeBlock title="Terminal" lang="bash" code={`npm install @creditlinker/sdk`} />
-              <H3>2. Initialize the client</H3>
-              <CodeBlock title="client.ts" lang="TypeScript" code={`import { Creditlinker } from '@creditlinker/sdk'
-
-const cl = new Creditlinker({
-  apiKey: process.env.CREDITLINKER_API_KEY,
-  environment: 'sandbox', // or 'production'
-})`} />
-              <H3>3. Fetch a financial identity</H3>
-              <DocTabs tabs={[
-                {
-                  label: "TypeScript SDK",
-                  content: <CodeBlock lang="TypeScript" code={`// Requires an active consent grant for this business token
-const identity = await cl.partner.getProfile(businessToken)
-
-console.log(identity.score)         // 742
-console.log(identity.dimensions)    // { revenueStability: 85, ... }
-console.log(identity.dataQuality)   // 94
-console.log(identity.riskProfile)   // "low"`} />
-                },
-                {
-                  label: "cURL",
-                  content: <CodeBlock lang="bash" code={`curl https://api.creditlinker.io/v1/partner/profile/{business_token} \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json"`} />
-                },
-                {
-                  label: "Response",
-                  content: <CodeBlock lang="JSON" code={`{
-  "score": 742,
-  "riskProfile": "low",
-  "dataQualityScore": 94,
-  "dataCoverageMonths": 18,
-  "dimensions": {
-    "revenueStability": 85,
-    "cashflowPredictability": 78,
-    "expenseDiscipline": 81,
-    "liquidityStrength": 74,
-    "financialConsistency": 88,
-    "riskProfile": 91
-  }
-}`} />
-                },
-              ]} />
-              <Callout type="tip">Use the sandbox environment with pre-seeded business tokens during development. Production keys require a verified institution account.</Callout>
-            </DocSection>
-
-            <DocSection id="authentication">
-              <H2>Authentication</H2>
-              <P>All API requests are authenticated using Bearer JWTs issued by Keycloak. Tokens are scoped to a specific role (<code>business_owner</code>, <code>institution</code>, <code>partner</code>, or <code>platform_admin</code>) and expire after 1 hour.</P>
-              <H3>Obtaining a token</H3>
-              <CodeBlock title="Token request" lang="bash" code={`curl -X POST https://auth.creditlinker.io/realms/creditlinker/protocol/openid-connect/token \\
-  -d "grant_type=client_credentials" \\
-  -d "client_id=YOUR_CLIENT_ID" \\
-  -d "client_secret=YOUR_CLIENT_SECRET"`} />
-              <H3>Using the token</H3>
-              <CodeBlock lang="bash" code={`curl https://api.creditlinker.io/v1/business/score \\
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiJ9..."`} />
-              <Callout type="warning">Never expose API keys or client secrets in client-side code or public repositories. Use environment variables and server-side token exchange.</Callout>
-              <H3>Token roles</H3>
-              <div className="docs-table-wrap" style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+            <DocSection id="who-is-it-for">
+              <H2>Who is Creditlinker for?</H2>
+              <P>
+                Creditlinker is built for small and medium-sized businesses in Nigeria that struggle to access capital because they lack a formal credit history — not because their finances aren't healthy.
+              </P>
+              <P>
+                Traditional lenders rely on credit bureau scores, which many businesses either don't have or haven't had enough time to build. Creditlinker fills that gap by creating a financial identity from the real evidence of how your business operates: your transactions, your cash flow, your payment patterns.
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
                 {[
-                  { role: "business_owner", desc: "Access to business-facing endpoints — score, consent, financing, data sources", color: "#10B981" },
-                  { role: "institution",    desc: "Access to institution endpoints — discovery, consent-gated profiles, offers",     color: "#38BDF8" },
-                  { role: "partner",        desc: "Access to partner endpoints — profile queries and data submission",               color: "#818CF8" },
-                  { role: "platform_admin", desc: "Access to admin endpoints — observability, audit logs, system management",       color: "#F59E0B" },
-                ].map((r, i, arr) => (
-                  <div key={r.role} style={{ display: "flex", gap: 14, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid #E5E7EB" : "none", alignItems: "flex-start" }}>
-                    <InlineBadge color={r.color}>{r.role}</InlineBadge>
-                    <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.6, margin: 0 }}>{r.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </DocSection>
-
-            <DocSection id="base-url">
-              <H2>Base URL &amp; Versioning</H2>
-              <P>All API requests use versioned base URLs. The current stable version is <code>v1</code>.</P>
-              <div className="docs-url-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                {[
-                  { label: "Production", url: "https://api.creditlinker.io/v1",    color: "#10B981" },
-                  { label: "Sandbox",    url: "https://sandbox.creditlinker.io/v1", color: "#818CF8" },
-                ].map((e) => (
-                  <div key={e.label} className="docs-url-card" style={{ background: "#0d1117", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: e.color, display: "inline-block" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{e.label}</span>
-                    </div>
-                    <code style={{ fontSize: 13, color: "#00D4FF", fontFamily: "monospace" }}>{e.url}</code>
-                  </div>
-                ))}
-              </div>
-              <P>Breaking changes are never introduced in a versioned release. They are announced and released under a new version number with a 6-month deprecation window.</P>
-            </DocSection>
-
-            <DocSection id="errors">
-              <H2>Errors &amp; Status Codes</H2>
-              <P>The API uses standard HTTP status codes. Error responses include a machine-readable <code>code</code> and a human-readable <code>message</code>.</P>
-              <CodeBlock lang="JSON" code={`{
-  "error": {
-    "code": "CONSENT_REQUIRED",
-    "message": "No active consent grant found for this business token.",
-    "status": 403,
-    "docs": "https://docs.creditlinker.io/consent-model"
-  }
-}`} />
-              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                {[
-                  { code: "200", label: "OK",                    desc: "Request succeeded"                                        },
-                  { code: "201", label: "Created",               desc: "Resource created successfully"                           },
-                  { code: "400", label: "Bad Request",           desc: "Invalid parameters or malformed request body"            },
-                  { code: "401", label: "Unauthorized",          desc: "Missing or expired authentication token"                 },
-                  { code: "403", label: "Forbidden",             desc: "Authenticated but insufficient permissions or no consent" },
-                  { code: "404", label: "Not Found",             desc: "Resource not found"                                      },
-                  { code: "409", label: "Conflict",              desc: "Resource already exists or state conflict"               },
-                  { code: "429", label: "Too Many Requests",     desc: "Rate limit exceeded — check Retry-After header"          },
-                  { code: "500", label: "Internal Server Error", desc: "Platform error — retry with exponential backoff"         },
-                ].map((s, i, arr) => (
-                  <div key={s.code} style={{ display: "grid", gridTemplateColumns: "56px 140px 1fr", gap: 12, padding: "10px 16px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", background: i % 2 === 0 ? "white" : "#FAFAFA" }}>
-                    <code style={{ fontSize: 12, fontWeight: 700, color: parseInt(s.code) >= 400 ? "#EF4444" : "#10B981", fontFamily: "monospace" }}>{s.code}</code>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{s.label}</span>
-                    <span style={{ fontSize: 12, color: "#9CA3AF" }}>{s.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </DocSection>
-
-            <DocSection id="financial-identity">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <Layers size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Core Concepts</span>
-              </div>
-              <H2>Financial Identity</H2>
-              <P>A financial identity is the core output of the Creditlinker platform. It is a persistent, versioned profile built from a business's real financial data — bank transactions, accounting records, and operational signals — processed through a seven-stage pipeline.</P>
-              <P>Unlike a traditional credit score, a financial identity is multidimensional. It captures the full financial shape of a business across six independent dimensions, plus a data quality score, a set of derived feature store metrics, capital readiness assessments, and risk flags.</P>
-              <H3>Identity fields</H3>
-              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                {[
-                  { field: "financial_identity_id",  type: "string",    desc: "Stable UUID anchoring the identity — persists across pipeline runs"          },
-                  { field: "persistent_business_id", type: "string",    desc: "Permanent business identifier — survives ownership and registration changes" },
-                  { field: "score",                  type: "object",    desc: "Six-dimensional score with individual dimension values (0–100 each)"          },
-                  { field: "data_quality_score",     type: "number",    desc: "Reliability of the underlying financial data (0–100)"                       },
-                  { field: "data_months_analyzed",   type: "number",    desc: "Number of months of financial data included in the current pipeline run"     },
-                  { field: "readiness_assessments",  type: "object",    desc: "Capital readiness scores across all 14 financing categories"                 },
-                  { field: "risk_flags",             type: "array",     desc: "Active risk signals detected during pipeline processing"                     },
-                  { field: "pipeline_run_id",        type: "string",    desc: "ID of the pipeline run that produced this identity snapshot"                 },
-                  { field: "taken_at",               type: "timestamp", desc: "ISO 8601 timestamp of when this identity snapshot was created"               },
-                ].map((f, i, arr) => (
-                  <div key={f.field} style={{ display: "grid", gridTemplateColumns: "200px 80px 1fr", gap: 12, padding: "10px 16px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "baseline", background: i % 2 === 0 ? "white" : "#FAFAFA" }}>
-                    <code style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{f.field}</code>
-                    <InlineBadge color="#818CF8">{f.type}</InlineBadge>
-                    <span style={{ fontSize: 12, color: "#9CA3AF" }}>{f.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </DocSection>
-
-            <DocSection id="dimensions">
-              <H2>6 Financial Dimensions</H2>
-              <P>Creditlinker scores each business across six independent financial health dimensions. Each dimension is scored 0–100. No single composite score is computed — capital providers evaluate the full shape.</P>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
-                {[
-                  { name: "Revenue Stability",       key: "revenueStability",       color: "#10B981", desc: "How consistent and predictable revenue inflows are over time. Measures volatility, seasonal patterns, and growth trajectory of credits." },
-                  { name: "Cashflow Predictability", key: "cashflowPredictability", color: "#38BDF8", desc: "How reliably the business generates positive operating cashflow. Examines the timing relationship between inflows and outflows." },
-                  { name: "Expense Discipline",      key: "expenseDiscipline",      color: "#818CF8", desc: "How well the business controls operating costs relative to revenue. Tracks operating expense ratios, cost patterns, and discretionary spending behavior." },
-                  { name: "Liquidity Strength",      key: "liquidityStrength",      color: "#F59E0B", desc: "The level of cash reserves and financial buffers available. Measures average balance, trough balances, and cash reserve ratio." },
-                  { name: "Financial Consistency",   key: "financialConsistency",   color: "#00D4FF", desc: "How complete and regular the business's financial activity and reporting patterns are. Rewards continuous, well-documented transaction history." },
-                  { name: "Risk Profile",            key: "riskProfile",            color: "#F472B6", desc: "Detects anomalies, irregular behavior, and risk signals across all financial activity. Includes counterparty clustering and fraud pattern detection." },
-                ].map((d) => (
-                  <div key={d.name} style={{ display: "flex", gap: 14, padding: "16px 20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 9, background: `${d.color}15`, border: `1px solid ${d.color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, display: "block" }} />
-                    </div>
+                  { who: "Business owners",      desc: "Connect your bank, build your financial identity, and get discovered by lenders who match your profile." },
+                  { who: "Capital providers",     desc: "Access verified, consent-gated business profiles to make faster, fairer lending decisions." },
+                  { who: "Platform partners",     desc: "Embed Creditlinker's financial identity layer into your own product to offer capital access to your users." },
+                ].map((r) => (
+                  <div key={r.who} style={{ display: "flex", gap: 14, padding: "14px 18px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00D4FF", flexShrink: 0, marginTop: 6 }} />
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", margin: 0 }}>{d.name}</p>
-                        <code className="docs-dimension-key" style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>score.dimensions.{d.key}</code>
-                      </div>
-                      <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65, margin: 0 }}>{d.desc}</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", marginBottom: 3 }}>{r.who}</p>
+                      <p style={{ fontSize: 13, color: "#6B7280", margin: 0, lineHeight: 1.65 }}>{r.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </DocSection>
 
-            <DocSection id="pipeline">
-              <H2>Data Pipeline</H2>
-              <P>Every financial identity is produced by a deterministic seven-stage pipeline. The pipeline runs automatically when new financial data is ingested, and again when triggered manually via <code>POST /business/pipeline/run</code>.</P>
-              <div style={{ background: "#0A2540", borderRadius: 14, padding: 24, marginBottom: 20, position: "relative", overflow: "hidden" }}>
-                <GridBg />
-                <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 0 }}>
-                  {[
-                    { n: "01", label: "Data Ingestion",        event: "DATA_INGESTED",             desc: "Raw transactions received from Mono, CSV, PDF, or partner submission"             },
-                    { n: "02", label: "Normalization",         event: "TRANSACTION_NORMALIZED",    desc: "Categorized, de-duplicated, internal transfers flagged, recurring patterns tagged" },
-                    { n: "03", label: "Ledger Reconciliation", event: "LEDGER_RECONCILED",         desc: "Inflows and outflows reconciled against closing balances"                          },
-                    { n: "04", label: "Feature Generation",    event: "FEATURES_GENERATED",        desc: "40+ derived metrics computed and written to the feature store"                     },
-                    { n: "05", label: "Dimensional Scoring",   event: "SCORE_RECALCULATED",        desc: "Six dimensions scored independently from feature store data"                       },
-                    { n: "06", label: "Risk Detection",        event: "RISK_FLAGS_EVALUATED",      desc: "Anomaly detection, fraud patterns, and behavioral risk flags applied"              },
-                    { n: "07", label: "Identity Snapshot",     event: "FINANCIAL_PROFILE_UPDATED", desc: "Versioned snapshot written and business notified via webhook"                      },
-                  ].map((step, i) => (
-                    <div key={step.n} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#00D4FF", fontFamily: "monospace" }}>{step.n}</div>
-                        {i < 6 && <div style={{ width: 1, height: 20, background: "rgba(0,212,255,0.15)", margin: "3px 0" }} />}
-                      </div>
-                      <div style={{ paddingBottom: i < 6 ? 6 : 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "white" }}>{step.label}</span>
-                          <code className="docs-pipeline-event" style={{ fontSize: 10, color: "rgba(0,212,255,0.6)", fontFamily: "monospace" }}>{step.event}</code>
-                        </div>
-                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", margin: 0, lineHeight: 1.55 }}>{step.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <DocSection id="how-it-works">
+              <H2>How it works — the big picture</H2>
+              <P>From connecting your bank to receiving a financing offer, here's the full journey.</P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <StepCard number="1" title="Connect your financial data" desc="You link your bank account through our secure Mono Open Banking integration, or upload bank statements directly. Your raw transaction history is the foundation." />
+                <StepCard number="2" title="We build your financial profile" desc="Our system analyzes your transactions — categorizing income, expenses, cash flow patterns, and payment behavior — and produces a verified financial identity." />
+                <StepCard number="3" title="Lenders discover you (anonymously)" desc="Capital providers can see you exist and roughly match their criteria, but they can't see your details until you explicitly grant them access." />
+                <StepCard number="4" title="You choose who sees what" desc="When a lender requests access, you review their request and decide whether to grant it — and for how long. You can revoke access at any time." />
+                <StepCard number="5" title="Lenders evaluate and make offers" desc="Once you've granted access, the lender can review your profile and make a financing offer. You're never obligated to accept." />
               </div>
             </DocSection>
 
-            <DocSection id="feature-store">
-              <H2>Feature Store</H2>
-              <P>The feature store holds 40+ derived financial metrics computed from normalized transaction data. Scoring models and capital readiness assessments pull from this store rather than recomputing from raw data on each query.</P>
-              <H3>Available metrics</H3>
-              <div className="docs-metrics-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+            {/* ═══════════════════════════════════════
+                YOUR FINANCIAL PROFILE
+            ═══════════════════════════════════════ */}
+            <DocSection id="what-is-profile">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <BarChart3 size={16} style={{ color: "#00D4FF" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Your Financial Profile</span>
+              </div>
+              <H2>What is a financial profile?</H2>
+              <P>
+                Your financial profile is a structured, verified summary of your business's financial health — built entirely from your real banking activity. It is not a credit score in the traditional sense. It's a richer picture: six distinct dimensions of how your business manages money, how consistent your income is, and how disciplined your spending has been.
+              </P>
+              <P>
+                Think of it as your business's financial CV. It exists in our system, belongs to you, and is shared with lenders only on your terms.
+              </P>
+              <Callout type="tip">
+                Unlike a bureau credit score, your Creditlinker profile is built from your actual banking activity — not from loan repayment history or debt records. A business with no loans on record can still build a strong profile.
+              </Callout>
+            </DocSection>
+
+            <DocSection id="six-dimensions">
+              <H2>The 6 financial health dimensions</H2>
+              <P>
+                Your profile is scored across six independent dimensions. Each one is evaluated separately — no single number hides the full picture. Lenders can see all six and weight them based on what they care about.
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+                <DimensionCard name="Revenue Stability" color="#10B981" desc="How consistent and predictable your income is over time. A business with steady, growing revenue scores higher than one with erratic or declining inflows." />
+                <DimensionCard name="Cashflow Predictability" color="#38BDF8" desc="How reliably your business generates positive cash flow. This looks at the timing between when money comes in and when it goes out." />
+                <DimensionCard name="Expense Discipline" color="#818CF8" desc="How well your business controls its costs relative to revenue. Businesses that spend proportionally and avoid wasteful spending score higher." />
+                <DimensionCard name="Liquidity Strength" color="#F59E0B" desc="The depth of your cash reserves. This looks at your average balance, your lowest recorded balance, and how much buffer you carry month to month." />
+                <DimensionCard name="Financial Consistency" color="#00D4FF" desc="How regular and complete your financial activity and record-keeping is. Businesses with continuous, well-documented histories are rewarded here." />
+                <DimensionCard name="Risk Profile" color="#F472B6" desc="Whether there are any unusual patterns in your transactions — like irregular counterparties, sudden behavioral shifts, or signs of financial distress." />
+              </div>
+              <P style={{ marginTop: 16 }}>Each dimension is scored from 0 to 100. A score of 80+ is considered strong. Lenders can see exactly where your strengths lie and which dimensions matter most for the type of financing you're seeking.</P>
+            </DocSection>
+
+            <DocSection id="profile-quality">
+              <H2>Profile quality</H2>
+              <P>
+                Alongside your six dimension scores, every profile carries a <strong>data quality indicator</strong> — a signal to lenders about how much financial data underpins the profile. More data, from more accounts, over a longer period, means a higher quality score.
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                 {[
-                  "monthlyRevenueAvg", "revenueGrowth6mo", "revenueVolatility", "revenueConcentration",
-                  "operatingMargin", "expenseRatio", "payrollRatio", "discretionarySpendRatio",
-                  "cashReserveRatio", "avgClosingBalance", "troughBalance", "liquidityCoverageRatio",
-                  "receivableTurnoverDays", "payableTurnoverDays", "workingCapitalRatio",
-                  "counterpartyCount", "topCounterpartyConcentration", "recurringExpenseRatio",
-                  "paymentRegularityScore", "internalTransferRatio",
-                ].map((m) => (
-                  <code key={m} style={{ fontSize: 12, color: "#0A5060", background: "rgba(0,212,255,0.05)", border: "1px solid rgba(0,212,255,0.12)", padding: "5px 10px", borderRadius: 6, fontFamily: "monospace" }}>{m}</code>
+                  { label: "Strong",   range: "85–100", desc: "Multiple linked accounts, 12+ months of transactions, high confidence",       color: "#10B981" },
+                  { label: "Moderate", range: "60–84",  desc: "Single account or some gaps in coverage, still enough data to be meaningful",  color: "#F59E0B" },
+                  { label: "Thin",     range: "0–59",   desc: "Limited history or sparse data — the profile exists, but lenders may be cautious", color: "#EF4444" },
+                ].map((t) => (
+                  <div key={t.label} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 18px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: t.color, background: `${t.color}15`, border: `1px solid ${t.color}30`, padding: "2px 10px", borderRadius: 5, flexShrink: 0, marginTop: 1 }}>{t.label} · {t.range}</span>
+                    <p style={{ fontSize: 13, color: "#6B7280", margin: 0, lineHeight: 1.65 }}>{t.desc}</p>
+                  </div>
                 ))}
               </div>
-              <Callout type="info">The full feature store schema is available in the API reference under <code>GET /business/score</code>. Feature values are updated on every pipeline run.</Callout>
+              <Callout type="info">Your quality score does not lower your dimension scores — it is shown separately. A business can have strong dimensions with moderate data quality, and a lender can decide how much that matters to them.</Callout>
             </DocSection>
 
-            <DocSection id="data-quality">
-              <H2>Data Quality Score</H2>
-              <P>Every financial identity carries a <code>data_quality_score</code> (0–100) that reflects how reliable the underlying financial data is. Capital providers can use this to calibrate their confidence in the identity dimensions.</P>
+            <DocSection id="profile-updates">
+              <H2>When does your profile update?</H2>
+              <P>
+                Your profile is not static. It rebuilds automatically whenever new financial data arrives — for example, when your bank account syncs or when you upload a new bank statement. You can also trigger a manual refresh from your dashboard at any time.
+              </P>
               <UL items={[
-                "High (85-100): Multiple linked accounts, 12+ months of continuous data, high normalization confidence",
-                "Medium (60-84): Single account or gaps in data coverage, some unresolvable transactions",
-                "Low (0-59): Sparse data, short history, or low normalization confidence across most transactions",
+                "Profile rebuilds automatically when new bank data is synced",
+                "Each rebuild creates a versioned snapshot — your history is preserved",
+                "Lenders who have active access are notified when your profile changes",
+                "The timestamp of the most recent rebuild is always visible on your profile",
               ]} />
-              <P>The data quality score does not modify the dimensional scores — it is reported separately so providers can apply their own tolerance thresholds.</P>
+              <P>This means your profile gets stronger over time, simply by continuing to run your business normally.</P>
             </DocSection>
 
-            <DocSection id="provenance">
-              <H2>Data Provenance</H2>
-              <P>Every metric in the Creditlinker feature store and every dimension score carries provenance metadata — a record of which data sources, accounts, and transactions contributed to that value.</P>
-              <CodeBlock lang="JSON" code={`// GET /institution/profile/:financial_identity_id/provenance
-{
-  "metrics": {
-    "monthlyRevenueAvg": {
-      "value": 4200000,
-      "source": "bank_transactions",
-      "accounts": ["account_abc123", "account_def456"],
-      "transactionCount": 847,
-      "periodFrom": "2024-09-01",
-      "periodTo": "2026-03-01",
-      "confidenceScore": 0.96
-    }
-  }
-}`} />
-            </DocSection>
-
-            <DocSection id="mono-openbanking">
+            {/* ═══════════════════════════════════════
+                HOW WE COLLECT DATA
+            ═══════════════════════════════════════ */}
+            <DocSection id="data-overview">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <Database size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Data Sources</span>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>How We Collect Data</span>
               </div>
-              <H2>Mono Open Banking</H2>
-              <P>The recommended primary data source. Mono Open Banking provides real-time, bank-verified transaction histories for Nigerian financial institutions. The Creditlinker SDK wraps the Mono Link flow into a single initiation call.</P>
-              <H3>Linking a bank account</H3>
-              <CodeBlock title="link-bank.ts" lang="TypeScript" code={`// Step 1: Initiate the Mono Link flow
-const { monoLinkUrl } = await cl.business.monoInitiate()
-
-// Redirect the user to monoLinkUrl
-// After they complete the Mono Link flow, Mono calls your redirect_uri with a code
-
-// Step 2: Exchange the code for a linked account
-const result = await cl.business.monoCallback({ code: monoCode })
-console.log(result.accountId) // "account_abc123"
-// Pipeline runs automatically after successful link`} />
-              <H3>REST equivalent</H3>
-              <EndpointRow method="POST" path="/business/mono/initiate" desc="Start the Mono Link flow — returns a link URL to redirect the user to" auth="business_owner" />
-              <EndpointRow method="POST" path="/business/mono/callback" desc="Exchange Mono auth code for a linked account record" auth="business_owner" />
+              <H2>What data we use</H2>
+              <P>
+                Everything in your financial profile comes from your bank transactions. We look at the flow of money in and out of your business accounts — not your personal life, not your social media, not your phone activity.
+              </P>
+              <P>Specifically, we analyze:</P>
+              <UL items={[
+                "Transaction dates, amounts, and directions (money in vs. money out)",
+                "Transaction descriptions and counterparty names (who you pay and who pays you)",
+                "Account balances over time",
+                "Patterns in timing, regularity, and volume of transactions",
+              ]} />
+              <P>We do not use your personal credit score, your tax records, your social media, or any data outside of what you explicitly connect.</P>
             </DocSection>
 
-            <DocSection id="csv-upload">
-              <H2>CSV Import</H2>
-              <P>For businesses that cannot connect via Mono, or want to supplement bank data with additional accounts, CSV bank statement import is supported. A configurable column map tells the pipeline how to interpret the file structure.</P>
-              <CodeBlock lang="TypeScript" code={`const result = await cl.business.uploadCsv({
-  csvContent: fs.readFileSync('statement.csv', 'utf-8'),
-  columnMap: {
-    date: 'Transaction Date',
-    amount: 'Amount',
-    direction: 'DR/CR',
-    description: 'Narration',
-    balance: 'Closing Balance',
-    reference: 'Reference No',
-  }
-})
-console.log(result.recordsImported) // 423`} />
+            <DocSection id="bank-connection">
+              <H2>Connecting your bank</H2>
+              <P>
+                The recommended way to share your financial data is through <strong>Mono Open Banking</strong> — a secure, bank-authorized connection. When you connect your bank through Creditlinker, you log in directly with your bank (we never see your banking credentials) and authorize us to read your transaction history.
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                <StepCard number="1" title={`You click "Connect bank account"`} desc="This opens a secure Mono-powered window. Mono is a regulated open banking provider used by hundreds of Nigerian fintechs." />
+                <StepCard number="2" title="You log in with your bank directly" desc="You enter your internet banking credentials into Mono's interface — not ours. Creditlinker never sees your username or password." />
+                <StepCard number="3" title="Your transaction history is pulled" desc="Mono securely retrieves your transaction records and sends them to Creditlinker. Your profile is built from this data automatically." />
+              </div>
+              <Callout type="tip">Connecting via open banking gives you the highest quality profile. Your account syncs automatically, so your profile stays up to date without any manual effort.</Callout>
             </DocSection>
 
-            <DocSection id="pdf-upload">
-              <H2>PDF Bank Statements</H2>
-              <P>Creditlinker includes a PDF parsing pipeline that extracts transaction records from structured PDF bank statements. Password-protected statements are supported.</P>
-              <CodeBlock lang="TypeScript" code={`const pdfBuffer = fs.readFileSync('statement.pdf')
-const base64 = pdfBuffer.toString('base64')
-
-const result = await cl.business.uploadPdf({
-  pdfBase64: base64,
-  password: 'optional-pdf-password',
-})
-console.log(result.transactionsParsed) // 312`} />
-              <Callout type="warning">PDF extraction confidence is lower than Mono Open Banking. Pages with non-standard table layouts may produce incomplete results. Check the pipeline observability record for per-page confidence scores.</Callout>
+            <DocSection id="statements">
+              <H2>Uploading bank statements</H2>
+              <P>
+                If your bank isn't supported by Mono, or you prefer not to use a live connection, you can upload your bank statements directly. We accept PDF statements from all major Nigerian banks, and CSV exports from internet banking portals.
+              </P>
+              <UL items={[
+                "PDF statements are parsed automatically — no manual data entry required",
+                "CSV files from any bank that allows transaction exports are supported",
+                "Password-protected PDFs are accepted — you enter the password, we process it securely",
+                "You can upload statements from multiple accounts to build a fuller picture",
+              ]} />
+              <Callout type="warning">Uploaded statements produce a slightly lower data quality indicator than a live bank connection, because the data is a point-in-time snapshot. Your profile won't update automatically — you'll need to upload new statements periodically.</Callout>
             </DocSection>
 
-            <DocSection id="manual-entry">
-              <H2>Manual Entry</H2>
-              <P>Individual transactions can be submitted manually for businesses that need to supplement automated data sources. Manual entries are tagged with a lower confidence weight in the feature store and flagged for data quality scoring purposes.</P>
-              <Callout type="info">Manual entry is intended as a fallback for edge cases. Identities built primarily from manual data will have a lower <code>data_quality_score</code> and may be filtered by capital providers with high confidence thresholds.</Callout>
+            <DocSection id="data-we-dont-use">
+              <H2>What we don't collect</H2>
+              <P>We believe in collecting the minimum necessary to do our job well. The following are explicitly out of scope:</P>
+              <UL items={[
+                "Your personal credit bureau score or any bureau records",
+                "Your tax filings or FIRS records",
+                "Your personal bank accounts (only business accounts)",
+                "Your phone contacts, SMS messages, or app usage data",
+                "Social media profiles or online presence",
+                "Location data of any kind",
+              ]} />
+              <P>If something isn't listed above under what we <em>do</em> use, we don't use it.</P>
             </DocSection>
 
-            <DocSection id="consent-model">
+            {/* ═══════════════════════════════════════
+                HOW LENDERS EVALUATE YOU
+            ═══════════════════════════════════════ */}
+            <DocSection id="lender-view">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <Eye size={16} style={{ color: "#00D4FF" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>How Lenders Evaluate You</span>
+              </div>
+              <H2>What lenders can see</H2>
+              <P>
+                Lenders on Creditlinker can only ever see what you've explicitly permitted them to see. There are three levels of access, and you control which level each lender receives:
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
+                {[
+                  { level: "Score only",         color: "#10B981", desc: "The lender sees your six dimension scores and your overall profile rating. No transaction detail, no account balances — just the scores." },
+                  { level: "Full profile",        color: "#818CF8", desc: "The lender sees your scores plus the derived financial metrics that support them: average revenue, cash reserve ratio, expense patterns, and more." },
+                  { level: "Transaction detail",  color: "#EF4444", desc: "The lender can view the individual normalized transactions that make up your profile. This is the highest sensitivity level and is entirely optional." },
+                ].map((a, i, arr) => (
+                  <div key={a.level} style={{ display: "flex", gap: 14, padding: "16px 20px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: a.color, background: `${a.color}15`, border: `1px solid ${a.color}30`, padding: "3px 10px", borderRadius: 5, flexShrink: 0, marginTop: 2, whiteSpace: "nowrap" as const }}>{a.level}</span>
+                    <p style={{ fontSize: 13, color: "#6B7280", margin: 0, lineHeight: 1.7 }}>{a.desc}</p>
+                  </div>
+                ))}
+              </div>
+              <Callout type="tip">You can grant different lenders different levels of access. A lender you trust more can see more. A lender you're less sure about can start with scores only.</Callout>
+            </DocSection>
+
+            <DocSection id="discovery">
+              <H2>How lenders find you</H2>
+              <P>
+                You are never visible to lenders by default. You have to opt in to discovery — a setting in your dashboard that signals you're open to financing. Once you opt in, lenders can see that a business matching your general profile exists, but they see no identifying information.
+              </P>
+              <P>
+                The anonymized match includes things like: roughly what size your monthly revenue is, which financing categories your profile qualifies for, and your data quality tier. Nothing more.
+              </P>
+              <P>
+                If a lender thinks you might be a good fit, they send you a formal access request. You review it — who they are, exactly what they're asking to see, and for how long — and then you decide.
+              </P>
+            </DocSection>
+
+            <DocSection id="evaluation">
+              <H2>The evaluation process</H2>
+              <P>
+                Once you grant a lender access, here's what they do with your profile:
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                <StepCard number="1" title="Review your dimension scores" desc="They look at which of your six dimensions are strongest, and whether those align with the type of financing they offer." />
+                <StepCard number="2" title="Check capital readiness" desc="Your profile automatically calculates how ready you are for 14 different financing categories — from working capital loans to invoice financing and revenue advances." />
+                <StepCard number="3" title="Assess risk signals" desc="If any unusual patterns were flagged during your profile build, the lender can see those flags. You can see them too, so there are no surprises." />
+                <StepCard number="4" title="Make an offer (or not)" desc="Based on what they see, the lender decides whether to make an offer, what terms they'd propose, and when. You're never obligated to accept." />
+              </div>
+              <Callout type="info">Your access log (visible in your dashboard) records every action a lender takes against your profile — what they viewed and when. You always know exactly how your data was used.</Callout>
+            </DocSection>
+
+            {/* ═══════════════════════════════════════
+                CONSENT & CONTROL
+            ═══════════════════════════════════════ */}
+            <DocSection id="consent-explained">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <Lock size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Consent &amp; Access</span>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Your Consent &amp; Control</span>
               </div>
-              <H2>Consent Model</H2>
-              <P>Creditlinker operates a strict, explicit consent model. No capital provider or partner can access a business's financial identity data without an active consent record. Consent is always time-limited, scoped to specific permissions, and revocable by the business at any time.</P>
-              <H3>Consent lifecycle</H3>
-              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, padding: 20, marginBottom: 20 }}>
+              <H2>How consent works</H2>
+              <P>
+                Consent is the mechanism through which any lender gains access to your profile data. Without an active consent grant from you, no lender can see anything beyond an anonymized match signal. This is non-negotiable — it's how the system is built.
+              </P>
+              <P>
+                Every consent grant has three properties you control:
+              </P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                 {[
-                  { step: "Discovery",       desc: "Capital provider sees an anonymized match. No identity data exposed." },
-                  { step: "Access request",  desc: "Capital provider sends a consent request specifying required permissions and duration." },
-                  { step: "Business review", desc: "Business reviews the request — which institution, what permissions, how long." },
-                  { step: "Grant or deny",   desc: "Business grants time-limited, scoped consent. Or denies with no explanation required." },
-                  { step: "Evaluation",      desc: "Capital provider queries the financial identity within granted permissions." },
-                  { step: "Expiry / Revoke", desc: "Consent expires automatically at the set date, or is revoked by the business immediately." },
-                ].map((s, i, arr) => (
-                  <div key={s.step} style={{ display: "flex", gap: 12, paddingBottom: i < arr.length - 1 ? 16 : 0, marginBottom: i < arr.length - 1 ? 16 : 0, borderBottom: i < arr.length - 1 ? "1px solid #E5E7EB" : "none" }}>
-                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, flexShrink: 0, fontFamily: "monospace" }}>{i + 1}</div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{s.step}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280", margin: 0 }}>{s.desc}</p>
-                    </div>
+                  { label: "Who",       desc: "You see the lender's name, registration, and track record before deciding. You can always look them up and ask questions before granting access." },
+                  { label: "What",      desc: "You choose which permission level to grant — scores only, full profile, or including transaction detail. You can always start conservative." },
+                  { label: "How long",  desc: "Every consent has an expiry date. A lender can't hold access indefinitely. Typical grants are 30–90 days, after which access expires automatically." },
+                ].map((c) => (
+                  <div key={c.label} style={{ display: "flex", gap: 14, padding: "14px 18px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#0A2540", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", padding: "2px 10px", borderRadius: 5, flexShrink: 0, height: "fit-content", marginTop: 2 }}>{c.label}</span>
+                    <p style={{ fontSize: 13, color: "#6B7280", margin: 0, lineHeight: 1.7 }}>{c.desc}</p>
                   </div>
                 ))}
               </div>
             </DocSection>
 
-            <DocSection id="granting-consent">
-              <H2>Granting Consent</H2>
-              <CodeBlock title="grant-consent.ts" lang="TypeScript" code={`const consent = await cl.business.grantConsent({
-  institutionId: 'inst_fastcash_001',
-  permissions: {
-    canViewScore: true,
-    canViewIdentity: true,
-    canViewTransactionDetail: false,
-  },
-  durationDays: 90,
-})
-
-console.log(consent.consentId)  // "consent_xyz789"
-console.log(consent.validUntil) // "2026-06-14T00:00:00Z"`} />
-            </DocSection>
-
-            <DocSection id="revoking-consent">
-              <H2>Revoking Consent</H2>
-              <P>A business can revoke any active consent grant at any time. Revocation is immediate — the capital provider loses access the moment the call completes.</P>
-              <CodeBlock lang="TypeScript" code={`await cl.business.revokeConsent({ consentId: 'consent_xyz789' })
-// Capital provider immediately loses access
-// CONSENT_REVOKED webhook fires to all subscribers`} />
-            </DocSection>
-
-            <DocSection id="permissions">
-              <H2>Permission Scopes</H2>
-              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                {[
-                  { scope: "can_view_score",              desc: "View the overall identity score and all six dimensional scores"        },
-                  { scope: "can_view_identity",           desc: "View the full filtered financial identity profile (feature store, readiness assessments, risk flags)" },
-                  { scope: "can_view_transaction_detail", desc: "View individual normalized transactions (highest sensitivity)"         },
-                ].map((p, i, arr) => (
-                  <div key={p.scope} style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                    <code style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{p.scope}</code>
-                    <span style={{ fontSize: 12, color: "#6B7280" }}>{p.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </DocSection>
-
-            <DocSection id="access-logs">
-              <H2>Access Logs</H2>
-              <P>Every data access event made against a consent record is logged in the <code>access_log</code> field of the consent record. Businesses can inspect all access events for any of their consent grants.</P>
-              <CodeBlock lang="TypeScript" code={`const consents = await cl.business.getConsents()
-const consent = consents.find(c => c.consentId === 'consent_xyz789')
-console.log(consent.accessLog)
-// [
-//   { actor: 'inst_fastcash_001', action: 'VIEW_SCORE',    timestamp: '2026-03-14T10:22Z' },
-//   { actor: 'inst_fastcash_001', action: 'VIEW_IDENTITY', timestamp: '2026-03-14T10:22Z' },
-//   { actor: 'inst_fastcash_001', action: 'CREATE_OFFER',  timestamp: '2026-03-14T11:05Z' },
-// ]`} />
-            </DocSection>
-
-            <DocSection id="api-business">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <Code2 size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>API Reference</span>
-              </div>
-              <H2>Business API</H2>
-              <P>All endpoints require a <code>business_owner</code> role token. Businesses can manage their data sources, consent grants, financing records, and profile via these endpoints.</P>
-              <H3>Profile &amp; Score</H3>
-              <EndpointRow method="GET"   path="/business/profile"                  desc="Retrieve the current business profile"                                  auth="business_owner" />
-              <EndpointRow method="PUT"   path="/business/profile"                  desc="Replace the full business profile"                                     auth="business_owner" />
-              <EndpointRow method="PATCH" path="/business/profile/:section"         desc="Update a specific section of the business profile"                     auth="business_owner" />
-              <EndpointRow method="GET"   path="/business/score"                    desc="Retrieve current score with all six dimensions and data quality score" auth="business_owner" />
-              <EndpointRow method="GET"   path="/business/snapshots"                desc="List historical financial identity snapshots"                          auth="business_owner" />
-              <H3>Data Sources</H3>
-              <EndpointRow method="POST"  path="/business/mono/initiate"            desc="Initiate Mono Open Banking link flow"                                  auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/mono/callback"            desc="Exchange Mono auth code for a linked account"                          auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/upload/csv"               desc="Import transactions from a CSV bank statement"                         auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/upload/pdf"               desc="Parse and import transactions from a PDF bank statement"               auth="business_owner" />
-              <H3>Consent</H3>
-              <EndpointRow method="GET"   path="/business/consent"                  desc="List all consent records (active and revoked)"                         auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/consent/grant"            desc="Grant a capital provider access to the financial identity"             auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/consent/revoke"           desc="Immediately revoke an active consent grant"                            auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/consent/renew"            desc="Renew an expiring consent grant"                                       auth="business_owner" />
-              <H3>Financing</H3>
-              <EndpointRow method="GET"   path="/business/financing"                desc="List all financing records"                                            auth="business_owner" />
-              <EndpointRow method="GET"   path="/business/financing/:id"            desc="Retrieve a specific financing record"                                  auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/financing/:id/settlement" desc="Submit settlement proof for a financing record"                       auth="business_owner" />
-              <EndpointRow method="POST"  path="/business/financing/:id/dispute"    desc="Open a dispute on a financing record"                                  auth="business_owner" />
-              <H3>Readiness &amp; Discovery</H3>
-              <EndpointRow method="GET"   path="/business/readiness"                desc="Capital readiness assessments for all 14 financing categories"         auth="business_owner" />
-              <EndpointRow method="GET"   path="/business/readiness/:type"          desc="Readiness assessment for a single financing type"                      auth="business_owner" />
-              <EndpointRow method="PATCH" path="/business/discovery"                desc="Set open_to_financing flag and capital category preferences"           auth="business_owner" />
-              <EndpointRow method="GET"   path="/business/discovery/requests"       desc="List incoming consent requests from capital providers"                 auth="business_owner" />
-            </DocSection>
-
-            <DocSection id="api-institution">
-              <H2>Institution API</H2>
-              <P>Requires an <code>institution</code> role token. All profile and score endpoints require an active consent record for the queried <code>financial_identity_id</code>.</P>
-              <EndpointRow method="GET"  path="/institution/score/:fid"                         desc="Fetch identity score (requires can_view_score consent)"              auth="institution" />
-              <EndpointRow method="GET"  path="/institution/profile/:fid"                       desc="Fetch filtered identity profile (requires can_view_identity consent)" auth="institution" />
-              <EndpointRow method="GET"  path="/institution/profile/:fid/provenance"            desc="Full metric provenance metadata"                                     auth="institution" />
-              <EndpointRow method="GET"  path="/institution/profile/:fid/snapshots"             desc="Historical identity snapshots"                                       auth="institution" />
-              <EndpointRow method="GET"  path="/institution/discovery"                          desc="List anonymized businesses matching your criteria"                   auth="institution" />
-              <EndpointRow method="POST" path="/institution/discovery/criteria"                 desc="Create or update your matching criteria"                             auth="institution" />
-              <EndpointRow method="GET"  path="/institution/discovery/criteria"                 desc="Retrieve your current matching criteria"                             auth="institution" />
-              <EndpointRow method="POST" path="/institution/discovery/:match_id/request-access" desc="Send a consent request to a matched business"                       auth="institution" />
-              <EndpointRow method="GET"  path="/institution/financing"                          desc="List all financing records for this institution"                     auth="institution" />
-              <EndpointRow method="POST" path="/institution/financing/:id/confirm-settlement"   desc="Confirm that a settlement has been received"                        auth="institution" />
-              <EndpointRow method="POST" path="/institution/alert/subscribe"                    desc="Subscribe to identity change alerts for a business"                  auth="institution" />
-            </DocSection>
-
-            <DocSection id="api-partner">
-              <H2>Partner API</H2>
-              <P>The partner API is used by external platforms integrating Creditlinker under one of three access tiers: Read, Signal, or Build. All calls use a <code>business_token</code> — an opaque identifier that does not expose the underlying business identity.</P>
-              <EndpointRow method="GET"  path="/partner/consent/status"          desc="Check consent status and permitted fields for a business token"        auth="partner" />
-              <EndpointRow method="GET"  path="/partner/profile/:business_token" desc="Fetch the scoped financial profile (permitted fields only)"             auth="partner" />
-              <EndpointRow method="POST" path="/partner/submit/:submission_type" desc="Submit verified data into the pipeline (Build tier only)"              auth="partner" badge="Build tier" />
-              <Callout type="info">Submission types: <code>submit_bank_transactions</code> · <code>submit_identity_signals</code> · <code>submit_operational_data</code></Callout>
-            </DocSection>
-
-            <DocSection id="api-admin">
-              <H2>Admin API</H2>
-              <P>Requires a <code>platform_admin</code> role token. Restricted to internal platform operations — not available on partner API keys.</P>
-              <EndpointRow method="GET" path="/admin/observability/:pipeline_run_id"      desc="Full observability record for a pipeline run"                   auth="platform_admin" />
-              <EndpointRow method="GET" path="/admin/observability/business/:business_id" desc="List recent pipeline runs for a business"                       auth="platform_admin" />
-              <EndpointRow method="GET" path="/admin/audit"                               desc="Paginated audit log with actor, action, and business filters"   auth="platform_admin" />
-              <EndpointRow method="GET" path="/admin/events"                              desc="Paginated SDK event log with type and business filters"         auth="platform_admin" />
-            </DocSection>
-
-            <DocSection id="webhook-overview">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <Webhook size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Webhooks</span>
-              </div>
-              <H2>Webhook Overview</H2>
-              <P>Creditlinker fires webhook events whenever meaningful platform state changes occur. Configure your endpoint URL in the developer portal and subscribe to the event types you care about.</P>
-              <CodeBlock title="webhook-handler.ts" lang="TypeScript" code={`import { CreditlinkerWebhookEvent } from '@creditlinker/sdk'
-
-app.post('/webhooks/creditlinker', async (req, res) => {
-  const sig = req.headers['x-creditlinker-signature']
-
-  // Verify the signature first
-  const event = cl.webhooks.constructEvent(req.body, sig, process.env.WEBHOOK_SECRET)
-
-  switch (event.type) {
-    case 'FINANCIAL_PROFILE_UPDATED':
-      await refreshBusinessCache(event.payload.businessId)
-      break
-    case 'CONSENT_GRANTED':
-      await notifyUnderwriter(event.payload)
-      break
-    case 'SETTLEMENT_CONFIRMED':
-      await markLoanSettled(event.payload.financingId)
-      break
-  }
-
-  res.json({ received: true })
-})`} />
-            </DocSection>
-
-            <DocSection id="webhook-events">
-              <H2>Event Reference</H2>
-              <div className="docs-table-wrap" style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
-                {[
-                  { category: "Pipeline",  color: "#38BDF8", events: [
-                    { type: "DATA_INGESTED",             desc: "New financial data received and queued for processing"    },
-                    { type: "TRANSACTION_NORMALIZED",    desc: "All transactions in a batch normalized and categorized"   },
-                    { type: "FEATURES_GENERATED",        desc: "Feature store updated with new computed metrics"         },
-                  ]},
-                  { category: "Identity",  color: "#10B981", events: [
-                    { type: "FINANCIAL_PROFILE_UPDATED", desc: "Identity profile updated after pipeline completion"      },
-                    { type: "SCORE_RECALCULATED",        desc: "All six dimensions re-scored and published"              },
-                    { type: "RISK_FLAG_RAISED",          desc: "New risk flag detected during pipeline processing"       },
-                  ]},
-                  { category: "Consent",   color: "#818CF8", events: [
-                    { type: "CONSENT_GRANTED",           desc: "Business granted a capital provider access"             },
-                    { type: "CONSENT_REVOKED",           desc: "Business immediately revoked an access grant"           },
-                    { type: "CONSENT_RENEWED",           desc: "Business renewed an expiring consent grant"             },
-                    { type: "CONSENT_EXPIRED",           desc: "A consent grant reached its expiry date"                },
-                  ]},
-                  { category: "Financing", color: "#F59E0B", events: [
-                    { type: "FINANCING_GRANTED",         desc: "Business accepted a financing offer"                    },
-                    { type: "SETTLEMENT_CONFIRMED",      desc: "Capital provider confirmed repayment receipt"           },
-                    { type: "DISPUTE_OPENED",            desc: "A financing dispute was initiated by either party"      },
-                    { type: "DISPUTE_RESOLVED",          desc: "A financing dispute was resolved"                       },
-                  ]},
-                ].map((group) => (
-                  <div key={group.category}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: group.color, display: "inline-block" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.08em" }}>{group.category}</span>
-                    </div>
-                    {group.events.map((e, i, arr) => (
-                      <div key={e.type} style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, padding: "10px 16px", borderBottom: i < arr.length - 1 ? "1px solid #F9FAFB" : "1px solid #E5E7EB", alignItems: "baseline" }}>
-                        <code style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{e.type}</code>
-                        <span style={{ fontSize: 12, color: "#9CA3AF" }}>{e.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </DocSection>
-
-            <DocSection id="webhook-security">
-              <H2>Signature Verification</H2>
-              <P>Every webhook request includes an <code>X-Creditlinker-Signature</code> header — an HMAC-SHA256 signature of the raw request body using your webhook secret. Always verify this signature before processing the event.</P>
-              <CodeBlock lang="TypeScript" code={`import crypto from 'crypto'
-
-function verifyWebhookSignature(payload: Buffer, signature: string, secret: string): boolean {
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex')
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
-}`} />
-              <Callout type="danger">Never process webhook events without verifying the signature. Unverified webhooks could allow attackers to inject fraudulent events into your system.</Callout>
-            </DocSection>
-
-            <DocSection id="webhook-retries">
-              <H2>Retries &amp; Delivery</H2>
-              <P>Creditlinker retries failed webhook deliveries up to 5 times using exponential backoff: 1 min · 5 min · 30 min · 2 hr · 8 hr. Your endpoint should respond with a <code>2xx</code> status within 10 seconds. After 5 failed attempts, the event is marked as undeliverable and you receive a <code>WEBHOOK_DELIVERY_FAILED</code> notification.</P>
+            <DocSection id="granting-access">
+              <H2>Granting access</H2>
+              <P>When a lender sends you a request, you'll receive a notification in your dashboard. The request shows you:</P>
               <UL items={[
-                "Respond with 200 immediately — process the event asynchronously if needed",
-                "Your endpoint must respond within 10 seconds",
-                "Implement idempotency — webhooks may be delivered more than once",
-                "Use the event_id field to deduplicate retried deliveries",
+                "The lender's full name and a brief description of who they are",
+                "Exactly what permission level they're requesting (score, profile, or transactions)",
+                "How long they're asking for access",
+                "Any specific note they've added explaining what they'll use it for",
               ]} />
+              <P>
+                You can approve the request as-is, approve it with a shorter duration, or decline entirely — no reason needed. A declined request is final; the lender cannot reapply for the same profile automatically.
+              </P>
             </DocSection>
 
-            <DocSection id="sdk-install">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <Package size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>SDK</span>
+            <DocSection id="revoking-access">
+              <H2>Revoking access</H2>
+              <P>
+                You can revoke any active consent grant at any time from your dashboard. Revocation is immediate and absolute — the lender loses access the moment you click confirm. They are notified that access has been revoked, but they are not told why.
+              </P>
+              <P>
+                Any data they downloaded or viewed before revocation remains subject to the terms they agreed to when requesting access. Revocation prevents any future access, not past views.
+              </P>
+              <Callout type="warning">Revoking access ends the evaluation process. If a lender was in the middle of reviewing your profile for an offer, revoking access will interrupt that process. Only revoke if you no longer want the lender to proceed.</Callout>
+            </DocSection>
+
+            <DocSection id="what-lenders-see">
+              <H2>Permission levels in plain language</H2>
+              <P>Here's what each permission level actually means for what a lender can do:</P>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
+                {[
+                  {
+                    level: "Scores only",
+                    suitable: "Initial discovery, quick pre-screening",
+                    color: "#10B981",
+                    bullets: [
+                      "Can see your six dimension scores (each out of 100)",
+                      "Can see your profile quality indicator",
+                      "Cannot see any underlying metrics or transactions",
+                      "Cannot see your business name or identifying details",
+                    ],
+                  },
+                  {
+                    level: "Full profile",
+                    suitable: "Serious evaluation, offer preparation",
+                    color: "#818CF8",
+                    bullets: [
+                      "Everything in scores only, plus:",
+                      "Can see derived financial metrics (average revenue, expense ratios, liquidity metrics)",
+                      "Can see your capital readiness assessments by financing type",
+                      "Can see any active risk flags",
+                      "Still cannot see individual transactions",
+                    ],
+                  },
+                  {
+                    level: "Transaction detail",
+                    suitable: "Deep due diligence, only when you're comfortable",
+                    color: "#EF4444",
+                    bullets: [
+                      "Everything in full profile, plus:",
+                      "Can view individual normalized transactions",
+                      "Transaction descriptions and counterparty names are visible",
+                      "This is the highest sensitivity level — grant it selectively",
+                    ],
+                  },
+                ].map((p) => (
+                  <div key={p.level} style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 18px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{p.level}</span>
+                      <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 4 }}>· {p.suitable}</span>
+                    </div>
+                    <div style={{ padding: "14px 18px" }}>
+                      <UL items={p.bullets} />
+                    </div>
+                  </div>
+                ))}
               </div>
-              <H2>Installation</H2>
-              <DocTabs tabs={[
-                { label: "npm",  content: <CodeBlock lang="bash" code={`npm install @creditlinker/sdk`} /> },
-                { label: "yarn", content: <CodeBlock lang="bash" code={`yarn add @creditlinker/sdk`} /> },
-                { label: "pnpm", content: <CodeBlock lang="bash" code={`pnpm add @creditlinker/sdk`} /> },
+            </DocSection>
+
+            <DocSection id="access-history">
+              <H2>Viewing your access history</H2>
+              <P>
+                Your dashboard shows a complete log of every time a lender accessed your profile — what they viewed and when. This log is immutable: it cannot be edited or deleted, by you or by anyone else.
+              </P>
+              <UL items={[
+                "See every lender who has ever had or currently has access to your profile",
+                "See exactly what actions they took (viewed scores, viewed profile, viewed transactions)",
+                "See precise timestamps for each access event",
+                "Download your full access history at any time",
               ]} />
-              <Callout type="tip">The SDK ships with full TypeScript definitions. No <code>@types</code> package required.</Callout>
+              <P>If you ever see access you don't recognize or didn't authorize, contact us immediately at <a href="mailto:support@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.io</a>.</P>
             </DocSection>
 
-            <DocSection id="sdk-typescript">
-              <H2>TypeScript SDK</H2>
-              <P>The official TypeScript SDK wraps the Creditlinker REST API with full type coverage, automatic retries, and typed webhook event handlers.</P>
-              <CodeBlock title="index.ts" lang="TypeScript" code={`import { Creditlinker } from '@creditlinker/sdk'
-
-const cl = new Creditlinker({
-  apiKey: process.env.CREDITLINKER_API_KEY!,
-  environment: 'production',  // 'sandbox' | 'production'
-  timeout: 30_000,
-  maxRetries: 3,
-})`} />
-            </DocSection>
-
-            <DocSection id="sdk-examples">
-              <H2>Examples</H2>
-              <H3>Run the identity pipeline</H3>
-              <CodeBlock lang="TypeScript" code={`const run = await cl.business.runPipeline()
-console.log(run.pipelineRunId)  // "run_abc123"
-console.log(run.status)         // "queued"
-// FINANCIAL_PROFILE_UPDATED webhook fires when done`} />
-              <H3>Check financing readiness</H3>
-              <CodeBlock lang="TypeScript" code={`const readiness = await cl.business.getReadiness()
-console.log(readiness['working_capital_loan'].readinessScore)  // 82
-console.log(readiness['invoice_financing'].status)             // "eligible"
-console.log(readiness['equipment_financing'].readinessScore)   // 67`} />
-              <H3>Manage discovery preferences</H3>
-              <CodeBlock lang="TypeScript" code={`await cl.business.updateDiscovery({
-  openToFinancing: true,
-  selectedCapitalCategories: [
-    'working_capital_loan',
-    'invoice_financing',
-    'revenue_advance',
-  ],
-})`} />
-            </DocSection>
-
-            <DocSection id="security-overview">
+            {/* ═══════════════════════════════════════
+                SECURITY & PRIVACY
+            ═══════════════════════════════════════ */}
+            <DocSection id="security">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <ShieldCheck size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Security</span>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Security &amp; Privacy</span>
               </div>
-              <H2>Security Overview</H2>
-              <P>Creditlinker is designed as financial infrastructure, which means security is non-negotiable at every layer.</P>
+              <H2>How we protect your data</H2>
+              <P>
+                Your financial data is among the most sensitive information that exists. We treat it accordingly.
+              </P>
               <UL items={[
-                "All data in transit encrypted with TLS 1.3",
-                "All data at rest encrypted with AES-256",
-                "JWT tokens are short-lived (1 hour) and role-scoped",
-                "Every API call is logged in the immutable audit trail",
-                "Consent revocation is immediate — no grace period, no cached access",
-                "PII fields are encrypted separately at the field level",
-                "Webhook payloads signed with HMAC-SHA256",
+                "All data is encrypted in transit using TLS 1.3 — the same standard used by major banks",
+                "All stored data is encrypted at rest using AES-256 encryption",
+                "Sensitive fields like account numbers and business owner names are encrypted separately at the field level",
+                "Your bank account number is never shown in full — it's always masked (e.g. ****1234)",
+                "Our infrastructure is hosted on ISO 27001-certified cloud infrastructure",
+                "Access to your data by Creditlinker staff requires multi-factor authentication and is fully logged",
               ]} />
-              <P>For security vulnerability disclosures, contact <a href="mailto:security@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>security@creditlinker.io</a>.</P>
+              <H3>We never sell your data</H3>
+              <P>
+                Creditlinker does not sell, rent, or trade your financial data to any third party for any purpose. The only parties who ever see your data are lenders you have explicitly consented to, and Creditlinker's own systems in the process of building your profile.
+              </P>
+              <Callout type="tip">To report a security concern, email us at <a href="mailto:security@creditlinker.io" style={{ color: "#065F46", fontWeight: 600 }}>security@creditlinker.io</a>. We respond to all reports within 24 hours.</Callout>
             </DocSection>
 
-            <DocSection id="api-keys">
-              <H2>API Key Management</H2>
-              <P>API keys are created and managed in the developer portal. Each key is scoped to an environment (sandbox or production) and a set of allowed endpoints.</P>
+            <DocSection id="privacy">
+              <H2>Your privacy rights</H2>
+              <P>As a Creditlinker user, you have the following rights over your data at all times:</P>
               <UL items={[
-                "Create separate keys for sandbox and production environments",
-                "Rotate keys without downtime — old key remains active for 24 hours after rotation",
-                "Revoke keys immediately from the portal — access terminates within seconds",
-                "Per-key usage analytics available in the developer portal",
+                "Right to access: you can request a full export of all data we hold about you",
+                "Right to correction: if any information in your profile is incorrect, you can flag it for review",
+                "Right to deletion: you can request that your account and all associated data be permanently deleted",
+                "Right to portability: your financial data export is yours — you can take it anywhere",
+                "Right to revoke consent: you can withdraw any lender's access at any time, instantly",
               ]} />
+              <P>To exercise any of these rights, visit the Privacy section of your dashboard or contact <a href="mailto:privacy@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>privacy@creditlinker.io</a>.</P>
             </DocSection>
 
-            <DocSection id="rate-limits">
-              <H2>Rate Limits</H2>
-              <P>Rate limits are enforced per API key. Exceeding the limit returns a <code>429 Too Many Requests</code> response with a <code>Retry-After</code> header.</P>
-              <div className="docs-table-wrap" style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                {[
-                  { tier: "Sandbox",        limit: "100 req / min",   burst: "200 req"   },
-                  { tier: "Read tier",      limit: "1,000 req / min", burst: "2,000 req" },
-                  { tier: "Signal tier",    limit: "1,000 req / min", burst: "2,000 req" },
-                  { tier: "Build tier",     limit: "500 req / min",   burst: "1,000 req" },
-                  { tier: "platform_admin", limit: "200 req / min",   burst: "400 req"   },
-                ].map((r, i, arr) => (
-                  <div key={r.tier} style={{ display: "grid", gridTemplateColumns: "180px 1fr 120px", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", background: i % 2 === 0 ? "white" : "#FAFAFA" }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{r.tier}</span>
-                    <code style={{ fontSize: 12, color: "#0A2540", fontFamily: "monospace" }}>{r.limit}</code>
-                    <code style={{ fontSize: 12, color: "#9CA3AF", fontFamily: "monospace" }}>{r.burst} burst</code>
-                  </div>
-                ))}
+            <DocSection id="data-retention">
+              <H2>Data retention</H2>
+              <P>
+                We keep your financial data for as long as your account is active. If you close your account, we delete all your financial data within 30 days. Access logs are retained for 7 years to meet regulatory obligations, but are not shared with any third party after your account is closed.
+              </P>
+              <P>
+                If you disconnect a bank account or delete a statement, that data is removed from your active profile on the next rebuild. Historical snapshots that were built with that data are archived but remain accessible to lenders who had active consent at the time they were created.
+              </P>
+            </DocSection>
+
+            {/* ═══════════════════════════════════════
+                COMMON QUESTIONS
+            ═══════════════════════════════════════ */}
+            <DocSection id="faq-profile">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <HelpCircle size={16} style={{ color: "#00D4FF" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>Common Questions</span>
               </div>
+              <H2>About your profile</H2>
+              <QA
+                q="How long does it take to build my profile?"
+                a="Once you connect your bank account, your initial profile is typically ready within a few minutes. If you're uploading statements, it may take up to 30 minutes depending on the volume of transactions."
+              />
+              <QA
+                q="What if my business is seasonal — will that hurt my score?"
+                a="No. Our system is designed to understand seasonal businesses. Revenue stability is measured against your own historical patterns, not against an arbitrary benchmark. A business that consistently earns more in Q4 will have that pattern recognized and accounted for."
+              />
+              <QA
+                q="Can I see my own profile before sharing it with anyone?"
+                a="Yes. Your full financial profile is always visible in your dashboard. You can review every dimension score, every derived metric, and any risk flags before you decide to grant any lender access."
+              />
+              <QA
+                q="What if I think something in my profile is wrong?"
+                a={<>Contact us at <a href="mailto:support@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.io</a> and describe what you believe is incorrect. We'll review the underlying transactions and correct any processing errors. In most cases, uploading additional or more recent bank statements will also naturally improve or correct a profile.</>}
+              />
+              <QA
+                q="Does my profile affect a bureau credit score?"
+                a="No. Creditlinker is separate from the credit bureau system. Your Creditlinker profile does not appear on or affect any credit bureau report."
+              />
             </DocSection>
 
-            <DocSection id="data-encryption">
-              <H2>Data Encryption</H2>
-              <P>All financial data stored on the Creditlinker platform is encrypted at rest using AES-256. PII fields — business owner names, identification numbers, bank account numbers — are encrypted at the field level using envelope encryption with per-tenant keys managed in a dedicated key management service.</P>
-              <P>Bank account numbers are masked in all API responses (e.g., <code>****1234</code>). Full account numbers are never returned through the API.</P>
+            <DocSection id="faq-lenders">
+              <H2>About lenders</H2>
+              <QA
+                q="Who are the lenders on Creditlinker?"
+                a="Lenders on Creditlinker are licensed capital providers — banks, microfinance institutions, fintech lenders, and other regulated financial institutions that have been verified and onboarded onto our platform. You can see a lender's profile before granting them access."
+              />
+              <QA
+                q="Can a lender contact me without my consent?"
+                a="No. A lender can send you a formal access request through the platform, but they cannot contact you directly, see your name, or reach out through any channel until you grant them access and choose to engage."
+              />
+              <QA
+                q="Do I have to accept any offer a lender makes?"
+                a="Absolutely not. Receiving an offer means a lender thinks your profile qualifies — but accepting or rejecting it is entirely your decision. You can decline without explanation, and declining has no impact on your profile or future eligibility."
+              />
+              <QA
+                q="Can multiple lenders see my profile at the same time?"
+                a="Yes. You can grant access to as many lenders as you like simultaneously. Each consent is independent — granting access to one lender doesn't affect your relationship with any other."
+              />
+            </DocSection>
+
+            <DocSection id="faq-data">
+              <H2>About your data</H2>
+              <QA
+                q="Is connecting my bank safe? Can Creditlinker move money?"
+                a="Yes, connecting your bank is safe. The integration is read-only — we can only view your transaction history. We have no ability to initiate transfers, move money, or make any changes to your bank account. The connection is powered by Mono, a licensed open banking provider."
+              />
+              <QA
+                q="What happens if I disconnect my bank account?"
+                a="If you disconnect your bank, we stop pulling new data. Your existing profile remains in place until you rebuild it with new data. You can reconnect at any time or switch to uploading statements."
+              />
+              <QA
+                q="Can Creditlinker share my data with anyone without my knowledge?"
+                a="No. We do not share your financial data with any third party without your explicit consent. The only exception is if we are legally compelled to do so by a court order, in which case we will notify you to the extent permitted by law."
+              />
+              <QA
+                q="How do I delete my account?"
+                a={<>You can request account deletion from the Settings section of your dashboard. Alternatively, email <a href="mailto:privacy@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>privacy@creditlinker.io</a>. Your account and all associated financial data will be permanently deleted within 30 days.</>}
+              />
             </DocSection>
 
           </div>
@@ -1208,23 +911,25 @@ console.log(readiness['equipment_financing'].readinessScore)   // 67`} />
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 12 }}>On this page</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {[
-                { id: "introduction",       label: "Introduction"       },
-                { id: "quickstart",         label: "Quickstart"         },
-                { id: "authentication",     label: "Authentication"     },
-                { id: "errors",             label: "Errors"             },
-                { id: "financial-identity", label: "Financial Identity" },
-                { id: "dimensions",         label: "6 Dimensions"       },
-                { id: "pipeline",           label: "Data Pipeline"      },
-                { id: "feature-store",      label: "Feature Store"      },
-                { id: "consent-model",      label: "Consent Model"      },
-                { id: "api-business",       label: "Business API"       },
-                { id: "api-institution",    label: "Institution API"    },
-                { id: "api-partner",        label: "Partner API"        },
-                { id: "webhook-overview",   label: "Webhooks"           },
-                { id: "webhook-events",     label: "Event Reference"    },
-                { id: "webhook-security",   label: "Signatures"         },
-                { id: "sdk-install",        label: "SDK"                },
-                { id: "rate-limits",        label: "Rate Limits"        },
+                { id: "introduction",      label: "How it works"           },
+                { id: "who-is-it-for",     label: "Who is it for?"         },
+                { id: "how-it-works",      label: "The journey"            },
+                { id: "what-is-profile",   label: "Your profile"           },
+                { id: "six-dimensions",    label: "6 dimensions"           },
+                { id: "profile-quality",   label: "Profile quality"        },
+                { id: "data-overview",     label: "What data we use"       },
+                { id: "bank-connection",   label: "Connecting your bank"   },
+                { id: "statements",        label: "Uploading statements"   },
+                { id: "lender-view",       label: "What lenders see"       },
+                { id: "discovery",         label: "How lenders find you"   },
+                { id: "consent-explained", label: "How consent works"      },
+                { id: "what-lenders-see",  label: "Permission levels"      },
+                { id: "access-history",    label: "Access history"         },
+                { id: "security",          label: "Protecting your data"   },
+                { id: "privacy",           label: "Your rights"            },
+                { id: "faq-profile",       label: "Profile questions"      },
+                { id: "faq-lenders",       label: "Lender questions"       },
+                { id: "faq-data",          label: "Data questions"         },
               ].map((item) => (
                 <button
                   key={item.id}
