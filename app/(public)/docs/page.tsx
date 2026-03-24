@@ -507,7 +507,7 @@ export default function DocsPage() {
                 <DimensionCard name="Financial Consistency" color="#00D4FF" desc="How regular and complete your financial activity and record-keeping is. Businesses with continuous, well-documented histories are rewarded here." />
                 <DimensionCard name="Risk Profile" color="#F472B6" desc="Whether there are any unusual patterns in your transactions — like irregular counterparties, sudden behavioral shifts, or signs of financial distress." />
               </div>
-              <P style={{ marginTop: 16 }}>Each dimension is scored from 0 to 100. A score of 80+ is considered strong. Lenders can see exactly where your strengths lie and which dimensions matter most for the type of financing you're seeking.</P>
+              <p style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.85, marginBottom: 16, marginTop: 16 }}>Each dimension is scored from 0 to 100. A score of 80+ is considered strong. Lenders can see exactly where your strengths lie and which dimensions matter most for the type of financing you're seeking.</p>
             </DocSection>
 
             <DocSection id="profile-quality">
