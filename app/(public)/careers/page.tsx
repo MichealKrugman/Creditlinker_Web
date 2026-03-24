@@ -55,7 +55,7 @@ function SectionHeading({
 
 function PillarCard({ icon, title, desc, dark = false }: { icon: React.ReactNode; title: string; desc: string; dark?: boolean }) {
   return (
-    <div style={{ background: dark ? "rgba(255,255,255,0.04)" : "white", border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#E5E7EB"}`, borderRadius: 16, padding: 24 }}>
+    <div className="cr-card" style={{ background: dark ? "rgba(255,255,255,0.04)" : "white", border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#E5E7EB"}`, borderRadius: 16, padding: 24 }}>
       <div style={{ width: 44, height: 44, borderRadius: 12, background: dark ? "rgba(0,212,255,0.10)" : "#F0FDFF", border: `1px solid ${dark ? "rgba(0,212,255,0.2)" : "rgba(0,212,255,0.18)"}`, display: "flex", alignItems: "center", justifyContent: "center", color: "#00D4FF", marginBottom: 16 }}>
         {icon}
       </div>
@@ -70,7 +70,7 @@ function PillarCard({ icon, title, desc, dark = false }: { icon: React.ReactNode
 ───────────────────────────────────────────────────────── */
 function RoleCard({ title, type, desc, tags }: { title: string; type: string; desc: string; tags: string[] }) {
   return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div className="cr-card" style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", marginBottom: 6, letterSpacing: "-0.02em" }}>{title}</p>
@@ -190,7 +190,7 @@ function ContactForm() {
   }
 
   return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 20, padding: "36px 32px", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
+    <div className="cr-form-box" style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 20, padding: "36px 32px", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
       <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 6 }}>Submit an enquiry</p>
       <p style={{ fontSize: 13, color: "#9CA3AF", marginBottom: 28 }}>Please complete the form below with sufficient detail for us to respond appropriately. All submissions are reviewed directly by the founding team.</p>
 
@@ -340,6 +340,7 @@ export default function CareersPage() {
           .cr-pillars-grid { grid-template-columns: 1fr 1fr !important; }
           .cr-contact-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
           .cr-section      { padding: 60px 0 !important; }
+          .cr-hero-section { padding-top: 60px !important; padding-bottom: 60px !important; }
           .cr-pad          { padding: 0 20px !important; }
         }
         @media (max-width: 600px) {
@@ -348,7 +349,11 @@ export default function CareersPage() {
           .cr-cta-btns     { flex-direction: column !important; align-items: stretch !important; }
           .cr-cta-btns a   { justify-content: center !important; }
           .cr-section      { padding: 48px 0 !important; }
+          .cr-hero-section { padding-top: 48px !important; padding-bottom: 48px !important; }
           .cr-pad          { padding: 0 16px !important; }
+          .cr-card         { padding: 16px !important; }
+          .cr-hero-infobox { padding: 20px !important; }
+          .cr-form-box     { padding: 24px 16px !important; }
           .cr-form-row     { grid-template-columns: 1fr !important; }
           .cr-info-row     { flex-direction: column !important; align-items: flex-start !important; gap: 3px !important; }
           .cr-info-row .cr-info-value { text-align: left !important; }
@@ -356,7 +361,7 @@ export default function CareersPage() {
       `}</style>
 
       {/* HERO */}
-      <section aria-label="Careers hero" style={{ position: "relative", overflow: "hidden", background: "#0A2540", paddingTop: 88, paddingBottom: 88 }}>
+      <section aria-label="Careers hero" className="cr-hero-section" style={{ position: "relative", overflow: "hidden", background: "#0A2540", paddingTop: 88, paddingBottom: 88 }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "-20%", right: "-5%", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 65%)" }} />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", bottom: "-15%", left: "5%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(129,140,248,0.06) 0%, transparent 65%)" }} />
@@ -388,7 +393,7 @@ export default function CareersPage() {
               </div>
             </div>
 
-            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32 }}>
+            <div className="cr-hero-infobox" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32 }}>
               <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "rgba(0,212,255,0.6)", textTransform: "uppercase", marginBottom: 20 }}>What we are building</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 0, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
                 {[
@@ -444,8 +449,8 @@ export default function CareersPage() {
             <RoleCard
               title="Full-Stack Engineer"
               type="Full-time"
-              desc="Take ownership of features across the API, dashboard, and data pipeline. The technology stack includes Next.js, Hono, Postgres, and Trigger.dev. Candidates should be capable of carrying a problem from specification through to production independently."
-              tags={["TypeScript", "Next.js", "Hono", "Postgres", "API design"]}
+              desc="Take ownership of features across the API, dashboard, and data pipeline. Candidates should be capable of carrying a problem from specification through to production independently."
+              tags={["TypeScript", "Full-stack", "API design", "Databases"]}
             />
             <RoleCard
               title="Credit and Data Analyst"

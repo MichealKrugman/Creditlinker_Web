@@ -90,6 +90,7 @@ export function BusinessTopNav() {
 
   return (
     <header style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', background: 'white', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, zIndex: 40, gap: 12 }}>
+      <style>{`@media (max-width: 768px) { .cl-topnav-avatar-text { display: none !important; } .cl-topnav-chevron { display: none !important; } .cl-topnav-notif { display: none !important; } .cl-topnav-divider { display: none !important; } }`}</style>
 
       {/* Hamburger — hidden on desktop, shown on mobile via CSS */}
       <button
@@ -155,6 +156,7 @@ export function BusinessTopNav() {
 
         {/* Notifications */}
         <Link href="/notifications"
+          className='cl-topnav-notif'
           style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #E5E7EB', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6B7280', transition: 'all 0.12s', position: 'relative' as const, textDecoration: 'none' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#0A2540'; (e.currentTarget as HTMLElement).style.color = '#0A2540'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#E5E7EB'; (e.currentTarget as HTMLElement).style.color = '#6B7280'; }}>
@@ -162,7 +164,7 @@ export function BusinessTopNav() {
           <span style={{ position: 'absolute' as const, top: 7, right: 7, width: 6, height: 6, borderRadius: '50%', background: '#00D4FF', border: '1.5px solid white' }} />
         </Link>
 
-        <div style={{ width: 1, height: 22, background: '#E5E7EB', margin: '0 4px' }} />
+        <div className='cl-topnav-divider' style={{ width: 1, height: 22, background: '#E5E7EB', margin: '0 4px' }} />
 
         {/* Avatar + dropdown */}
         <div ref={menuRef} style={{ position: 'relative' as const }}>
@@ -171,11 +173,11 @@ export function BusinessTopNav() {
             <div style={{ width: 26, height: 26, borderRadius: 6, background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.3))', border: '1px solid rgba(0,212,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#0A5060', flexShrink: 0 }}>
               {currentUser.initials}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
+            <div className='cl-topnav-avatar-text' style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#0A2540', lineHeight: 1 }}>{currentUser.full_name.split(' ')[0]}</span>
               <span style={{ fontSize: 10, color: '#9CA3AF', lineHeight: 1.2 }}>{activeBusiness.initials}</span>
             </div>
-            <ChevronDown size={13} style={{ color: '#9CA3AF', transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            <ChevronDown size={13} className='cl-topnav-chevron' style={{ color: '#9CA3AF', transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
 
           {menuOpen && (

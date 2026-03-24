@@ -98,7 +98,7 @@ function WebhookRow({
   return (
     <div style={{ borderBottom: "1px solid #F3F4F6" }}>
       {/* Header row */}
-      <div style={{ padding: "16px 24px", display: "flex", alignItems: "flex-start", gap: 14 }}>
+      <div className="dev-wh-row-header" style={{ padding: "16px 24px", display: "flex", alignItems: "flex-start", gap: 14 }}>
         {/* Icon */}
         <div style={{
           width: 36, height: 36, borderRadius: 9, flexShrink: 0,
@@ -149,7 +149,6 @@ function WebhookRow({
 
         {/* Actions */}
         <div className="dev-wh-actions" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <style>{`@media (max-width: 600px) { .dev-wh-actions { flex-wrap: wrap !important; gap: 6px !important; } }`}</style>
           <Button
             variant="outline" size="sm"
             onClick={handleTest}
@@ -206,11 +205,11 @@ function WebhookRow({
       {/* Delivery history */}
       {expanded && (
         <div style={{ borderTop: "1px solid #F9FAFB", background: "#FAFAFA" }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", textTransform: "uppercase", padding: "10px 24px 6px" }}>
+          <p className="dev-wh-history-pad" style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", textTransform: "uppercase", padding: "10px 24px 6px" }}>
             Recent Deliveries
           </p>
           {hook.deliveries.map(d => (
-            <div key={d.id} style={{
+            <div key={d.id} className="dev-wh-history-row" style={{
               display: "flex", alignItems: "center", gap: 12,
               padding: "8px 24px", borderBottom: "1px solid #F3F4F6",
             }}>
@@ -360,6 +359,18 @@ export default function WebhooksPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <style>{`
+        @media (max-width: 600px) {
+          .dev-wh-row-header   { padding: 12px 14px !important; }
+          .dev-wh-row-header   { flex-wrap: wrap !important; }
+          .dev-wh-actions      { flex-wrap: wrap !important; flex-shrink: 1 !important; width: 100% !important; margin-top: 4px; }
+          .dev-wh-event-row    { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; padding: 10px 14px !important; }
+          .dev-wh-delivery-row { flex-wrap: wrap !important; padding: 8px 14px !important; gap: 8px !important; }
+          .dev-wh-card-pad     { padding: 14px 14px 0 !important; }
+          .dev-wh-history-pad  { padding: 10px 14px 6px !important; }
+          .dev-wh-history-row  { padding: 8px 14px !important; }
+        }
+      `}</style>
 
       {/* ── HEADER ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
@@ -391,7 +402,7 @@ export default function WebhooksPage() {
 
       {/* ── ENDPOINTS ── */}
       <Card>
-        <div style={{ padding: "18px 24px 0" }}>
+        <div className="dev-wh-card-pad" style={{ padding: "18px 24px 0" }}>
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>
             Endpoints ({hooks.length})
           </p>
@@ -416,14 +427,14 @@ export default function WebhooksPage() {
 
       {/* ── EVENT CATALOG ── */}
       <Card>
-        <div style={{ padding: "18px 24px 0" }}>
+        <div className="dev-wh-card-pad" style={{ padding: "18px 24px 0" }}>
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>
             Available Events
           </p>
         </div>
         <div style={{ padding: "12px 0 8px" }}>
           {EVENT_TYPES.map((et, i) => (
-            <div key={et.value} style={{
+            <div key={et.value} className="dev-wh-event-row" style={{
               display: "flex", alignItems: "center", gap: 14,
               padding: "10px 24px",
               borderBottom: i < EVENT_TYPES.length - 1 ? "1px solid #F3F4F6" : "none",
