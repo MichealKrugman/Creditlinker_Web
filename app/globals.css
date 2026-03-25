@@ -435,6 +435,7 @@
   /* FieldRow: stack label above value on narrow screens */
   .bp-field-row   { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; }
   .bp-field-label { min-width: 0 !important; width: 100% !important; }
+  .bp-custom-empty { flex-direction: column !important; align-items: flex-start !important; }
 
   /* ── Reports ── */
   .rep-table-row { min-width: 520px; }

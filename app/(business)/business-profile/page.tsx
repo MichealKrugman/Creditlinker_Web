@@ -1370,7 +1370,7 @@ export default function BusinessProfilePage() {
                 action={<Button variant="outline" size="sm" onClick={() => setModal({ type: "add_custom_category" })} style={{ gap: 5 }}><Plus size={12} /> Add category</Button>}
               />
               {customCategories.length === 0 ? (
-                <div style={{ padding: "24px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+                <div className="bp-custom-empty" style={{ padding: "24px 24px", display: "flex", alignItems: "center", gap: 16 }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>Examples: Cold Chain Assets, Solar Equipment, Livestock, Intellectual Property, Franchise Rights, Carbon Credits…</p>
                   </div>
