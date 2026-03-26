@@ -761,7 +761,7 @@ export default function FinancialAnalysisPage() {
         <>
           {/* KEY METRICS */}
           {metricsData.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
               {metricsData.map(m => <MetricTile key={m.label} {...m} />)}
             </div>
           )}

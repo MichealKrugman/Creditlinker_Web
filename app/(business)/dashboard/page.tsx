@@ -132,7 +132,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── METRICS ROW ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14 }}>
         <MetricCard label="Financial Score" value={String(SCORE.overall)} sub="Out of 1,000" icon={<ShieldCheck size={16} />} accent />
         <MetricCard label="Data Quality"    value={`${SCORE.data_quality_score}%`} sub="High confidence" icon={<Zap size={16} />} />
         <MetricCard label="Linked Accounts" value={String(LINKED_ACCOUNTS.length)} sub="All synced" icon={<ArrowLeftRight size={16} />} />

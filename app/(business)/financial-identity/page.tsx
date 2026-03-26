@@ -22,7 +22,7 @@ const IDENTITY = {
 };
 
 const SCORE = {
-  overall: 742,
+  overall: 812,
   max: 1000,
   risk_level: "Low Risk" as const,
   data_quality_score: 91,
@@ -53,9 +53,9 @@ const RISK_FLAGS = [
 ];
 
 const SNAPSHOTS = [
-  { taken_at: "Dec 28, 2024", score: 742, risk: "Low Risk",    quality: 91 },
-  { taken_at: "Nov 30, 2024", score: 724, risk: "Low Risk",    quality: 89 },
-  { taken_at: "Oct 31, 2024", score: 698, risk: "Medium Risk", quality: 84 },
+  { taken_at: "Dec 28, 2024", score: 812, risk: "Low Risk",    quality: 91 },
+  { taken_at: "Nov 30, 2024", score: 786, risk: "Low Risk",    quality: 89 },
+  { taken_at: "Oct 31, 2024", score: 754, risk: "Medium Risk", quality: 84 },
 ];
 
 const RECOMMENDATIONS = [
@@ -441,7 +441,7 @@ export default function FinancialIdentityPage() {
                       <p style={{ fontSize: 13, color: "#374151", fontWeight: i === 0 ? 600 : 400 }}>
                         {snap.taken_at} {i === 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>(latest)</span>}
                       </p>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: snap.score >= 730 ? "#10B981" : snap.score >= 650 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)" }}>{snap.score}</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: snap.score >= 760 ? "#10B981" : snap.score >= 640 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)" }}>{snap.score}</p>
                       <Badge variant={snap.risk === "Low Risk" ? "success" : snap.risk === "Medium Risk" ? "warning" : "destructive"} style={{ width: "fit-content" }}>{snap.risk}</Badge>
                       <p style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{snap.quality}%</p>
                     </div>
