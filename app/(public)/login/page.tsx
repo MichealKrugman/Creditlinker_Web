@@ -1,357 +1,267 @@
-"use client";
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Eye, EyeOff } from 'lucide-react-native';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { Eye, EyeOff, ArrowRight, Loader2, AlertCircle } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+const { width: SW } = Dimensions.get('window');
 
-/* ─────────────────────────────────────────────────────────
-   LOGO
-───────────────────────────────────────────────────────── */
-function LogoMark({ size = 28, dark = false }: { size?: number; dark?: boolean }) {
+// THEME CONSTANTS - High Contrast / Modern
+const C = {
+  bgDark: '#0B0B0B',
+  bgLight: '#FFFFFF',
+  textPrimary: '#1A1A1A',
+  textMuted: '#9E9E9E',
+  border: '#EEEEEE',
+  accent: '#000000',
+  inputBg: '#FCFCFC',
+};
+
+const HERO_HEIGHT = 260;
+
+// Clean, geometric pattern for the header
+function BackgroundPattern() {
+  const TILE = 50;
+  const cols = Math.ceil(SW / TILE) + 1;
+  const rows = 6;
+
+  const shapes = useMemo(() => {
+    const items = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * TILE;
+        const y = r * TILE;
+        const type = (r + c) % 4;
+        if (type === 0) {
+          items.push(<Circle key={`${r}-${c}`} cx={x + 25} cy={y + 25} r="18" fill="#1A1A1A" fillOpacity="0.4" />);
+        } else if (type === 1) {
+          items.push(<Path key={`${r}-${c}`} d={`M${x+5} ${y+5} Q${x+25} ${y+45} ${x+45} ${y+5}`} stroke="#1A1A1A" strokeWidth="2" fill="none" opacity="0.3" />);
+        }
+      }
+    }
+    return items;
+  }, []);
+
   return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="28" height="28" rx="7" fill={dark ? "rgba(255,255,255,0.08)" : "#0A2540"} />
-      <path d="M7 14C7 10.134 10.134 7 14 7C17.866 7 21 10.134 21 14" stroke="#00D4FF" strokeWidth="2" strokeLinecap="round" />
-      <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke={dark ? "white" : "white"} strokeWidth="2" strokeLinecap="round" />
-      <circle cx="14" cy="14" r="2.5" fill="#00D4FF" />
-    </svg>
+    <View style={StyleSheet.absoluteFill}>
+      <Svg width={SW} height={HERO_HEIGHT}>{shapes}</Svg>
+    </View>
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   PAGE
-───────────────────────────────────────────────────────── */
-export default function LoginPage() {
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
+export default function LoginScreen() {
   const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!email || !password) { setError("Please enter your email and password."); return; }
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    // TODO: POST to Keycloak token endpoint → decode JWT role → server-side redirect
-    setError("Invalid credentials. Please try again.");
-  };
 
   return (
-    <>
-      <style>{`
-        .login-root {
-          margin-top: calc(-1 * var(--header-height));
-          min-height: 100vh;
-          display: grid;
-          grid-template-columns: 480px 1fr;
-          background: #fff;
-        }
-        @media (max-width: 860px) {
-          .login-root { grid-template-columns: 1fr; }
-          .login-dark  { display: none !important; }
-          .login-form  { padding: 48px 24px !important; }
-        }
-        .login-input-row { position: relative; }
-        .login-input-row input { height: 44px; font-size: 14px; border-radius: 8px; }
-        .login-input-row input:focus {
-          border-color: #0A2540;
-          box-shadow: 0 0 0 3px rgba(10,37,64,0.08);
-        }
-      `}</style>
-
-      <div className="login-root">
-
-        {/* ── LEFT: DARK BRAND PANEL ── */}
-        <div className="login-dark" style={{
-          background: "#0A2540",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          padding: "52px 64px",
-          position: "relative",
-          overflow: "hidden",
-        }}>
-
-          {/* Subtle grid texture */}
-          <div aria-hidden style={{
-            position: "absolute", inset: 0, pointerEvents: "none",
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }} />
-
-          {/* Accent glow */}
-          <div aria-hidden style={{
-            position: "absolute", bottom: "-80px", left: "-80px",
-            width: 360, height: 360, borderRadius: "50%", pointerEvents: "none",
-            background: "radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%)",
-          }} />
-
-          {/* Logo */}
-          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
-            <LogoMark size={30} dark />
-            <span style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 800,
-              fontSize: 17,
-              color: "white",
-              letterSpacing: "-0.03em",
-            }}>
-              Creditlinker
-            </span>
-          </div>
-
-          {/* Center mark */}
-          <div style={{ position: "relative" }}>
-            <div style={{
-              width: 48, height: 2,
-              background: "linear-gradient(90deg, #00D4FF, transparent)",
-              marginBottom: 24,
-              borderRadius: 2,
-            }} />
-            <p style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: 28,
-              color: "white",
-              letterSpacing: "-0.04em",
-              lineHeight: 1.2,
-              marginBottom: 12,
-            }}>
-              Your business,<br />fully verified.
-            </p>
-            <p style={{
-              fontSize: 13,
-              color: "rgba(255,255,255,0.35)",
-              lineHeight: 1.7,
-              maxWidth: 280,
-            }}>
-              Sign in to manage your financial identity and access the capital your business deserves.
-            </p>
-          </div>
-
-          {/* Bottom footnote */}
-          <div style={{ position: "relative" }}>
-            <div style={{ height: 1, background: "rgba(255,255,255,0.07)", marginBottom: 20 }} />
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", lineHeight: 1.7 }}>
-              All data is encrypted in transit and at rest.<br />
-              Access is governed by explicit consent.
-            </p>
-          </div>
-        </div>
-
-        {/* ── RIGHT: FORM ── */}
-        <div className="login-form" style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "64px 48px",
-          background: "white",
-        }}>
-          <div style={{ maxWidth: 400, width: "100%" }}>
-
-            {/* Mobile logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 40 }}
-              className="mobile-only">
-              <LogoMark size={26} />
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#0A2540", letterSpacing: "-0.03em" }}>
-                Creditlinker
-              </span>
-            </div>
-
-            {/* Heading block */}
-            <div style={{ marginBottom: 36 }}>
-              <h1 style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 800,
-                fontSize: 30,
-                color: "#0A2540",
-                letterSpacing: "-0.04em",
-                lineHeight: 1.1,
-                marginBottom: 10,
-              }}>
-                Welcome back.
-              </h1>
-              <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
-                New to Creditlinker?{" "}
-                <Link href="/register" style={{
-                  color: "#0A2540",
-                  fontWeight: 700,
-                  textDecoration: "underline",
-                  textUnderlineOffset: 3,
-                }}>
-                  Create an account
-                </Link>
-              </p>
-            </div>
-
-            {/* Error banner */}
-            {error && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "11px 14px",
-                background: "#FEF2F2",
-                border: "1px solid #FECACA",
-                borderRadius: 8,
-                marginBottom: 24,
-              }}>
-                <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: "#991B1B" }}>{error}</span>
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-              {/* Email */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                <label htmlFor="login-email" style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#374151",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  display: "block",
-                }}>
-                  Email address
-                </label>
-                <div className="login-input-row">
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    autoFocus
+    <SafeAreaView style={s.container} edges={['bottom']}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={s.scrollContent}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* HEADER SECTION */}
+          <View style={s.header}>
+            <BackgroundPattern />
+            
+            {/* LOGO - Centered in the dark area */}
+            <View style={s.logoContainer}>
+              <View style={s.logoBox}>
+                <Svg width={44} height={44} viewBox="0 0 88 88">
+                  {/* Dark background square */}
+                  <Rect width="88" height="88" rx="20" fill="#0A2540" />
+                  {/* Top arc — cyan */}
+                  <Path
+                    d="M22 44C22 31.85 31.85 22 44 22C56.15 22 66 31.85 66 44"
+                    stroke="#00D4FF" strokeWidth="6.5" strokeLinecap="round"
+                    fill="none"
                   />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label htmlFor="login-password" style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#374151",
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
-                    display: "block",
-                  }}>
-                    Password
-                  </label>
-                  <Link href="/forgot-password" style={{
-                    fontSize: 12,
-                    color: "#6B7280",
-                    fontWeight: 500,
-                    textDecoration: "underline",
-                    textUnderlineOffset: 3,
-                  }}>
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="login-input-row" style={{ position: "relative" }}>
-                  <Input
-                    id="login-password"
-                    type={showPass ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    style={{ paddingRight: 44 }}
+                  {/* Bottom arc — white */}
+                  <Path
+                    d="M22 44C22 56.15 31.85 66 44 66H66"
+                    stroke="white" strokeWidth="6.5" strokeLinecap="round"
+                    fill="none"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    aria-label={showPass ? "Hide password" : "Show password"}
-                    style={{
-                      position: "absolute", right: 13, top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none", border: "none", cursor: "pointer",
-                      color: "#9CA3AF", display: "flex", alignItems: "center",
-                      padding: 0, lineHeight: 0,
-                    }}
-                  >
-                    {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
+                  {/* Center dot — cyan */}
+                  <Circle cx="44" cy="44" r="8" fill="#00D4FF" />
+                </Svg>
+              </View>
+            </View>
+          </View>
 
-              {/* Submit */}
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={loading}
-                className="w-full mt-1"
-                style={{
-                  height: 48,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  letterSpacing: "-0.01em",
-                  borderRadius: 10,
-                }}
-              >
-                {loading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Signing in…</>
-                ) : (
-                  <>Sign in <ArrowRight size={15} /></>
-                )}
-              </Button>
+          {/* FORM SECTION - This provides the single big curve */}
+          <View style={s.body}>
+            <Text style={s.title}>Login</Text>
+            <Text style={s.tagline}>Your business financial identity</Text>
 
-            </form>
+            <View style={s.inputWrapper}>
+              <Text style={s.label}>Email</Text>
+              <TextInput 
+                style={s.input}
+                placeholder="vijaybhuva90@gmail.com"
+                placeholderTextColor={C.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
 
-            {/* Divider */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "24px 0" }}>
-              <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
-              <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>or</span>
-              <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
-            </div>
+            <View style={s.inputWrapper}>
+              <Text style={s.label}>Password</Text>
+              <View style={s.passwordRow}>
+                <TextInput 
+                  style={[s.input, { flex: 1, borderBottomWidth: 0, marginBottom: 0, backgroundColor: 'transparent' }]}
+                  placeholder="••••••••"
+                  placeholderTextColor={C.textMuted}
+                  secureTextEntry={!showPass}
+                />
+                <TouchableOpacity onPress={() => setShowPass(!showPass)} style={s.eyeBtn}>
+                  {showPass ? <EyeOff size={18} color={C.textMuted} /> : <Eye size={18} color={C.textMuted} />}
+                </TouchableOpacity>
+              </View>
+            </View>
 
-            {/* Google SSO */}
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="w-full"
-              style={{ height: 48, fontSize: 14, fontWeight: 600, borderRadius: 10, gap: 10 }}
-            >
-              <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-                <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-              </svg>
-              Continue with Google
-            </Button>
+            <TouchableOpacity style={s.loginBtn} activeOpacity={0.9}>
+              <Text style={s.loginBtnText}>Login</Text>
+            </TouchableOpacity>
 
-            {/* Terms */}
-            <p style={{
-              marginTop: 28,
-              fontSize: 11,
-              color: "#9CA3AF",
-              lineHeight: 1.8,
-              textAlign: "center",
-            }}>
-              By signing in you agree to our{" "}
-              <Link href="/terms" style={{ color: "#6B7280", textDecoration: "underline", textUnderlineOffset: 2 }}>Terms</Link>
-              {" "}and{" "}
-              <Link href="/privacy" style={{ color: "#6B7280", textDecoration: "underline", textUnderlineOffset: 2 }}>Privacy Policy</Link>.
-            </p>
-
-          </div>
-        </div>
-
-      </div>
-    </>
+            <TouchableOpacity style={s.footerLink}>
+              <Text style={s.footerText}>
+                Don’t have any account? <Text style={s.signUpText}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: C.bgLight,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    backgroundColor: C.bgDark, // Header background color
+  },
+  header: {
+    height: HERO_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    zIndex: 10,
+    marginTop: -20, // Adjust logo height relative to curve
+  },
+  logoBox: {
+    width: 70,
+    height: 70,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Soft shadow to match wireframe depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
+  },
+  tagline: {
+    fontSize: 13,
+    color: '#9E9E9E',
+    textAlign: 'center',
+    marginTop: -32,
+    marginBottom: 20,
+    letterSpacing: 0.2,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: C.bgLight,
+    borderTopLeftRadius: 100, // THE MAIN CURVE
+    paddingHorizontal: 30,
+    paddingTop: 50,
+    paddingBottom: 40,
+    marginTop: -40, // Pulls the white section up into the dark area
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '500',
+    color: C.textPrimary,
+    textAlign: 'center',
+    marginBottom: 40,
+    letterSpacing: -0.5,
+  },
+  inputWrapper: {
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: C.inputBg,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.textPrimary,
+    marginBottom: 2,
+  },
+  input: {
+    fontSize: 15,
+    color: C.textPrimary,
+    height: 24,
+    padding: 0,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eyeBtn: {
+    paddingLeft: 10,
+  },
+  loginBtn: {
+    backgroundColor: C.bgDark,
+    height: 58,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  loginBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footerLink: {
+    marginTop: 40,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    color: C.textMuted,
+  },
+  signUpText: {
+    fontWeight: '700',
+    color: C.textPrimary,
+  },
+});

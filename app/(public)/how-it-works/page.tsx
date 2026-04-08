@@ -62,13 +62,13 @@ function Tag({ children, color = "#0A2540" }: { children: React.ReactNode; color
 ───────────────────────────────────────────────────────── */
 function TimelineStep({ n, icon, title, desc, detail, last = false }: { n: string; icon: React.ReactNode; title: string; desc: string; detail?: string; last?: boolean }) {
   return (
-    <div style={{ display: "flex", gap: 20 }}>
+    <div className="hiw-step-card" style={{ display: "flex", gap: 16 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 1px rgba(0,212,255,0.18)", position: "relative" }}>
+        <div className="hiw-step-num" style={{ width: 40, height: 40, borderRadius: 12, background: "#0A2540", color: "#00D4FF", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 1px rgba(0,212,255,0.18)", position: "relative" }}>
           {icon}
-          <span style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: "50%", background: "#00D4FF", color: "#0A2540", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)" }}>{n}</span>
+          <span className="hiw-step-numtag" style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: "50%", background: "#00D4FF", color: "#0A2540", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)" }}>{n}</span>
         </div>
-        {!last && <div style={{ width: 2, flex: 1, minHeight: 32, marginTop: 6, background: "linear-gradient(to bottom, rgba(0,212,255,0.25), rgba(0,212,255,0.04))" }} />}
+        {!last && <div className="hiw-step-connector" style={{ width: 2, flex: 1, minHeight: 32, marginTop: 6, background: "linear-gradient(to bottom, rgba(0,212,255,0.25), rgba(0,212,255,0.04))" }} />}
       </div>
       <div className="hiw-step-pb" style={{ paddingBottom: last ? 0 : 36, flex: 1, minWidth: 0 }}>
         <h3 className="hiw-step-title" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#0A2540", letterSpacing: "-0.025em", marginBottom: 8 }}>{title}</h3>
@@ -200,51 +200,44 @@ export default function HowItWorksPage() {
           .hiw-section     { padding: 40px 0 !important; }
           .hiw-pad         { padding: 0 20px !important; }
 
-          /* Hero: hide data-flow card */
+          /* Hero: hide data-flow card, stack buttons */
           .hiw-hero-card   { display: none !important; }
           .hiw-hero-grid   { grid-template-columns: 1fr !important; }
           .hiw-hero-btns   { flex-direction: column !important; }
           .hiw-hero-btns a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
 
-          /* Section headings: tighter margin */
-          .hiw-sh          { margin-bottom: 28px !important; }
+          /* Hide the compare section entirely — too tabular on mobile */
+          .hiw-compare-section { display: none !important; }
+
+          /* Section headings: hide subtitle, tighten spacing */
+          .hiw-sh          { margin-bottom: 24px !important; }
           .hiw-sh p        { display: none !important; }
 
-          /* Compare table: 2 col, no label column */
-          .hiw-compare-hdr { grid-template-columns: 1fr 1fr !important; }
-          .hiw-compare-hdr span:first-child { display: none !important; }
-          .hiw-compare-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; padding: 10px 0 !important; }
-          .hiw-compare-row span:first-child  { display: none !important; }
-          .hiw-compare-row span { font-size: 11px !important; padding: 5px 8px !important; }
-
-          /* Timeline steps: trim description */
+          .hiw-steps-grid  { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+          .hiw-step-connector { display: none !important; }
+          .hiw-step-card   { background: #F9FAFB !important; border: 1px solid #E5E7EB !important; border-radius: 12px !important; padding: 14px !important; flex-direction: column !important; }
           .hiw-step-desc   { display: none !important; }
-          .hiw-step-title  { font-size: 15px !important; margin-bottom: 6px !important; }
-          .hiw-step-pb     { padding-bottom: 24px !important; }
+          .hiw-step-title  { font-size: 13px !important; margin-bottom: 6px !important; line-height: 1.4 !important; }
+          .hiw-step-pb     { padding-bottom: 0 !important; }
+          .hiw-step-num    { width: 28px !important; height: 28px !important; border-radius: 8px !important; margin-bottom: 10px !important; }
+          .hiw-step-numtag { width: 14px !important; height: 14px !important; font-size: 7px !important; top: -5px !important; right: -5px !important; }
 
-          /* Pipeline dimension cards: hide description */
-          .hiw-dim-desc    { display: none !important; }
-          .hiw-dim-grid    { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
-          .hiw-dim-card    { padding: 14px !important; }
+          /* Pipeline deep-dive: hide entire section on mobile */
+          .hiw-pipeline-section { display: none !important; }
 
-          /* Consent section: hide the UI card, show only copy */
+          /* Consent section: hide UI card, show copy only */
           .hiw-consent-card { display: none !important; }
-          .hiw-hero-grid    { grid-template-columns: 1fr !important; }
 
-          /* Provider journey: hide offer card */
+          /* Provider journey: hide sticky offer card */
           .hiw-offer-card  { display: none !important; }
 
-          /* Audience section: hidden on mobile */
+          /* Audience section: hide entirely */
           .hiw-audience-section { display: none !important; }
-          .hiw-aud-icon    { display: none !important; }
-          .hiw-aud-card    { padding: 20px !important; }
-          .hiw-aud-title   { font-size: 17px !important; margin-top: 8px !important; margin-bottom: 6px !important; }
-          .hiw-aud-desc    { display: none !important; }
 
-          /* CTA section */
+          /* CTA: stack buttons full width */
           .hiw-cta-btns    { flex-direction: column !important; }
           .hiw-cta-btns a  { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
-          .hiw-cta-body    { display: none !important; }
+          .hiw-cta-body    { font-size: 14px !important; margin-bottom: 24px !important; }
         }
       `}</style>
 
@@ -310,7 +303,7 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ══ OLD WAY vs CREDITLINKER ═══════════════════════════════ */}
-      <section aria-labelledby="compare-heading" className="hiw-section" style={{ padding: "96px 0", background: "#F9FAFB" }}>
+      <section aria-labelledby="compare-heading" className="hiw-section hiw-compare-section" style={{ padding: "96px 0", background: "#F9FAFB" }}>
         <div className="hiw-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="compare-heading"
@@ -357,20 +350,18 @@ export default function HowItWorksPage() {
             </div>
 
             <div>
+            <div className="hiw-steps-grid">
               <TimelineStep n="1" icon={<Building2 size={18} aria-hidden="true" />}
                 title="Create your business account"
                 desc="Register with your business name and basic details. Creditlinker generates a persistent financial identity — anchored to your business, not just an individual login — that versions and grows over time."
-                detail="Takes under 2 minutes"
               />
               <TimelineStep n="2" icon={<Database size={18} aria-hidden="true" />}
                 title="Connect your financial data sources"
                 desc="Link your bank accounts, upload accounting ledger exports, or add operational data such as equipment, inventory, and contract records. The more sources you connect, the richer and more credible your identity."
-                detail="30+ Nigerian banks · bank + ledger + operational"
               />
               <TimelineStep n="3" icon={<Cpu size={18} aria-hidden="true" />}
                 title="Pipeline and feature store update automatically"
                 desc="Our engine ingests, normalizes, reconciles, and enriches your data. A dedicated financial feature store computes 40+ derived metrics: monthly revenue growth, operating margin, cash reserve ratio, receivable turnover, and expense ratios. These are stored and versioned so scoring models never recalculate from scratch."
-                detail="Typical runtime: under 90 seconds"
               />
               <TimelineStep n="4" icon={<ShieldCheck size={18} aria-hidden="true" />}
                 title="Receive your six-dimensional financial identity"
@@ -379,7 +370,6 @@ export default function HowItWorksPage() {
               <TimelineStep n="5" icon={<Eye size={18} aria-hidden="true" />}
                 title="Grant consent to matched capital providers"
                 desc="Creditlinker anonymously matches your profile to financers, equipment financiers, trade suppliers, and revenue financiers whose criteria fit your dimensions. You decide exactly which providers can see which data, for how long. Revoke anytime. Every access is logged."
-                detail="Full audit trail of every access event"
               />
               <TimelineStep n="6" icon={<Banknote size={18} aria-hidden="true" />}
                 title="Review and accept capital offers"
@@ -387,12 +377,13 @@ export default function HowItWorksPage() {
                 last
               />
             </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ══ PIPELINE DEEP DIVE ════════════════════════════════════ */}
-      <section aria-labelledby="pipeline-heading" className="hiw-section" style={{ padding: "96px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+      <section aria-labelledby="pipeline-heading" className="hiw-section hiw-pipeline-section" style={{ padding: "96px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "30%", right: "-10%", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%)" }} />
 
@@ -538,10 +529,10 @@ export default function HowItWorksPage() {
                 title={<>Evaluate businesses<br />with verified evidence.</>}
                 sub="Whether you're a financer, equipment financier, trade supplier, or revenue financer. Creditlinker gives you access to six-dimensional financial identities built from real data."
               />
+              <div className="hiw-steps-grid">
               <TimelineStep n="1" icon={<Landmark size={18} aria-hidden="true" />}
                 title="Register as an institution"
                 desc="Create your institution profile. Define your financing mandate — capital category, sectors you serve, ticket size ranges, and risk appetite."
-                detail="Verified institution onboarding"
               />
               <TimelineStep n="2" icon={<Layers size={18} aria-hidden="true" />}
                 title="Set your matching criteria"
@@ -550,7 +541,6 @@ export default function HowItWorksPage() {
               <TimelineStep n="3" icon={<Eye size={18} aria-hidden="true" />}
                 title="Request data access"
                 desc="Send consent requests to matched businesses. They review the permissions scope you're requesting — score only, full identity, or transaction detail — and grant or deny with their own timeline."
-                detail="Business retains full control"
               />
               <TimelineStep n="4" icon={<ShieldCheck size={18} aria-hidden="true" />}
                 title="Review the verified financial identity"
@@ -561,6 +551,7 @@ export default function HowItWorksPage() {
                 desc="Structure your offer on-platform with terms, tenor, and repayment schedule. The business reviews and accepts or declines. Financing records are created with full provenance and audit trail — and contribute to your institution's reputation score."
                 last
               />
+              </div>
             </div>
 
             {/* Right — offer card */}
