@@ -477,19 +477,18 @@ export default function ForBusinessesPage() {
             <div>
               <div style={{ marginBottom: 20 }}><Badge><Banknote size={10} aria-hidden="true" /> The capital network</Badge></div>
               <h2 id="market-heading" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,44px)", letterSpacing: "-0.035em", color: "#0A2540", marginBottom: 20, lineHeight: 1.1 }}>
-                14 capital categories.<br />One verified identity.
+                14 ways to get funded.<br />One verified identity.
               </h2>
               <p style={{ fontSize: 16, color: "#4B5563", lineHeight: 1.78, marginBottom: 28 }}>
-                Your financial identity is evaluated across 14 financing categories. You can see
-                exactly how ready you are for each one before speaking to a single provider.
+                Not every business needs a loan. Creditlinker checks your readiness across 14 different ways to get funded — from invoice advances to equipment leasing — so you know exactly which doors are open before you knock on any of them.
               </p>
               <div className="fb-cap-list" style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
                 {[
-                  { cat: "Debt capital",          types: "Working capital financing · Term financing · Overdraft facilities"             },
-                  { cat: "Asset-based financing",  types: "Equipment financing · Inventory financing · Asset leasing"             },
-                  { cat: "Revenue-based",          types: "Invoice financing · Revenue advances · Receivables purchase"           },
-                  { cat: "Trade-based",            types: "Trade credit · Supplier financing · Deferred payment"                  },
-                  { cat: "Service-based capital",  types: "Deferred service agreements · Revenue-share software tools"            },
+                  { cat: "Loans & credit lines",    types: "Short-term business loans · Lump-sum term loans · Business overdraft cover"       },
+                  { cat: "Finance against assets",  types: "Equipment purchase loans · Stock-backed financing · Equipment leasing"            },
+                  { cat: "Finance against sales",   types: "Get paid on unpaid invoices · Cash advance on future revenue · Sell your receivables" },
+                  { cat: "Supplier arrangements",   types: "Buy now, pay later from suppliers · Third-party supplier payment · Deferred billing" },
+                  { cat: "Service-based deals",     types: "Pay for services after delivery · Revenue-share instead of upfront fees"             },
                 ].map((g) => (
                   <div key={g.cat} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: "1px solid #F3F4F6" }}>
                     <CheckCircle2 size={15} aria-hidden="true" style={{ color: "#00D4FF", flexShrink: 0, marginTop: 2 }} />

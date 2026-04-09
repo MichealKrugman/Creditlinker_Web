@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -294,34 +295,34 @@ export default function ForFinancersPage() {
           <SectionHeading
             id="types-heading"
             badge={<Badge><Landmark size={10} aria-hidden="true" /> Types of financing</Badge>}
-            title="Not all financing is the same."
-            sub="Creditlinker covers five types of financing, each with its own repayment source and protection structure. You pick what fits your mandate."
+            title="Pick the type that fits what you have."
+            sub="Not all financing works the same way. Each type below is a different deal structure, a different repayment source, and a different kind of financer. Pick what fits you."
             center
           />
           <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
             <ProviderCard
               icon={<Banknote size={20} aria-hidden="true" />}
-              type="Financers"
-              desc="Fund businesses directly for working capital, operations, or growth. Repayment comes from cashflow."
-              examples={["Working capital", "Term financing", "Overdraft"]}
+              type="Direct lenders"
+              desc="You lend money directly to a business for day-to-day operations or growth. They repay you from their cashflow over time. Simple. Clean."
+              examples={["Short-term loans", "Working capital", "Overdraft cover"]}
             />
             <ProviderCard
               icon={<Layers size={20} aria-hidden="true" />}
-              type="Equipment financiers"
-              desc="Finance the purchase of machines, vehicles, and equipment. The asset itself backs the deal."
-              examples={["Equipment financing", "Asset leasing", "Hire purchase"]}
+              type="Equipment financers"
+              desc="You fund the purchase of machines, vehicles, or equipment. The asset itself is the security — if repayment stops, the asset is recovered."
+              examples={["Equipment finance", "Asset leasing", "Hire purchase"]}
             />
             <ProviderCard
               icon={<TrendingUp size={20} aria-hidden="true" />}
-              type="Revenue financers"
-              desc="Advance capital against future revenue. Security comes from verified invoices or projected cashflow."
-              examples={["Invoice finance", "Revenue advance", "Receivables purchase"]}
+              type="Revenue & invoice financers"
+              desc="You advance money against real invoices or verified future revenue. The business's customers — or their sales — are what pays you back."
+              examples={["Invoice advances", "Revenue share", "Receivables"]}
             />
             <ProviderCard
               icon={<Star size={20} aria-hidden="true" />}
-              type="Trade suppliers"
-              desc="Extend payment terms or credit lines to buyers you already have a commercial relationship with."
-              examples={["Trade credit", "Supplier finance", "Deferred payment"]}
+              type="Trade & supplier financers"
+              desc="You extend credit or payment terms to businesses you supply or trade with. Repayment is tied to your existing commercial relationship."
+              examples={["Trade credit", "Supplier finance", "Deferred billing"]}
             />
           </div>
         </div>
@@ -511,38 +512,55 @@ export default function ForFinancersPage() {
           <SectionHeading
             id="loantypes-heading"
             badge={<Badge><Layers size={10} aria-hidden="true" /> What you can finance</Badge>}
-            title="Five categories. Each works differently."
-            sub="Each financing category has a different source of repayment and a different protection structure. Pick the ones that match your appetite."
+            title={<>Five ways to put your<br />money to work.</>}
+            sub="Each one has a different source of repayment and a different level of risk."
             center
           />
-          <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 16 }}>
+          <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
             {[
-              { name: "Equipment Financing",      security: "The equipment is the security. If repayment stops, the asset is recovered and sold.",   risk: "Low",    rc: "#10B981" },
-              { name: "Working Capital",           security: "Backed by the business's verified cashflow data and the reserve fund.",                 risk: "Medium", rc: "#F59E0B" },
-              { name: "Invoice and Revenue Finance", security: "Backed by verified customer invoices. The customer's payment clears the deal.",       risk: "Low",    rc: "#10B981" },
+              {
+                name: "Business loans & credit",
+                tag: "Debt financing",
+                risk: "Medium Risk",
+                rc: "#F59E0B",
+                security: "Repaid from the business's cashflow. Backed by their verified financial data and the reserve fund. Good for businesses that need cash now and pay it back over time.",
+                types: ["Short-term loans", "Overdraft cover", "Working capital"]
+              },
+              {
+                name: "Equipment & asset finance",
+                tag: "Asset-backed",
+                risk: "Low Risk",
+                rc: "#10B981",
+                security: "The equipment itself is the security. If the business stops paying, the asset is recovered and sold to cover what is owed. Lower risk because there is something physical to fall back on.",
+                types: ["Equipment purchase", "Asset leasing", "Hire purchase"]
+              },
+              {
+                name: "Invoice & revenue finance",
+                tag: "Revenue-backed",
+                risk: "Low Risk",
+                rc: "#10B981",
+                security: "Backed by the business's real customer invoices. When the customer pays their invoice, that money clears the deal. You are not waiting on the business \u2014 you are waiting on their customer.",
+                types: ["Invoice advances", "Receivables purchase", "Revenue advance"]
+              },
             ].map((lt) => (
-              <div key={lt.name} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "20px 22px" }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: lt.rc, background: `${lt.rc}12`, border: `1px solid ${lt.rc}25`, padding: "2px 9px", borderRadius: 9999 }}>{lt.risk} Risk</span>
-                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#0A2540", marginTop: 10, marginBottom: 6 }}>{lt.name}</h3>
-                <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65 }}>{lt.security}</p>
-              </div>
-            ))}
-          </div>
-          <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
-            {[
-              { name: "Revenue-Based Financing", security: "A share of the business's actual daily or weekly revenue is collected until the full amount is returned.",   risk: "Medium",      rc: "#F59E0B" },
-              { name: "Trade Credit Financing",  security: "Backed by the buyer and supplier's existing commercial relationship and payment history.",                    risk: "Medium-High", rc: "#EF4444" },
-            ].map((lt) => (
-              <div key={lt.name} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "20px 22px" }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: lt.rc, background: `${lt.rc}12`, border: `1px solid ${lt.rc}25`, padding: "2px 9px", borderRadius: 9999 }}>{lt.risk} Risk</span>
-                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#0A2540", marginTop: 10, marginBottom: 6 }}>{lt.name}</h3>
-                <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65 }}>{lt.security}</p>
+              <div key={lt.name} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 16, padding: "22px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", background: "#F3F4F6", padding: "2px 9px", borderRadius: 9999 }}>{lt.tag}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: lt.rc, background: `${lt.rc}12`, border: `1px solid ${lt.rc}25`, padding: "2px 9px", borderRadius: 9999 }}>{lt.risk}</span>
+                </div>
+                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "#0A2540", letterSpacing: "-0.02em", lineHeight: 1.3 }}>{lt.name}</h3>
+                <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7, flex: 1 }}>{lt.security}</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {lt.types.map((t) => (
+                    <span key={t} style={{ fontSize: 11, fontWeight: 600, color: "#0A5060", background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.15)", padding: "2px 9px", borderRadius: 9999 }}>{t}</span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
           <div style={{ textAlign: "center" }}>
             <Link href="/products" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 15, fontWeight: 700, color: "#0A2540", border: "1.5px solid #D1D5DB", padding: "11px 20px", borderRadius: 10 }}>
-              Full breakdown of every financing type <ArrowUpRight size={15} aria-hidden="true" />
+              See all 14 financing types <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
           </div>
         </div>
