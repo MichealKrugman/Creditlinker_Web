@@ -5,7 +5,7 @@ const PILLARS = [
   {
     icon: <Lock size={18} />,
     title: "Encrypted everywhere.",
-    body: "TLS 1.3 in transit. AES-256 at rest. Your data is unreadable to anyone without authorised access — including us.",
+    body: "TLS 1.3 in transit. AES-256 at rest. Your data is unreadable to anyone without authorised access (including us).",
   },
   {
     icon: <Eye size={18} />,
@@ -70,7 +70,7 @@ export default function SecurityPage() {
             maxWidth: 440,
             margin: "0 auto",
           }}>
-            Creditlinker is built on a simple principle — no one accesses your financial data without your explicit, revocable consent.
+            Creditlinker is built on a simple principle: no one accesses your financial data without your explicit, revocable consent.
           </p>
         </div>
       </section>

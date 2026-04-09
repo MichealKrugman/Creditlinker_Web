@@ -112,7 +112,7 @@ export default function FinancialIdentityPage() {
           maxWidth: 520,
           margin: "0 auto 40px",
         }}>
-          A financial identity is a verified, multidimensional profile of how your business actually operates — built from real transaction data, not credit history.
+          A financial identity is a verified, multidimensional profile of how your business actually operates, built from real transaction data, not credit history.
         </p>
 
         <Link

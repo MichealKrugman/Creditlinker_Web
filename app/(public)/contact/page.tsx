@@ -264,7 +264,7 @@ export default function ContactPage() {
               <span style={{ color: "#00D4FF" }}>and easy to reach.</span>
             </h1>
             <p style={{ fontSize: 17, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, maxWidth: 500 }}>
-              Whether you&apos;re a business trying to build your financial identity, a capital provider evaluating the platform, or a developer looking to integrate — we&apos;ll get back to you within one business day.
+              Whether you&apos;re a business trying to build your financial identity, a capital provider evaluating the platform, or a developer looking to integrate, we&apos;ll get back to you within one business day.
             </p>
           </div>
         </div>
@@ -358,7 +358,7 @@ export default function ContactPage() {
                       <Clock size={15} style={{ color: "#00D4FF", flexShrink: 0, marginTop: 2 }} />
                       <div>
                         <p style={{ fontSize: 13, fontWeight: 600, color: "white", marginBottom: 2 }}>Response time</p>
-                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>Within 1 business day<br />Mon–Fri, 9am–6pm WAT</p>
+                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>Within 1 business day<br />Mon-Fri, 9am-6pm WAT</p>
                       </div>
                     </div>
                   </div>
