@@ -258,8 +258,8 @@ export default function HowItWorksPage() {
                 <span style={{ color: "#00D4FF" }}>financial identity.</span>
               </h1>
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 480 }}>
-                Creditlinker ingests your real banking, ledger, and operational data. It normalizes,
-                enriches, and reconciles it, then computes six independent financial health dimensions
+                Creditlinker pulls in your real banking, ledger, and operational data. It cleans,
+                categorizes, and reconciles it, then scores six independent financial health dimensions
                 that capital providers use to evaluate your business on how it actually operates.
               </p>
               <div className="hiw-hero-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
@@ -322,7 +322,7 @@ export default function HowItWorksPage() {
               { label: "Score basis",       before: "Credit bureau proxy",        after: "6 independent dimensions"        },
               { label: "Capital types",     before: "Collateral-backed financing",  after: "14 categories, 5 types"          },
               { label: "Access control",    before: "Financer owns your data",    after: "You grant & revoke consent"      },
-              { label: "Time to decision",  before: "4–12 weeks",                after: "Hours after linking data"        },
+              { label: "Time to decision",  before: "4 to 12 weeks",             after: "Hours after linking data"        },
               { label: "Coverage",          before: "Formal credit history",      after: "Any bank-active business"        },
             ].map((r) => <CompareRow key={r.label} {...r} />)}
           </div>
@@ -353,7 +353,7 @@ export default function HowItWorksPage() {
             <div className="hiw-steps-grid">
               <TimelineStep n="1" icon={<Building2 size={18} aria-hidden="true" />}
                 title="Create your business account"
-                desc="Register with your business name and basic details. Creditlinker generates a persistent financial identity — anchored to your business, not just an individual login — that versions and grows over time."
+                desc="Register with your business name and basic details. Creditlinker generates a persistent financial identity (anchored to your business, not just an individual login) that builds and versions over time."
               />
               <TimelineStep n="2" icon={<Database size={18} aria-hidden="true" />}
                 title="Connect your financial data sources"
@@ -361,11 +361,11 @@ export default function HowItWorksPage() {
               />
               <TimelineStep n="3" icon={<Cpu size={18} aria-hidden="true" />}
                 title="Pipeline and feature store update automatically"
-                desc="Our engine ingests, normalizes, reconciles, and enriches your data. A dedicated financial feature store computes 40+ derived metrics: monthly revenue growth, operating margin, cash reserve ratio, receivable turnover, and expense ratios. These are stored and versioned so scoring models never recalculate from scratch."
+                desc="Our engine processes, categorizes, and reconciles your data. A dedicated financial feature store computes 40+ derived metrics: monthly revenue growth, operating margin, cash reserve ratio, receivable turnover, and expense ratios. These are stored and versioned so scoring models never recalculate from scratch."
               />
               <TimelineStep n="4" icon={<ShieldCheck size={18} aria-hidden="true" />}
                 title="Receive your six-dimensional financial identity"
-                desc="Your identity is scored across six independent dimensions: Revenue Stability, Cashflow Predictability, Expense Discipline, Liquidity Strength, Financial Consistency, and Risk Profile — each 0–100. A separate data quality score indicates how reliable the underlying data is. No compression into a single number."
+                desc="Your identity is scored across six independent dimensions: Revenue Stability, Cashflow Predictability, Expense Discipline, Liquidity Strength, Financial Consistency, and Risk Profile, each on a 0 to 100 scale. A separate data quality score indicates how reliable the underlying data is. No compression into a single number."
               />
               <TimelineStep n="5" icon={<Eye size={18} aria-hidden="true" />}
                 title="Grant consent to matched capital providers"
@@ -532,23 +532,23 @@ export default function HowItWorksPage() {
               <div className="hiw-steps-grid">
               <TimelineStep n="1" icon={<Landmark size={18} aria-hidden="true" />}
                 title="Register as an institution"
-                desc="Create your institution profile. Define your financing mandate — capital category, sectors you serve, ticket size ranges, and risk appetite."
+                desc="Create your institution profile. Define your financing mandate: capital category, sectors you serve, ticket size ranges, and risk appetite."
               />
               <TimelineStep n="2" icon={<Layers size={18} aria-hidden="true" />}
                 title="Set your matching criteria"
-                desc="Post your criteria once. The discovery engine continuously matches you to businesses with verified identities that meet your parameters — anonymously at first."
+                desc="Post your criteria once. The discovery engine continuously matches you to businesses with verified identities that meet your parameters. Initial matches are anonymous."
               />
               <TimelineStep n="3" icon={<Eye size={18} aria-hidden="true" />}
                 title="Request data access"
-                desc="Send consent requests to matched businesses. They review the permissions scope you're requesting — score only, full identity, or transaction detail — and grant or deny with their own timeline."
+                desc="Send consent requests to matched businesses. They review the permissions scope you're requesting (score only, full identity, or transaction detail) and grant or deny on their own timeline."
               />
               <TimelineStep n="4" icon={<ShieldCheck size={18} aria-hidden="true" />}
                 title="Review the verified financial identity"
-                desc="Once granted, access the business's six financial dimensions, risk profile, data quality score, financial feature metrics, and capital readiness assessment — all derived from verified transaction and operational data with full provenance."
+                desc="Once granted, access the business's six financial dimensions, risk profile, data quality score, financial feature metrics, and capital readiness assessment. All figures are derived from verified transaction and operational data with full provenance."
               />
               <TimelineStep n="5" icon={<Banknote size={18} aria-hidden="true" />}
                 title="Create and track financing offers"
-                desc="Structure your offer on-platform with terms, tenor, and repayment schedule. The business reviews and accepts or declines. Financing records are created with full provenance and audit trail — and contribute to your institution's reputation score."
+                desc="Structure your offer on-platform with terms, tenor, and repayment schedule. The business reviews and accepts or declines. Financing records are created with full provenance and audit trail, and contribute to your institution's reputation score."
                 last
               />
               </div>
@@ -610,7 +610,7 @@ export default function HowItWorksPage() {
               icon={<Landmark size={22} aria-hidden="true" />}
               label="For capital providers"
               title="Evaluate with verified data"
-              desc="Access six-dimensional financial profiles built from normalized transaction and operational data. Whether you're a financer, equipment financier, trade supplier, or revenue financer — the data is verified and the access is consent-gated."
+              desc="Access six-dimensional financial profiles built from real transaction and operational data. Whether you're a financer, equipment financier, trade supplier, or revenue financer, the data is verified and access is consent-gated."
               href="/for-financers"
               cta="See provider features"
               dark

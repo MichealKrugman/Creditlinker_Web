@@ -130,7 +130,7 @@ export default function ForBusinessesPage() {
     { dim: "Expense Discipline",      score: 81, color: "#818CF8", weight: "How well your business controls its costs relative to what it earns.", improve: "Identify and reduce irregular, non-operational expense bursts." },
     { dim: "Liquidity Strength",      score: 74, color: "#F59E0B", weight: "The level of cash reserves your business holds at any given time.",  improve: "Maintain a higher average month-end balance across accounts."  },
     { dim: "Financial Consistency",   score: 88, color: "#00D4FF", weight: "How regular and complete your financial activity has been.",          improve: "Connect all your business accounts and upload ledger data."   },
-    { dim: "Risk Profile",            score: 91, color: "#F472B6", weight: "Whether your financial data shows any unusual or irregular patterns.", improve: "Maintain predictable patterns — high score means clean data."  },
+    { dim: "Risk Profile",            score: 91, color: "#F472B6", weight: "Whether your financial data shows any unusual or irregular patterns.", improve: "Maintain predictable patterns. A high score means clean, consistent data."  },
   ];
 
   return (
@@ -214,7 +214,7 @@ export default function ForBusinessesPage() {
                 </span>
               </h1>
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 500 }}>
-                Creditlinker builds a verified financial profile from your real financial activity —
+                Creditlinker builds a verified financial profile from your real financial activity,
                 giving every capital provider a clear, trusted picture of how your business operates.
               </p>
               <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 40 }}>
@@ -350,7 +350,7 @@ export default function ForBusinessesPage() {
               <div style={{ maxWidth: 620 }}>
                 <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: "white", marginBottom: 8, letterSpacing: "-0.025em" }}>Creditlinker fixes this.</p>
                 <p style={{ fontSize: 15, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>
-                  We build your financial identity directly from your banking activity — the evidence that already proves your business works. No documents. No collateral. No credit history required.
+                  We build your financial identity directly from your banking activity: the evidence that already proves your business works. No documents. No collateral. No credit history required.
                 </p>
               </div>
               <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0, background: "#00D4FF", color: "#0A2540", padding: "12px 22px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
@@ -376,15 +376,15 @@ export default function ForBusinessesPage() {
               />
               <StepRow n="1" icon={<Database size={16} aria-hidden="true" />}
                 title="Register your business"
-                desc="Create an account with your business name and details. We create a verified financial identity for your business — one that updates and strengthens as your business continues to operate."
+                desc="Create an account with your business name and details. We create a verified financial identity for your business, one that updates and grows stronger as your business continues to operate."
               />
               <StepRow n="2" icon={<Layers size={16} aria-hidden="true" />}
                 title="Connect your financial data sources"
-                desc="Link your bank accounts, upload accounting ledger exports, or add operational data — equipment, inventory, contracts, receivables. The more you connect, the richer your identity."
+                desc="Link your bank accounts, upload accounting ledger exports, or add operational data (equipment, inventory, contracts, receivables). The more you connect, the richer your identity."
               />
               <StepRow n="3" icon={<Cpu size={16} aria-hidden="true" />}
                 title="We analyze your data automatically"
-                desc="We extract over 40 financial signals from your data — revenue trends, cash flow patterns, expense consistency. The entire process runs in seconds."
+                desc="We extract over 40 financial metrics from your data: revenue trends, cash flow patterns, expense consistency. The entire process runs in seconds."
               />
               <StepRow n="4" icon={<ShieldCheck size={16} aria-hidden="true" />}
                 title="Receive your verified financial identity"
@@ -466,7 +466,7 @@ export default function ForBusinessesPage() {
                 <div style={{ marginTop: 20, background: "#F0FDFF", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>2 capital providers ready to offer</p>
-                    <p style={{ fontSize: 12, color: "#6B7280" }}>Grant consent to unlock their offers</p>
+                    <p style={{ fontSize: 12, color: "#6B7280" }}>Grant access to view their offers</p>
                   </div>
                   <Link href="/register" style={{ background: "#0A2540", color: "white", padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>View offers →</Link>
                 </div>
@@ -635,7 +635,7 @@ export default function ForBusinessesPage() {
             Your business already<br />has a <span style={{ color: "#00D4FF" }}>strong financial story.</span>
           </h2>
           <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 44, lineHeight: 1.78, maxWidth: 540, margin: "0 auto 44px" }}>
-            Let Creditlinker build the verified identity that tells it — and connect you to the right capital providers.
+            Let Creditlinker build the verified identity that tells it, and connect you to the right capital providers.
           </p>
           <div className="fb-cta-row" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>

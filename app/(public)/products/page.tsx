@@ -57,7 +57,7 @@ const types = [
     id: "trade-credit",
     icon: <Handshake size={20} />,
     name: "Trade Credit Financing",
-    risk: "Medium–High Risk",
+    risk: "Medium-High Risk",
     riskColor: "#EF4444",
     accent: "#F472B6",
     what: "A supplier delivers goods to a buyer who pays later. We finance the gap. The strength of their business relationship is the security.",
@@ -133,7 +133,7 @@ export default function ProductsPage() {
             <div>
               <p style={{ fontWeight: 700, color: "white", fontSize: 15, marginBottom: 6 }}>Every deal has protection layers built in.</p>
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.65 }}>
-                10% of every deal is set aside as a reserve. Optional insurance sits on top. For equipment deals, the asset itself can be recovered. These layers absorb losses before they reach your money — but this is still business financing, not a savings account. Risk is real and returns are not guaranteed.
+                10% of every deal is set aside as a reserve. Optional insurance sits on top. For equipment deals, the asset itself can be recovered. These layers absorb losses before they reach your money, but this is still business financing, not a savings account. Risk is real and returns are not guaranteed.
               </p>
             </div>
           </div>

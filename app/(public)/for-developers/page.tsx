@@ -265,8 +265,8 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
               </h1>
               <p style={{ fontSize: 17, color: "rgba(255,255,255,0.55)", lineHeight: 1.78, marginBottom: 36, maxWidth: 500 }}>
                 The Creditlinker API gives you access to six-dimensional financial identities,
-                feature store metrics, and platform events for verified businesses — with explicit
-                consent from each business you query.
+                feature store metrics, and platform events for verified businesses. Every query
+                requires explicit consent from the business you're querying.
               </p>
               <div className="fd-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
                 <Link href="/developers/api-keys" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
@@ -412,7 +412,7 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
               <div style={{ marginBottom: 32 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 12 }}>Business API</p>
                 <EndpointRow method="GET"  path="/business/score"                   desc="Retrieve current identity score and all six financial dimensions"       auth="business_owner" />
-                <EndpointRow method="POST" path="/business/mono/initiate"           desc="Initiate Mono Open Banking link flow — returns link URL"               auth="business_owner" />
+                <EndpointRow method="POST" path="/business/mono/initiate"           desc="Initiate Mono Open Banking link flow. Returns a link URL."               auth="business_owner" />
                 <EndpointRow method="POST" path="/business/mono/callback"           desc="Exchange Mono auth code for account link"                              auth="business_owner" />
                 <EndpointRow method="POST" path="/business/upload/csv"              desc="Import transaction data from CSV with configurable column mapping"      auth="business_owner" />
                 <EndpointRow method="GET"  path="/business/readiness"               desc="Get capital readiness assessments across all 14 financing categories"  auth="business_owner" />
@@ -426,7 +426,7 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
                 <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 12 }}>Institution API</p>
                 <EndpointRow method="GET"  path="/institution/score/:fid"           desc="Fetch a business's identity score (requires can_view_score consent)"   auth="institution" />
                 <EndpointRow method="GET"  path="/institution/profile/:fid"         desc="Fetch filtered financial profile based on consent permissions"         auth="institution" />
-                <EndpointRow method="GET"  path="/institution/profile/:fid/provenance" desc="Retrieve full metric provenance — source data, account, period"    auth="institution" />
+                <EndpointRow method="GET"  path="/institution/profile/:fid/provenance" desc="Retrieve full metric provenance: source data, account, and period"    auth="institution" />
                 <EndpointRow method="GET"  path="/institution/discovery"            desc="List anonymized businesses matching your criteria"                    auth="institution" />
                 <EndpointRow method="POST" path="/institution/discovery/criteria"   desc="Post or update your matching criteria"                               auth="institution" />
               </div>
@@ -616,7 +616,7 @@ POST /auth/realms/creditlinker/
             id="system-events-heading"
             badge={<Badge><Zap size={10} aria-hidden="true" /> Event-driven architecture</Badge>}
             title={<>Built on events.<br />Everything is observable.</>}
-            sub="Creditlinker runs on an event-driven architecture. Every meaningful state change in the platform fires an event — making your integrations reactive, auditable, and debuggable."
+            sub="Creditlinker runs on an event-driven architecture. Every meaningful state change in the platform fires an event, making your integrations reactive, auditable, and debuggable."
             center
           />
           <div className="fd-event-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
@@ -681,7 +681,7 @@ POST /auth/realms/creditlinker/
                 { step: "Run your first query against the sandbox",           done: false },
                 { step: "Configure webhook endpoints for identity events",    done: false },
                 { step: "Test consent flows with synthetic business tokens",  done: false },
-                { step: "Go live — switch to production API key",             done: false },
+                { step: "Go live: switch to your production API key",             done: false },
               ].map((item) => (
                 <div key={item.step} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <div style={{ width: 18, height: 18, borderRadius: "50%", background: item.done ? "#10B981" : "rgba(255,255,255,0.08)", border: `1px solid ${item.done ? "#10B981" : "rgba(255,255,255,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
