@@ -384,8 +384,10 @@ export default function FinancialIdentityPage() {
       const [scoreRes, accountsRes, snapshotsRes, readinessRes] = await Promise.all([
         supabase.from("creditlinker_scores").select("*").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).single(),
         supabase.from("linked_accounts").select("*").eq("business_id", id).order("is_primary", { ascending: false }),
-        supabase.from("creditlinker_scores").select("computed_at, composite_score, risk_level, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(10),
-        supabase.from("readiness_assessments").select("blockers, warnings, improvement_actions").eq("business_id", id).order("assessed_at", { ascending: false }).limit(1).single(),
+        // lender_risk column (was risk_level before rename)
+        supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(10),
+        // Fetch all latest assessments (one per capital_category) to aggregate flags + actions
+        supabase.from("readiness_assessments").select("capital_category, assessed_at, blockers, warnings, improvement_actions").eq("business_id", id).order("assessed_at", { ascending: false }).limit(50),
       ]);
 
       if (scoreRes.data) {
@@ -400,36 +402,62 @@ export default function FinancialIdentityPage() {
 
       setAccounts((accountsRes.data ?? []) as LinkedAccount[]);
 
-      // creditlinker_scores: one row per pipeline run, ordered newest first
       setSnapshots((snapshotsRes.data ?? []).map((s: any) => ({
         taken_at: new Date(s.computed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
         score:    s.composite_score ?? 0,
-        risk:     s.lender_risk ?? s.risk_level ?? "Unknown",
+        risk:     s.lender_risk ?? "Unknown",
         quality:  s.data_quality_score ?? 0,
       })));
 
-      if (readinessRes.data) {
-        // Risk flags: combine blockers + warnings from the latest assessment
-        const blockers: any[] = readinessRes.data.blockers ?? [];
-        const warnings: any[] = readinessRes.data.warnings ?? [];
-        setRiskFlags([
-          ...blockers.map((b: any) => ({ type: b.type ?? b.code ?? "Blocker", severity: "high",   description: b.message ?? b.description ?? "", score_impact: b.score_impact ?? 0 })),
-          ...warnings.map((w: any) => ({ type: w.type ?? w.code ?? "Warning", severity: "medium", description: w.message ?? w.description ?? "", score_impact: w.score_impact ?? 0 })),
-        ]);
+      // Deduplicate readiness rows to latest per capital_category (same logic as get-financing-data)
+      const seenCats = new Set<string>();
+      const latestAssessments = (readinessRes.data ?? []).filter((r: any) => {
+        if (seenCats.has(r.capital_category)) return false;
+        seenCats.add(r.capital_category);
+        return true;
+      });
 
-        // Recommendations: improvement_actions from the latest assessment
-        const actions: any[] = readinessRes.data.improvement_actions ?? [];
-        setRecommendations(actions.map((a: any) => ({
-          dimension:       a.dimension ?? "General",
-          dimension_color: DIM_META[a.dimension_key ?? ""]?.color ?? "#9CA3AF",
-          current_score:   a.current_score ?? 0,
-          cause:           a.cause ?? a.reason ?? "",
-          action:          a.action ?? a.recommendation ?? "",
-          estimated_gain:  a.estimated_gain ?? a.points_gain ?? 0,
-          priority:        a.priority ?? "medium",
-          action_route:    a.action_route ?? "/data-sources",
-          action_label:    a.action_label ?? "Take action",
+      if (latestAssessments.length > 0) {
+        // Risk flags: aggregate blockers + warnings across ALL latest assessments.
+        // ReadinessFactor shape: { factor_id, label, description, severity, impact_on_score }
+        const allBlockers: any[] = latestAssessments.flatMap((r: any) => r.blockers ?? []);
+        const allWarnings: any[] = latestAssessments.flatMap((r: any) => r.warnings ?? []);
+        // Deduplicate by factor_id so the same structural issue doesn't repeat for every finance type
+        const seenFactors = new Set<string>();
+        const deduped = [...allBlockers.map(b => ({ ...b, _sev: "high" })), ...allWarnings.map(w => ({ ...w, _sev: "medium" }))]
+          .filter((f: any) => { const k = f.factor_id ?? f.label; if (!k || seenFactors.has(k)) return false; seenFactors.add(k); return true; });
+        setRiskFlags(deduped.map((f: any) => ({
+          type:         f.label ?? f.factor_id ?? "Risk factor",
+          severity:     f._sev,
+          description:  f.description ?? "",
+          score_impact: f.impact_on_score ?? 0,
         })));
+
+        // Recommendations: aggregate improvement_actions across ALL latest assessments.
+        // ImprovementAction shape: { action_id, label, description, priority, estimated_score_gain, estimated_time_to_achieve, is_quick_win }
+        // action_id format: "improve_${dimKey}" or "upload_more_history" etc.
+        const seenActions = new Set<string>();
+        const allActions: any[] = latestAssessments
+          .flatMap((r: any) => r.improvement_actions ?? [])
+          .filter((a: any) => { const k = a.action_id ?? a.label; if (!k || seenActions.has(k)) return false; seenActions.add(k); return true; })
+          .sort((a: any, b: any) => (b.estimated_score_gain ?? 0) - (a.estimated_score_gain ?? 0));
+
+        setRecommendations(allActions.map((a: any) => {
+          // Derive dimension key from action_id (e.g. "improve_cashflow_predictability" → "cashflow_predictability")
+          const dimKey = (a.action_id ?? "").replace(/^improve_/, "");
+          const dimMeta = DIM_META[dimKey];
+          return {
+            dimension:       dimMeta?.label ?? a.label ?? "General",
+            dimension_color: dimMeta?.color ?? "#9CA3AF",
+            current_score:   0,  // ImprovementAction doesn't carry the score — shown as dimension label only
+            cause:           a.description ?? "",
+            action:          a.label ?? "",
+            estimated_gain:  a.estimated_score_gain ?? 0,
+            priority:        a.priority ?? "medium",
+            action_route:    a.is_quick_win ? "/data-sources" : "/financial-identity",
+            action_label:    a.is_quick_win ? "Quick win" : "View identity",
+          };
+        }));
       }
 
       setLoading(false);
