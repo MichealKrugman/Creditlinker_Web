@@ -97,6 +97,16 @@ function priorityCfg(p: "high" | "medium" | "low") {
   }[p];
 }
 
+function severityCfg(s: string) {
+  const map: Record<string, { bg: string; border: string; icon: string; label: string }> = {
+    critical: { bg: "#FEF2F2", border: "rgba(239,68,68,0.2)",   icon: "#EF4444", label: "Critical" },
+    high:     { bg: "#FFFBEB", border: "rgba(245,158,11,0.2)",   icon: "#F59E0B", label: "High" },
+    medium:   { bg: "#FFFBEB", border: "rgba(245,158,11,0.15)",  icon: "#F59E0B", label: "Medium" },
+    low:      { bg: "#F9FAFB", border: "#E5E7EB",               icon: "#9CA3AF", label: "Low" },
+  };
+  return map[s] ?? map.medium;
+}
+
 function RecommendationsPanel({ recommendations, loading }: { recommendations: Recommendation[]; loading: boolean }) {
   const [expanded, setExpanded] = useState<number | null>(0);
   const totalGain = recommendations.reduce((s, r) => s + r.estimated_gain, 0);
@@ -381,14 +391,27 @@ export default function FinancialIdentityPage() {
 
     async function load() {
       setLoading(true);
-      const [scoreRes, accountsRes, snapshotsRes, readinessRes] = await Promise.all([
+      const [scoreRes, accountsRes, snapshotsRes, metricsRes] = await Promise.all([
         supabase.from("creditlinker_scores").select("*").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).single(),
         supabase.from("linked_accounts").select("*").eq("business_id", id).order("is_primary", { ascending: false }),
-        // lender_risk column (was risk_level before rename)
         supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(10),
-        // Fetch all latest assessments (one per capital_category) to aggregate flags + actions
-        supabase.from("readiness_assessments").select("capital_category, assessed_at, blockers, warnings, improvement_actions").eq("business_id", id).order("assessed_at", { ascending: false }).limit(50),
+        // Latest aggregated_metrics — contains active_risk_flags from the aggregation engine
+        supabase.from("aggregated_metrics").select("metrics").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
+
+      // Recommendations are fetched for the specific pipeline run that produced the latest score,
+      // so we always show recommendations that correspond to the current score state.
+      const latestRunId = scoreRes.data?.pipeline_run_id;
+      let recsData: any[] = [];
+      if (latestRunId) {
+        const { data: recsResult } = await supabase
+          .from("recommendations")
+          .select("*")
+          .eq("business_id", id)
+          .eq("pipeline_run_id", latestRunId)
+          .order("estimated_score_gain", { ascending: false });
+        recsData = recsResult ?? [];
+      }
 
       if (scoreRes.data) {
         setScore({
@@ -409,56 +432,33 @@ export default function FinancialIdentityPage() {
         quality:  s.data_quality_score ?? 0,
       })));
 
-      // Deduplicate readiness rows to latest per capital_category (same logic as get-financing-data)
-      const seenCats = new Set<string>();
-      const latestAssessments = (readinessRes.data ?? []).filter((r: any) => {
-        if (seenCats.has(r.capital_category)) return false;
-        seenCats.add(r.capital_category);
-        return true;
-      });
+      // Risk flags: transaction-level signals from the aggregation engine.
+      // These are real behavioural patterns detected across the full transaction dataset
+      // (debt stress, volatility spikes, concentration, cashflow gaps, etc.).
+      const activeFlags: any[] = metricsRes.data?.metrics?.active_risk_flags ?? [];
+      setRiskFlags(activeFlags.map((f: any) => ({
+        type:         f.type?.replace(/_/g, " ") ?? "Unknown",
+        severity:     f.severity ?? "medium",
+        description:  f.description ?? "",
+        score_impact: f.score_impact ?? 0,
+      })));
 
-      if (latestAssessments.length > 0) {
-        // Risk flags: aggregate blockers + warnings across ALL latest assessments.
-        // ReadinessFactor shape: { factor_id, label, description, severity, impact_on_score }
-        const allBlockers: any[] = latestAssessments.flatMap((r: any) => r.blockers ?? []);
-        const allWarnings: any[] = latestAssessments.flatMap((r: any) => r.warnings ?? []);
-        // Deduplicate by factor_id so the same structural issue doesn't repeat for every finance type
-        const seenFactors = new Set<string>();
-        const deduped = [...allBlockers.map(b => ({ ...b, _sev: "high" })), ...allWarnings.map(w => ({ ...w, _sev: "medium" }))]
-          .filter((f: any) => { const k = f.factor_id ?? f.label; if (!k || seenFactors.has(k)) return false; seenFactors.add(k); return true; });
-        setRiskFlags(deduped.map((f: any) => ({
-          type:         f.label ?? f.factor_id ?? "Risk factor",
-          severity:     f._sev,
-          description:  f.description ?? "",
-          score_impact: f.impact_on_score ?? 0,
-        })));
-
-        // Recommendations: aggregate improvement_actions across ALL latest assessments.
-        // ImprovementAction shape: { action_id, label, description, priority, estimated_score_gain, estimated_time_to_achieve, is_quick_win }
-        // action_id format: "improve_${dimKey}" or "upload_more_history" etc.
-        const seenActions = new Set<string>();
-        const allActions: any[] = latestAssessments
-          .flatMap((r: any) => r.improvement_actions ?? [])
-          .filter((a: any) => { const k = a.action_id ?? a.label; if (!k || seenActions.has(k)) return false; seenActions.add(k); return true; })
-          .sort((a: any, b: any) => (b.estimated_score_gain ?? 0) - (a.estimated_score_gain ?? 0));
-
-        setRecommendations(allActions.map((a: any) => {
-          // Derive dimension key from action_id (e.g. "improve_cashflow_predictability" → "cashflow_predictability")
-          const dimKey = (a.action_id ?? "").replace(/^improve_/, "");
-          const dimMeta = DIM_META[dimKey];
-          return {
-            dimension:       dimMeta?.label ?? a.label ?? "General",
-            dimension_color: dimMeta?.color ?? "#9CA3AF",
-            current_score:   0,  // ImprovementAction doesn't carry the score — shown as dimension label only
-            cause:           a.description ?? "",
-            action:          a.label ?? "",
-            estimated_gain:  a.estimated_score_gain ?? 0,
-            priority:        a.priority ?? "medium",
-            action_route:    a.is_quick_win ? "/data-sources" : "/financial-identity",
-            action_label:    a.is_quick_win ? "Quick win" : "View identity",
-          };
-        }));
-      }
+      // Recommendations: cross-dimension ranked improvements from Stage 7 of the pipeline.
+      // Each recommendation is transaction-evidence-backed and ranked by estimated score gain.
+      setRecommendations(recsData.map((r: any) => {
+        const dimMeta = DIM_META[r.dimension];
+        return {
+          dimension:       dimMeta?.label ?? r.dimension_label ?? r.dimension ?? "General",
+          dimension_color: dimMeta?.color ?? "#9CA3AF",
+          current_score:   r.current_score ?? 0,
+          cause:           r.root_cause ?? "",
+          action:          r.action_route ?? "",
+          estimated_gain:  r.estimated_score_gain ?? 0,
+          priority:        r.priority === "critical" ? "high" : (r.priority ?? "medium"),
+          action_route:    r.is_quick_win ? "/data-sources" : "/financial-analysis",
+          action_label:    r.is_quick_win ? "Quick fix" : "View analysis",
+        };
+      }));
 
       setLoading(false);
     }
@@ -635,19 +635,31 @@ export default function FinancialIdentityPage() {
               <SectionHeader title="Risk Flags" sub={riskFlags.length > 0 ? `${riskFlags.length} active flag${riskFlags.length > 1 ? "s" : ""} detected` : "No active flags"} />
               <div style={{ padding: "12px 24px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
                 {riskFlags.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "#9CA3AF", textAlign: "center" as const, padding: "8px 0" }}>No risk flags detected in the last pipeline run.</p>
-                ) : riskFlags.map((flag, i) => (
-                  <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10 }}>
-                    <AlertCircle size={15} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#92400E", textTransform: "capitalize" as const }}>{flag.type}</p>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444" }}>{flag.score_impact} pts</span>
-                      </div>
-                      <p style={{ fontSize: 12, color: "#B45309", lineHeight: 1.5 }}>{flag.description}</p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", background: "#F0FDF4", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10 }}>
+                    <CheckCircle2 size={15} style={{ color: "#10B981", flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#065F46" }}>No risk flags detected</p>
+                      <p style={{ fontSize: 12, color: "#6B7280", marginTop: 2, lineHeight: 1.5 }}>Your financial profile is clean. Maintain healthy cashflow and expense patterns to keep it this way.</p>
                     </div>
                   </div>
-                ))}
+                ) : riskFlags.map((flag, i) => {
+                  const sc = severityCfg(flag.severity);
+                  return (
+                    <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 10 }}>
+                      <AlertCircle size={15} style={{ color: sc.icon, flexShrink: 0, marginTop: 1 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, gap: 8, flexWrap: "wrap" as const }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", textTransform: "capitalize" as const }}>{flag.type}</p>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: sc.icon, padding: "1px 6px", borderRadius: 9999, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                          </div>
+                          {flag.score_impact > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", flexShrink: 0 }}>−{flag.score_impact} pts</span>}
+                        </div>
+                        <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>{flag.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
 
