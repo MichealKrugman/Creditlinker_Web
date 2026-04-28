@@ -59,6 +59,7 @@ export interface BusinessMembership {
   data_coverage_end:       string | null;
   branch_count:            number;
   last_active:             string;
+  address?:                string | null;
 }
 
 export interface CurrentUser {

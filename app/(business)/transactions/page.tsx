@@ -379,7 +379,7 @@ export default function TransactionsPage() {
           id:          "hq",
           shortName:   "HQ",
           type:        "hq",
-          location:    activeBusiness.address ?? "",
+          location:    activeBusiness?.address ?? "",
           accountIds:  hqAccIds,
           data_linked: hqAccIds.length > 0,
         });
