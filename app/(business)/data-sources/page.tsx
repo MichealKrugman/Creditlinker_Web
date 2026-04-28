@@ -197,7 +197,14 @@ function mapPipelineLog(row: any): PipelineLog | null {
     warnings_count:               row.warnings_count ?? null,
     errors_count:                 row.errors_count ?? null,
     recorded_at:                  fmtDate(row.recorded_at ?? row.created_at ?? ""),
-    stages:                       Array.isArray(row.stages) ? row.stages : [],
+    stages: Array.isArray(row.stages)
+      ? row.stages.map((s: any) => ({
+          name:        s.stage ?? s.name ?? "unknown",
+          status:      s.succeeded === true ? "ok" : s.succeeded === false ? "error" : (s.status ?? "unknown"),
+          duration_ms: s.duration_ms ?? 0,
+          note:        s.note ?? (s.succeeded === false ? "Stage did not complete" : ""),
+        }))
+      : [],
   };
 }
 
@@ -1256,7 +1263,9 @@ export default function DataSourcesPage() {
     const { data: { session } } = await supabase.auth.getSession();
     setAuthToken(session?.access_token ?? "");
 
-    const [branchesRes, accountsRes, ledgersRes, pipelineRes] = await Promise.all([
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+    const [branchesRes, accountsRes, ledgersRes, pipelineLogsRes] = await Promise.all([
       supabase
         .from("branches")
         .select("branch_id, name, short_name, type, is_default, location")
@@ -1270,14 +1279,13 @@ export default function DataSourcesPage() {
         .select("*")
         .eq("business_id", bid)
         .order("created_at", { ascending: false }),
-      supabase
-        .from("observability_records")
-        .select("*")
-        .eq("business_id", bid)
-        .order("recorded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      fetch(
+        `${supabaseUrl}/functions/v1/get-pipeline-logs?business_id=${bid}&limit=10`,
+        { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } }
+      ).then(r => r.json() as Promise<{ records: any[] }>).catch(() => ({ records: [] })),
     ]);
+
+    const pipelineRecords = pipelineLogsRes.records ?? [];
 
     // Build entity list from branches
     const branches  = branchesRes.data ?? [];
@@ -1337,7 +1345,7 @@ export default function DataSourcesPage() {
 
     setAccounts(rawAccounts);
     setLedgers((ledgersRes.data ?? []).map(mapLedger));
-    setPipelineLog(mapPipelineLog(pipelineRes.data));
+    setPipelineLog(mapPipelineLog(pipelineRecords[0] ?? null));
     setLoading(false);
   }, [activeBusiness]);
 
@@ -1394,12 +1402,9 @@ export default function DataSourcesPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-        {/* ── HEADER ── */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 12 }}>
-          <div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Data Sources</h2>
-            <p style={{ fontSize: 13, color: "#9CA3AF" }}>Bank accounts, statements, and ledgers — assigned per entity to power individual and consolidated analysis.</p>
-          </div>
+        {/* ── ACTION BAR ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 12 }}>
+          <p style={{ fontSize: 13, color: "#9CA3AF" }}>Bank accounts, statements, and ledgers — assigned per entity to power individual and consolidated analysis.</p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
             <Button variant="outline" size="sm" onClick={() => setShowLedger(true)}    style={{ gap: 6 }}><BookOpen size={13} /> Upload Ledger</Button>
             <Button variant="primary" size="sm" onClick={() => setShowConnect(true)}   style={{ gap: 6 }}><Plus     size={13} /> Connect Bank</Button>
@@ -1634,7 +1639,8 @@ export default function DataSourcesPage() {
               {pipelineLog ? (
                 <>
                   <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "white", letterSpacing: "-0.02em", marginBottom: 3 }}>
-                    Pipeline {pipelineLog.status} · {pipelineLog.stage_reached ?? "all stages"}
+                    Pipeline {pipelineLog.status === "failed" ? "failed" : pipelineLog.status === "success" ? "succeeded" : pipelineLog.status}
+                    {pipelineLog.stage_reached && ` · stopped at ${pipelineLog.stage_reached.replace(/_/g, " ")}`}
                   </p>
                   <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
                     Last run: {pipelineLog.recorded_at}

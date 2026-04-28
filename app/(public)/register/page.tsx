@@ -2,6 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  registerBusiness,
+  registerFinancer,
+  registerDeveloper,
+  getDashboardPath,
+} from "@/lib/auth";
 import {
   ArrowRight, ArrowLeft, Loader2, AlertCircle,
   Eye, EyeOff, Building2, Landmark, Code2,
@@ -108,6 +115,8 @@ export default function RegisterPage() {
 
   const selected = ACCOUNT_TYPES.find((t) => t.id === accountType);
 
+  const router = useRouter();
+
   const handleTypeSelect = (type: AccountType) => {
     setAccountType(type);
     setStep(2);
@@ -127,10 +136,28 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    // TODO: Register in Keycloak → POST /business/register or /institution/register → redirect
-    setError("Something went wrong. Please try again.");
+    try {
+      if (accountType === "business") {
+        if (!orgName) { setError("Please enter your business name."); setLoading(false); return; }
+        await registerBusiness({
+          fullName,
+          businessName: orgName,
+          email,
+          password,
+          isRegistered: businessStatus === "registered",
+        });
+      } else if (accountType === "financer") {
+        if (!orgName) { setError("Please enter your institution name."); setLoading(false); return; }
+        await registerFinancer({ fullName, institutionName: orgName, email, password });
+      } else {
+        await registerDeveloper({ fullName, email, password });
+      }
+      router.push(getDashboardPath(accountType!));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ── left panel copy per step ── */

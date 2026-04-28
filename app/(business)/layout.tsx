@@ -2,11 +2,15 @@ import { BusinessSidebar } from '@/components/layout/BusinessSidebar';
 import { BusinessTopNav } from '@/components/layout/BusinessTopNav';
 import { BusinessProvider } from '@/lib/business-context';
 import { MobileNavProvider } from '@/lib/mobile-nav-context';
+import { MessageCountProvider } from '@/lib/message-count-context';
+import AuthGuard from '@/components/AuthGuard';
 
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   return (
-    <BusinessProvider>
-      <MobileNavProvider>
+    <AuthGuard requiredAccountType="business">
+      <BusinessProvider>
+        <MessageCountProvider>
+        <MobileNavProvider>
         <div style={{ display: 'flex', minHeight: '100vh', background: '#F5F7FA' }}>
 
           {/* Sidebar (becomes overlay on mobile) */}
@@ -42,7 +46,9 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
           </div>
 
         </div>
-      </MobileNavProvider>
-    </BusinessProvider>
+        </MobileNavProvider>
+        </MessageCountProvider>
+      </BusinessProvider>
+    </AuthGuard>
   );
 }

@@ -1,10 +1,12 @@
 import { FinancerSidebar } from '@/components/layout/FinancerSidebar';
 import { FinancerTopNav } from '@/components/layout/FinancerTopNav';
 import { MobileNavProvider } from '@/lib/mobile-nav-context';
+import AuthGuard from '@/components/AuthGuard';
 
 export default function FinancerLayout({ children }: { children: React.ReactNode }) {
   return (
-    <MobileNavProvider>
+    <AuthGuard requiredAccountType="financer">
+      <MobileNavProvider>
       <div style={{ display: 'flex', minHeight: '100vh', background: '#F5F7FA' }}>
 
         <FinancerSidebar />
@@ -33,6 +35,7 @@ export default function FinancerLayout({ children }: { children: React.ReactNode
         </div>
 
       </div>
-    </MobileNavProvider>
+      </MobileNavProvider>
+    </AuthGuard>
   );
 }

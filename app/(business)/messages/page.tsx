@@ -1,136 +1,22 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   MessageSquare, Send, Search, X, Building2,
   ShieldCheck, Clock, CheckCheck, Paperclip,
-  Info, Bell, ArrowLeft,
+  Info, ArrowLeft, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-
-/* ─────────────────────────────────────────────────────────
-   TYPES
-───────────────────────────────────────────────────────── */
-type SenderType = "business" | "institution" | "creditlinker";
-type ThreadType = "financer" | "creditlinker";
-
-interface Message {
-  message_id: string;
-  sender_type: SenderType;
-  content: string;
-  sent_at: string;
-  read_at?: string;
-}
-
-interface Thread {
-  thread_id: string;
-  type: ThreadType;
-  // financer threads
-  institution_id?: string;
-  institution_name?: string;
-  consent_id?: string;
-  financing_id?: string;
-  // creditlinker threads
-  subject?: string;
-  // shared
-  last_message: string;
-  last_message_at: string;
-  business_unread: number;
-  messages: Message[];
-}
-
-/* ─────────────────────────────────────────────────────────
-   MOCK DATA
-   Replace with: GET /business/messages → Thread[]
-   Threads include both financer conversations (consent-gated)
-   and Creditlinker platform messages (system notifications,
-   verification updates, pipeline alerts, etc.)
-───────────────────────────────────────────────────────── */
-const MOCK_THREADS: Thread[] = [
-  // — CREDITLINKER SYSTEM MESSAGES —
-  {
-    thread_id: "thr_cl_001",
-    type: "creditlinker",
-    subject: "Pipeline run completed",
-    last_message: "Your financial identity has been updated. Your Revenue Stability score improved by 4 points.",
-    last_message_at: "2025-01-03T08:00:00Z",
-    business_unread: 1,
-    messages: [
-      {
-        message_id: "cl_m_001",
-        sender_type: "creditlinker",
-        content: "Your pipeline run completed successfully on 3 Jan 2025 at 08:00 AM.\n\nHere's what changed:\n• Revenue Stability: 84 → 88 (+4)\n• Cashflow Predictability: 80 → 82 (+2)\n• Data Quality Score: 91 → 93 (+2)\n\nThe improvement was driven by 4 newly tagged transactions that were correctly classified as Revenue, improving your operating margin calculation.",
-        sent_at: "2025-01-03T08:00:00Z",
-        read_at: undefined,
-      },
-    ],
-  },
-  {
-    thread_id: "thr_cl_002",
-    type: "creditlinker",
-    subject: "Identity verification update",
-    last_message: "Your BVN verification was completed successfully. Your profile is now fully verified.",
-    last_message_at: "2024-12-20T10:30:00Z",
-    business_unread: 0,
-    messages: [
-      {
-        message_id: "cl_m_002",
-        sender_type: "creditlinker",
-        content: "Your BVN verification was completed successfully on 20 Dec 2024.\n\nYour business identity status has been updated to Verified. This unlocks full discoverability in the financer marketplace and increases your data quality weighting.\n\nNo action is required from you.",
-        sent_at: "2024-12-20T10:30:00Z",
-        read_at: "2024-12-20T11:00:00Z",
-      },
-    ],
-  },
-  {
-    thread_id: "thr_cl_003",
-    type: "creditlinker",
-    subject: "New financer connection request",
-    last_message: "Coronation Merchant Bank has requested access to your financial profile for Invoice Financing.",
-    last_message_at: "2025-01-02T11:30:00Z",
-    business_unread: 0,
-    messages: [
-      {
-        message_id: "cl_m_003",
-        sender_type: "creditlinker",
-        content: "Coronation Merchant Bank has sent a connection request to view your financial identity.\n\nThey are interested in offering Invoice Financing based on your profile.\n\nMatch score: 81%\n\nYou can review and respond to this request from your Financers page.",
-        sent_at: "2025-01-02T11:30:00Z",
-        read_at: "2025-01-02T12:00:00Z",
-      },
-    ],
-  },
-  // — FINANCER CONVERSATIONS —
-  {
-    thread_id: "thr_001",
-    type: "financer",
-    institution_id: "inst_002",
-    institution_name: "Lapo Microfinance",
-    consent_id: "con_001",
-    financing_id: "fin_001",
-    last_message: "Great — I'll schedule a call for Thursday 3pm. Could you confirm the primary bank account linked to your profile?",
-    last_message_at: "2024-12-31T09:05:00Z",
-    business_unread: 1,
-    messages: [
-      { message_id: "m_001", sender_type: "institution", content: "Thank you for connecting. We've reviewed your financial profile and are interested in discussing a working capital facility. Are you available for a brief call this week?", sent_at: "2024-12-30T10:00:00Z", read_at: "2024-12-30T11:00:00Z" },
-      { message_id: "m_002", sender_type: "business",   content: "Hello, thank you for reaching out. Yes, I would be open to a conversation. Thursday afternoon works well for me.", sent_at: "2024-12-30T14:22:00Z", read_at: "2024-12-30T15:00:00Z" },
-      { message_id: "m_003", sender_type: "institution", content: "Great — I'll schedule a call for Thursday 3pm. Could you confirm the primary bank account linked to your profile?", sent_at: "2024-12-31T09:05:00Z" },
-    ],
-  },
-  {
-    thread_id: "thr_002",
-    type: "financer",
-    institution_id: "inst_001",
-    institution_name: "Stanbic IBTC",
-    consent_id: "con_002",
-    last_message: "We'd be happy to discuss a term loan based on your revenue history.",
-    last_message_at: "2024-12-29T14:00:00Z",
-    business_unread: 0,
-    messages: [
-      { message_id: "m_004", sender_type: "institution", content: "We'd be happy to discuss a term loan based on your revenue history. Do you have any existing debt obligations we should be aware of?", sent_at: "2024-12-29T14:00:00Z", read_at: "2024-12-29T16:00:00Z" },
-    ],
-  },
-];
+import { useActiveBusiness } from "@/lib/business-context";
+import {
+  getAllMessages,
+  getMessages,
+  sendMessage as apiSendMessage,
+  markMessagesRead,
+  type MessageThread,
+  type ThreadMessage,
+} from "@/lib/api";
 
 /* ─────────────────────────────────────────────────────────
    HELPERS
@@ -149,18 +35,19 @@ function fmtFullTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-function threadDisplayName(t: Thread): string {
+function threadDisplayName(t: MessageThread): string {
   if (t.type === "creditlinker") return t.subject ?? "Creditlinker";
   return t.institution_name ?? "Unknown";
 }
 
 /* ─────────────────────────────────────────────────────────
-   CREDITLINKER LOGO MARK (small)
+   CREDITLINKER AVATAR
 ───────────────────────────────────────────────────────── */
-function CLAvatar() {
+function CLAvatar({ size = 40 }: { size?: number }) {
+  const s = Math.round(size * 0.45);
   return (
-    <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: "linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.3))", border: "1px solid rgba(0,212,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+    <div style={{ width: size, height: size, borderRadius: 10, flexShrink: 0, background: "linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.3))", border: "1px solid rgba(0,212,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg width={s} height={s} viewBox="0 0 28 28" fill="none">
         <path d="M7 14C7 10.134 10.134 7 14 7C17.866 7 21 10.134 21 14" stroke="#00D4FF" strokeWidth="2.2" strokeLinecap="round" />
         <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
         <circle cx="14" cy="14" r="2.5" fill="#00D4FF" />
@@ -172,7 +59,7 @@ function CLAvatar() {
 /* ─────────────────────────────────────────────────────────
    THREAD LIST ITEM
 ───────────────────────────────────────────────────────── */
-function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boolean; onClick: () => void }) {
+function ThreadItem({ thread, active, onClick }: { thread: MessageThread; active: boolean; onClick: () => void }) {
   const hasUnread = thread.business_unread > 0;
   const isCL = thread.type === "creditlinker";
 
@@ -183,15 +70,8 @@ function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boole
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "#FAFAFA"; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
     >
-      {/* Avatar */}
       {isCL ? (
-        <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: "linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,212,255,0.2))", border: "1px solid rgba(0,212,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="16" height="16" viewBox="0 0 28 28" fill="none">
-            <path d="M7 14C7 10.134 10.134 7 14 7C17.866 7 21 10.134 21 14" stroke="#00D4FF" strokeWidth="2.2" strokeLinecap="round" />
-            <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="#0A2540" strokeWidth="2.2" strokeLinecap="round" />
-            <circle cx="14" cy="14" r="2.5" fill="#00D4FF" />
-          </svg>
-        </div>
+        <CLAvatar size={40} />
       ) : (
         <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#0A2540" }}>
           {(thread.institution_name ?? "?").slice(0, 2).toUpperCase()}
@@ -222,7 +102,7 @@ function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boole
         <p style={{ fontSize: 12, color: hasUnread ? "#374151" : "#9CA3AF", fontWeight: hasUnread ? 500 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.5 }}>
           {thread.last_message}
         </p>
-        {thread.financing_id && (
+        {thread.financing_record_id && (
           <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 5, fontSize: 10, fontWeight: 600, color: "#10B981", background: "#ECFDF5", padding: "2px 7px", borderRadius: 9999 }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#10B981" }} />Financing active
           </div>
@@ -235,22 +115,15 @@ function ThreadItem({ thread, active, onClick }: { thread: Thread; active: boole
 /* ─────────────────────────────────────────────────────────
    MESSAGE BUBBLE
 ───────────────────────────────────────────────────────── */
-function MessageBubble({ msg, threadType }: { msg: Message; threadType: ThreadType }) {
+function MessageBubble({ msg }: { msg: ThreadMessage }) {
   const isMe = msg.sender_type === "business";
   const isCL = msg.sender_type === "creditlinker";
 
-  // Creditlinker messages: full-width system card style
   if (isCL) {
     return (
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.3))", border: "1px solid rgba(0,212,255,0.3)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="12" height="12" viewBox="0 0 28 28" fill="none">
-              <path d="M7 14C7 10.134 10.134 7 14 7C17.866 7 21 10.134 21 14" stroke="#00D4FF" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="14" cy="14" r="2.5" fill="#00D4FF" />
-            </svg>
-          </div>
+          <CLAvatar size={26} />
           <div>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#0A2540" }}>Creditlinker</p>
             <p style={{ fontSize: 10, color: "#9CA3AF" }}>{fmtFullTime(msg.sent_at)}</p>
@@ -288,58 +161,168 @@ function MessageBubble({ msg, threadType }: { msg: Message; threadType: ThreadTy
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function BusinessMessagesPage() {
-  const [threads,   setThreads]   = useState<Thread[]>(MOCK_THREADS);
-  const [activeId,  setActiveId]  = useState<string | null>(MOCK_THREADS[0]?.thread_id ?? null);
-  const [search,    setSearch]    = useState("");
-  const [filter,    setFilter]    = useState<"all" | "financer" | "creditlinker">("all");
-  const [compose,   setCompose]   = useState("");
-  const [sending,   setSending]   = useState(false);
+  const { activeBusiness } = useActiveBusiness();
+
+  const [threads,         setThreads]         = useState<MessageThread[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+  const [activeId,        setActiveId]        = useState<string | null>(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [search,          setSearch]          = useState("");
+  const [filter,          setFilter]          = useState<"all" | "financer" | "creditlinker">("all");
+  const [compose,         setCompose]         = useState("");
+  const [sending,         setSending]         = useState(false);
+  const [mobileView,      setMobileView]      = useState<"list" | "thread">("list");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const activeThread = threads.find(t => t.thread_id === activeId) ?? null;
-  const [mobileView, setMobileView] = React.useState<"list" | "thread">("list");
+  const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
-  // On mobile, switch to thread view when a thread is selected
-  const handleSelectThread = (id: string) => {
-    setActiveId(id);
+  // ── INITIAL LOAD ────────────────────────────────────────────
+  const fetchThreads = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getAllMessages();
+      setThreads(res.threads);
+      // Auto-select first thread on initial load
+      if (res.threads.length > 0 && !activeId) {
+        setActiveId(res.threads[0].thread_id);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load messages.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeBusiness) fetchThreads();
+  }, [activeBusiness, fetchThreads]);
+
+  // ── OPEN A THREAD ───────────────────────────────────────────
+  const openThread = useCallback(async (thread: MessageThread) => {
+    setActiveId(thread.thread_id);
     setMobileView("thread");
+
+    if (thread.type === "financer" && thread.consent_id) {
+      // Lazy-load full message history + mark as read via existing get-messages
+      if (thread.messages.length === 0) {
+        setLoadingMessages(true);
+      }
+      try {
+        const res = await getMessages(thread.consent_id);
+        setThreads(prev => prev.map(t =>
+          t.thread_id === thread.thread_id
+            ? { ...t, messages: res.messages, business_unread: 0 }
+            : t
+        ));
+        scrollToBottom();
+      } catch {
+        // silently fail — thread is open, just no messages loaded
+      } finally {
+        setLoadingMessages(false);
+      }
+    } else if (thread.type === "creditlinker" && thread.business_unread > 0) {
+      // Mark platform message as read
+      setThreads(prev => prev.map(t =>
+        t.thread_id === thread.thread_id ? { ...t, business_unread: 0 } : t
+      ));
+      try {
+        await markMessagesRead([thread.thread_id]);
+      } catch {
+        // fire-and-forget — UI already updated
+      }
+      scrollToBottom();
+    } else {
+      scrollToBottom();
+    }
+  }, []);
+
+  // ── SEND MESSAGE ────────────────────────────────────────────
+  const handleSend = async () => {
+    if (!compose.trim() || !activeId) return;
+    const thread = threads.find(t => t.thread_id === activeId);
+    if (!thread?.consent_id) return;
+
+    setSending(true);
+    const optimistic: ThreadMessage = {
+      message_id:  `opt_${Date.now()}`,
+      sender_type: "business",
+      content:     compose.trim(),
+      sent_at:     new Date().toISOString(),
+      read_at:     null,
+    };
+    const text = compose.trim();
+    setCompose("");
+    setThreads(prev => prev.map(t =>
+      t.thread_id === activeId
+        ? { ...t, messages: [...t.messages, optimistic], last_message: text, last_message_at: optimistic.sent_at }
+        : t
+    ));
+    scrollToBottom();
+
+    try {
+      const res = await apiSendMessage(thread.consent_id, text);
+      setThreads(prev => prev.map(t =>
+        t.thread_id === activeId
+          ? { ...t, messages: t.messages.map(m => m.message_id === optimistic.message_id ? res.message : m) }
+          : t
+      ));
+    } catch {
+      // Roll back optimistic message
+      setThreads(prev => prev.map(t =>
+        t.thread_id === activeId
+          ? { ...t, messages: t.messages.filter(m => m.message_id !== optimistic.message_id) }
+          : t
+      ));
+      setCompose(text);
+    } finally {
+      setSending(false);
+    }
   };
 
-  const filteredThreads = threads.filter(t => {
-    const matchFilter = filter === "all" || t.type === filter;
-    const matchSearch = search === "" ||
-      threadDisplayName(t).toLowerCase().includes(search.toLowerCase()) ||
-      t.last_message.toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  }).sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
-
+  // ── DERIVED ─────────────────────────────────────────────────
+  const activeThread   = threads.find(t => t.thread_id === activeId) ?? null;
+  const isCLThread     = activeThread?.type === "creditlinker";
   const totalUnread    = threads.reduce((s, t) => s + t.business_unread, 0);
   const financerUnread = threads.filter(t => t.type === "financer").reduce((s, t) => s + t.business_unread, 0);
   const clUnread       = threads.filter(t => t.type === "creditlinker").reduce((s, t) => s + t.business_unread, 0);
 
-  useEffect(() => {
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  }, [activeId]);
+  const filteredThreads = threads.filter(t => {
+    const matchFilter = filter === "all" || t.type === filter;
+    const name = threadDisplayName(t).toLowerCase();
+    const matchSearch = search === "" || name.includes(search.toLowerCase()) || t.last_message.toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  }).sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-  // Mark as read on open
-  useEffect(() => {
-    if (!activeId) return;
-    setThreads(prev => prev.map(t => t.thread_id === activeId ? { ...t, business_unread: 0 } : t));
-  }, [activeId]);
+  // ── LOADING / ERROR ─────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Messages</h2>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 400, gap: 10, color: "#9CA3AF" }}>
+          <Loader2 size={20} className="animate-spin" />
+          <span style={{ fontSize: 13 }}>Loading messages…</span>
+        </div>
+      </div>
+    );
+  }
 
-  const sendMessage = async () => {
-    if (!compose.trim() || !activeId || activeThread?.type === "creditlinker") return;
-    setSending(true);
-    const newMsg: Message = { message_id: `m_${Date.now()}`, sender_type: "business", content: compose.trim(), sent_at: new Date().toISOString() };
-    setThreads(prev => prev.map(t => t.thread_id === activeId ? { ...t, messages: [...t.messages, newMsg], last_message: compose.trim(), last_message_at: newMsg.sent_at } : t));
-    setCompose("");
-    await new Promise(r => setTimeout(r, 300));
-    setSending(false);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    // TODO: POST /business/messages/:activeId/send { content: compose }
-  };
-
-  const isCLThread = activeThread?.type === "creditlinker";
+  if (error) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Messages</h2>
+        </div>
+        <div style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 24, textAlign: "center" as const }}>
+          <p style={{ fontSize: 13, color: "#991B1B", marginBottom: 12 }}>{error}</p>
+          <button onClick={fetchThreads} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", background: "white", fontSize: 13, fontWeight: 600, color: "#EF4444", cursor: "pointer" }}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -361,7 +344,7 @@ export default function BusinessMessagesPage() {
         {/* LEFT — Thread list */}
         <div className={mobileView === "thread" ? "msg-thread-hidden-mobile" : ""} style={{ borderRight: "1px solid #F3F4F6", display: "flex", flexDirection: "column" }}>
 
-          {/* Search */}
+          {/* Search + filter */}
           <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid #F3F4F6", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ position: "relative" }}>
               <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF", pointerEvents: "none" }} />
@@ -369,8 +352,6 @@ export default function BusinessMessagesPage() {
                 style={{ width: "100%", height: 34, paddingLeft: 30, paddingRight: search ? 28 : 10, borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12, color: "#0A2540", outline: "none", boxSizing: "border-box" as const }} />
               {search && <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", display: "flex" }}><X size={12} /></button>}
             </div>
-
-            {/* Filter tabs */}
             <div style={{ display: "flex", gap: 4 }}>
               {(["all", "creditlinker", "financer"] as const).map(f => {
                 const count = f === "all" ? totalUnread : f === "creditlinker" ? clUnread : financerUnread;
@@ -388,15 +369,17 @@ export default function BusinessMessagesPage() {
             </div>
           </div>
 
-          {/* List */}
+          {/* Thread list */}
           <div style={{ flex: 1, overflowY: "auto" as const }}>
             {filteredThreads.length === 0 ? (
               <div style={{ padding: "40px 16px", textAlign: "center" as const }}>
                 <MessageSquare size={24} style={{ color: "#E5E7EB", margin: "0 auto 10px" }} />
-                <p style={{ fontSize: 13, color: "#9CA3AF" }}>No messages found.</p>
+                <p style={{ fontSize: 13, color: "#9CA3AF" }}>
+                  {threads.length === 0 ? "No messages yet." : "No messages found."}
+                </p>
               </div>
             ) : filteredThreads.map(t => (
-              <ThreadItem key={t.thread_id} thread={t} active={activeId === t.thread_id} onClick={() => handleSelectThread(t.thread_id)} />
+              <ThreadItem key={t.thread_id} thread={t} active={activeId === t.thread_id} onClick={() => openThread(t)} />
             ))}
           </div>
         </div>
@@ -404,19 +387,15 @@ export default function BusinessMessagesPage() {
         {/* RIGHT — Thread pane */}
         {activeThread ? (
           <div className={mobileView === "list" ? "msg-thread-hidden-mobile" : ""} style={{ display: "flex", flexDirection: "column" }}>
+
             {/* Thread header */}
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between", background: "white" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button
-                  className="cl-hamburger"
-                  onClick={() => setMobileView("list")}
-                  style={{ marginRight: 2 }}
-                  aria-label="Back to list"
-                >
+                <button className="cl-hamburger" onClick={() => setMobileView("list")} style={{ marginRight: 2 }} aria-label="Back to list">
                   <ArrowLeft size={16} />
                 </button>
                 {isCLThread ? (
-                  <CLAvatar />
+                  <CLAvatar size={36} />
                 ) : (
                   <div style={{ width: 36, height: 36, borderRadius: 9, background: "#F3F4F6", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0A2540" }}>
                     {(activeThread.institution_name ?? "?").slice(0, 2).toUpperCase()}
@@ -431,48 +410,55 @@ export default function BusinessMessagesPage() {
                       ? <Badge variant="secondary" style={{ fontSize: 10, color: "#00A8CC", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)" }}>Platform</Badge>
                       : <Badge variant="success" style={{ fontSize: 10 }}>Access granted</Badge>
                     }
-                    {activeThread.financing_id && <Badge variant="secondary" style={{ fontSize: 10 }}>Financing active</Badge>}
+                    {activeThread.financing_record_id && <Badge variant="secondary" style={{ fontSize: 10 }}>Financing active</Badge>}
                   </div>
                   <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-                    {isCLThread
-                      ? activeThread.subject
-                      : `${activeThread.institution_name} · Consent ${activeThread.consent_id}`
-                    }
+                    {isCLThread ? activeThread.subject : `${activeThread.institution_name} · Consent ${activeThread.consent_id?.slice(0, 8)}…`}
                   </p>
                 </div>
               </div>
               {!isCLThread && (
-                <Link href={`/financers`}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
+                <Link href="/financers" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
                   Manage consent
                 </Link>
               )}
             </div>
 
-            {/* Messages */}
+            {/* Messages area */}
             <div style={{ flex: 1, overflowY: "auto" as const, padding: "20px 20px 8px" }}>
-              {/* Date separator */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-                <div style={{ flex: 1, height: 1, background: "#F3F4F6" }} />
-                <span style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap" as const }}>
-                  {new Date(activeThread.messages[0]?.sent_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-                </span>
-                <div style={{ flex: 1, height: 1, background: "#F3F4F6" }} />
-              </div>
-
-              {activeThread.messages.map(msg => (
-                <MessageBubble key={msg.message_id} msg={msg} threadType={activeThread.type} />
-              ))}
+              {loadingMessages ? (
+                <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
+                  <Loader2 size={20} className="animate-spin" style={{ color: "#9CA3AF" }} />
+                </div>
+              ) : activeThread.messages.length === 0 ? (
+                <div style={{ textAlign: "center" as const, padding: "40px 24px" }}>
+                  <MessageSquare size={28} style={{ color: "#D1D5DB", margin: "0 auto 10px" }} />
+                  <p style={{ fontSize: 13, color: "#9CA3AF" }}>No messages yet. Start the conversation.</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                    <div style={{ flex: 1, height: 1, background: "#F3F4F6" }} />
+                    <span style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap" as const }}>
+                      {new Date(activeThread.messages[0]?.sent_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                    </span>
+                    <div style={{ flex: 1, height: 1, background: "#F3F4F6" }} />
+                  </div>
+                  {activeThread.messages.map(msg => (
+                    <MessageBubble key={msg.message_id} msg={msg} />
+                  ))}
+                </>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Compose — only for financer threads */}
+            {/* Compose — financer threads only */}
             {!isCLThread ? (
               <div style={{ padding: "12px 16px", borderTop: "1px solid #F3F4F6", background: "white" }}>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
                   <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, border: "1px solid #E5E7EB", overflow: "hidden", display: "flex", alignItems: "flex-end" }}>
                     <textarea value={compose} onChange={e => setCompose(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                       placeholder="Reply to this financer… (Enter to send)"
                       rows={1}
                       style={{ flex: 1, border: "none", background: "transparent", resize: "none", padding: "10px 12px", fontSize: 13, color: "#0A2540", outline: "none", lineHeight: 1.5, maxHeight: 100, overflowY: "auto" as const }} />
@@ -480,9 +466,9 @@ export default function BusinessMessagesPage() {
                       <Paperclip size={15} />
                     </button>
                   </div>
-                  <button onClick={sendMessage} disabled={!compose.trim() || sending}
+                  <button onClick={handleSend} disabled={!compose.trim() || sending}
                     style={{ width: 40, height: 40, borderRadius: 10, border: "none", flexShrink: 0, background: compose.trim() ? "#0A2540" : "#E5E7EB", color: compose.trim() ? "white" : "#9CA3AF", display: "flex", alignItems: "center", justifyContent: "center", cursor: compose.trim() ? "pointer" : "not-allowed", transition: "all 0.15s" }}>
-                    <Send size={16} />
+                    {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={16} />}
                   </button>
                 </div>
                 <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8 }}>

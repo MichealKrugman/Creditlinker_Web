@@ -4,11 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, Plus, CheckCircle2, Clock, Crown,
+  ArrowRight, Plus, Clock, Crown,
   Shield, Eye, Building2, ChevronRight, LogOut, Settings,
 } from "lucide-react";
 import {
-  MEMBERSHIPS, CURRENT_USER,
+  useActiveBusiness,
   type BusinessMembership, type BusinessRole,
 } from "@/lib/business-context";
 
@@ -126,14 +126,12 @@ function BusinessCard({ biz, onSelect, isSelecting }: {
 ───────────────────────────────────────────────────────── */
 export default function SelectBusinessPage() {
   const router = useRouter();
+  const { memberships, currentUser, switchBusiness, isLoading, error } = useActiveBusiness();
   const [selecting, setSelecting] = useState<string | null>(null);
 
   const handleSelect = async (businessId: string) => {
     setSelecting(businessId);
-    // Write to localStorage — the BusinessProvider in (business)/layout reads this on mount
-    localStorage.setItem("cl_active_business_id", businessId);
-    // Brief pause so the user sees the loading state
-    await new Promise(r => setTimeout(r, 500));
+    await switchBusiness(businessId);
     router.push("/dashboard");
   };
 
@@ -179,13 +177,13 @@ export default function SelectBusinessPage() {
             </div>
             {/* Logged-in user */}
             <div style={{ marginTop: 32, padding: "12px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#00D4FF", flexShrink: 0 }}>
-                {CURRENT_USER.initials}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{CURRENT_USER.full_name}</p>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{CURRENT_USER.email}</p>
-              </div>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#00D4FF", flexShrink: 0 }}>
+            {currentUser.initials || '?'}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{currentUser.full_name || 'Loading...'}</p>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{currentUser.email}</p>
+            </div>
               <Link href="/login" style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.3)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
                 <LogOut size={10} /> Sign out
               </Link>
@@ -204,18 +202,29 @@ export default function SelectBusinessPage() {
 
             <div style={{ marginBottom: 32 }}>
               <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1.1, marginBottom: 8 }}>Select a business</h1>
-              <p style={{ fontSize: 14, color: "#6B7280" }}>You have access to {MEMBERSHIPS.length} businesses. Choose one to continue.</p>
+              <p style={{ fontSize: 14, color: "#6B7280" }}>You have access to {memberships.length} business{memberships.length !== 1 ? 'es' : ''}. Choose one to continue.</p>
             </div>
 
+            {error && (
+              <div style={{ marginBottom: 16, padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, fontSize: 13, color: "#DC2626" }}>
+                {error}
+              </div>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-              {MEMBERSHIPS.map(biz => (
-                <BusinessCard
-                  key={biz.business_id}
-                  biz={biz}
-                  isSelecting={selecting === biz.business_id}
-                  onSelect={() => handleSelect(biz.business_id)}
-                />
-              ))}
+              {isLoading
+                ? [1, 2, 3].map(i => (
+                    <div key={i} style={{ height: 82, borderRadius: 12, background: "#F3F4F6", animation: "pulse 1.5s ease-in-out infinite" }} />
+                  ))
+                : memberships.map(biz => (
+                    <BusinessCard
+                      key={biz.business_id}
+                      biz={biz}
+                      isSelecting={selecting === biz.business_id}
+                      onSelect={() => handleSelect(biz.business_id)}
+                    />
+                  ))
+              }
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "20px 0" }}>

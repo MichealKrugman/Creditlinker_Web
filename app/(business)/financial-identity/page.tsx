@@ -376,6 +376,9 @@ function ShareIdentityModal({ onClose, businessName, score, dimensions, dataQual
 
 export default function FinancialIdentityPage() {
   const { activeBusiness, isLoading: bizLoading } = useActiveBusiness();
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [txCoverageStart, setTxCoverageStart] = useState<string | null>(null);
+  const [txCoverageEnd, setTxCoverageEnd] = useState<string | null>(null);
   const [score, setScore] = useState<ScoreData | null>(null);
   const [accounts, setAccounts] = useState<LinkedAccount[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -391,13 +394,20 @@ export default function FinancialIdentityPage() {
 
     async function load() {
       setLoading(true);
-      const [scoreRes, accountsRes, snapshotsRes, metricsRes] = await Promise.all([
+      const [businessRes, minDateRes, maxDateRes, scoreRes, accountsRes, snapshotsRes, metricsRes] = await Promise.all([
+        supabase.from("businesses").select("last_pipeline_run_at").eq("business_id", id).single(),
+        supabase.from("normalized_transactions").select("date").eq("business_id", id).order("date", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("normalized_transactions").select("date").eq("business_id", id).order("date", { ascending: false }).limit(1).maybeSingle(),
         supabase.from("creditlinker_scores").select("*").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).single(),
         supabase.from("linked_accounts").select("*").eq("business_id", id).order("is_primary", { ascending: false }),
         supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(10),
         // Latest aggregated_metrics — contains active_risk_flags from the aggregation engine
         supabase.from("aggregated_metrics").select("metrics").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
+
+      setLastSyncedAt(businessRes.data?.last_pipeline_run_at ?? null);
+      setTxCoverageStart(minDateRes.data?.date ?? null);
+      setTxCoverageEnd(maxDateRes.data?.date ?? null);
 
       // Recommendations are fetched for the specific pipeline run that produced the latest score,
       // so we always show recommendations that correspond to the current score state.
@@ -476,7 +486,7 @@ export default function FinancialIdentityPage() {
 
   const kyc = activeBusiness.kyc_status ?? "unverified";
   const status = statusConfig(kyc);
-  const coverage = formatCoverage(activeBusiness.data_coverage_start ?? null, activeBusiness.data_coverage_end ?? null);
+  const coverage = formatCoverage(txCoverageStart, txCoverageEnd);
   const openToFinancing = activeBusiness.open_to_financing ?? false;
   const dimensions = score?.dimensions ?? [];
 
@@ -510,7 +520,7 @@ export default function FinancialIdentityPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <span style={{ fontSize: 12, color: "#9CA3AF" }}>ID: <span style={{ fontFamily: "monospace", color: "#6B7280" }}>{activeBusiness.financial_identity_id}</span></span>
                 <span style={{ fontSize: 12, color: "#9CA3AF" }}>Coverage: <span style={{ color: "#6B7280", fontWeight: 500 }}>{coverage}</span></span>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Last synced: <span style={{ color: "#6B7280", fontWeight: 500 }}>{relativeTime(activeBusiness.last_synced_at ?? null)}</span></span>
+                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Last synced: <span style={{ color: "#6B7280", fontWeight: 500 }}>{relativeTime(lastSyncedAt)}</span></span>
               </div>
             </div>
           </div>

@@ -1,287 +1,208 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   TrendingUp, TrendingDown, Minus, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, Calendar, RefreshCw,
-  Building2, MapPin, AlertCircle, Share2, Lock,
+  ArrowUpRight, ArrowDownLeft, RefreshCw,
+  AlertCircle, GitBranch, Building2,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useActiveBusiness } from "@/lib/business-context";
+import { supabase } from "@/lib/supabase";
 
-/* ─────────────────────────────────────────────────────────
-   ENTITY DEFINITIONS
-   In production: derived from GET /business/profile/branches
-   HQ is always the root entity.
-───────────────────────────────────────────────────────── */
-type EntityType = "hq" | "branch" | "franchise" | "office" | "warehouse";
+// ─────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────
 
-interface Entity {
-  id: string;
-  name: string;
-  shortName: string;
-  type: EntityType;
-  location: string;
-  /**
-   * has_own_books = true  → separate legal entity (franchise).
-   *   Their data requires explicit data-sharing consent.
-   * has_own_books = false → same entity as HQ (branch / office).
-   *   The business owner may have assigned a dedicated bank account
-   *   to this branch — all transactions from that account route here.
-   *   See: Data Sources → entity assignment per account / upload.
-   */
-  has_own_books: boolean;
-  data_linked: boolean;      // has at least one data source assigned
-  sharing_consent: boolean;  // franchise: have they consented to share?
-  tx_count?: number;
-  last_synced?: string;
+interface MonthlyRow {
+  month: string;
+  monthKey: string;
+  revenue: number;
+  expenses: number;
+  net: number;
 }
 
-/*
-  DATA SOURCE ATTRIBUTION MODEL
-  ─────────────────────────────
-  Each bank account, statement upload, and ledger upload carries
-  an entity_id set by the business owner in Data Sources.
-  Example: The owner has a Zenith Bank account for HQ operations and
-  a GTBank account they use exclusively for the Lekki Store.
-  In Data Sources they assign:
-    Zenith ****4821  → HQ
-    GTBank ****0034  → Lekki Store
-  Financial Analysis then scopes all transaction data and metrics
-  to the entity whose sources are active in the current view.
-*/
+interface MetricTileData {
+  label: string;
+  value: string;
+  positive: boolean | null;
+  sub: string;
+}
 
-const ENTITIES: Entity[] = [
-  {
-    id:             "hq",
-    name:           "Aduke Bakeries Ltd. (HQ)",
-    shortName:      "HQ",
-    type:           "hq",
-    location:       "Victoria Island, Lagos",
-    has_own_books:  false,
-    data_linked:    true,
-    sharing_consent: true,
-    tx_count:       842,
-    last_synced:    "Today, 09:14",
-  },
-  {
-    id:             "br_001",
-    name:           "Lekki Store",
-    shortName:      "Lekki Store",
-    type:           "branch",
-    location:       "Lekki Phase 1, Lagos",
-    has_own_books:  false,
-    data_linked:    true,
-    sharing_consent: true,
-    tx_count:       391,
-    last_synced:    "Today, 09:14",
-  },
-  {
-    id:             "fr_001",
-    name:           "Abuja Franchise",
-    shortName:      "Abuja",
-    type:           "franchise",
-    location:       "Wuse 2, Abuja",
-    has_own_books:  true,
-    data_linked:    false,
-    sharing_consent: false,
-    tx_count:       0,
-    last_synced:    undefined,
-  },
-];
+interface ExpenseItem {
+  category: string;
+  amount: number;
+  pct: number;
+  color: string;
+}
 
-/*
-  Mock data sources per entity (in production: derived from
-  GET /business/data-sources?entity_id=xxx).
-  The entity banner shows exactly which sources are feeding
-  the current view so the owner knows why the numbers look
-  the way they do.
-*/
-const ENTITY_SOURCES: Record<string, { label: string; type: "bank" | "statement" | "ledger" }[]> = {
-  hq: [
-    { label: "Zenith Bank ****4821",          type: "bank"      },
-    { label: "Zenith statement Jan–Dec 2023", type: "statement" },
-    { label: "General Ledger 2023",           type: "ledger"    },
-  ],
-  br_001: [
-    { label: "GTBank ****0034",               type: "bank"      },
-    { label: "GTBank statement Q3 2024",      type: "statement" },
-  ],
-};
-const SOURCE_COLORS: Record<string, string> = { bank: "#10B981", statement: "#10B981", ledger: "#3B82F6" };
+interface Counterparty {
+  name: string;
+  type: "Customer" | "Supplier" | "Expense" | "Other";
+  txn_count: number;
+  total: number;
+  pct: number;
+}
 
-/* ─────────────────────────────────────────────────────────
-   PER-ENTITY FINANCIAL DATA
-   In production: GET /business/financial-analysis?entity_id=xxx
-   Consolidated: entity_id=consolidated (sums all linked entities)
-───────────────────────────────────────────────────────── */
-const HQ_MONTHLY = [
-  { month: "Jan", revenue: 1120000, expenses: 760000 },
-  { month: "Feb", revenue: 1010000, expenses: 720000 },
-  { month: "Mar", revenue: 1290000, expenses: 840000 },
-  { month: "Apr", revenue: 1180000, expenses: 800000 },
-  { month: "May", revenue: 1380000, expenses: 880000 },
-  { month: "Jun", revenue: 1240000, expenses: 840000 },
-  { month: "Jul", revenue: 1460000, expenses: 930000 },
-  { month: "Aug", revenue: 1410000, expenses: 910000 },
-  { month: "Sep", revenue: 1560000, expenses: 980000 },
-  { month: "Oct", revenue: 1660000, expenses: 1020000 },
-  { month: "Nov", revenue: 1760000, expenses: 1060000 },
-  { month: "Dec", revenue: 1900000, expenses: 1110000 },
-];
-const HQ_CASHFLOW = HQ_MONTHLY.map(d => ({ month: d.month, net: d.revenue - d.expenses }));
-const HQ_METRICS = [
-  { label: "Avg Monthly Revenue",  value: "₦1.41M", change: "+12%",  positive: true  as const },
-  { label: "Avg Monthly Expenses", value: "₦905K",  change: "+8%",   positive: null },
-  { label: "Avg Net Cashflow",     value: "₦506K",  change: "+18%",  positive: true  as const },
-  { label: "Operating Margin",     value: "35.9%",  change: "+2.8%", positive: true  as const },
-  { label: "Revenue Volatility",   value: "9.1%",   change: "-0.9%", positive: true  as const },
-  { label: "Expense Ratio",        value: "64.1%",  change: "-2.8%", positive: true  as const },
-  { label: "Cash Reserve Ratio",   value: "22.4%",  change: "+3.9%", positive: true  as const },
-  { label: "Recurring Revenue %",  value: "58%",    change: "+5%",   positive: true  as const },
-];
+interface RawTransaction {
+  date: string;
+  amount: number;
+  direction: "credit" | "debit";
+  category: string | null;
+  counterparty_cluster: string | null;
+}
 
-const LEKKI_MONTHLY = [
-  { month: "Jan", revenue:  700000, expenses: 480000 },
-  { month: "Feb", revenue:  640000, expenses: 460000 },
-  { month: "Mar", revenue:  810000, expenses: 550000 },
-  { month: "Apr", revenue:  760000, expenses: 510000 },
-  { month: "May", revenue:  900000, expenses: 570000 },
-  { month: "Jun", revenue:  810000, expenses: 540000 },
-  { month: "Jul", revenue:  940000, expenses: 590000 },
-  { month: "Aug", revenue:  900000, expenses: 580000 },
-  { month: "Sep", revenue: 1000000, expenses: 620000 },
-  { month: "Oct", revenue: 1060000, expenses: 660000 },
-  { month: "Nov", revenue: 1130000, expenses: 680000 },
-  { month: "Dec", revenue: 1220000, expenses: 710000 },
-];
-const LEKKI_CASHFLOW = LEKKI_MONTHLY.map(d => ({ month: d.month, net: d.revenue - d.expenses }));
-const LEKKI_METRICS = [
-  { label: "Avg Monthly Revenue",  value: "₦906K", change: "+17%",  positive: true  as const },
-  { label: "Avg Monthly Expenses", value: "₦583K", change: "+11%",  positive: null },
-  { label: "Avg Net Cashflow",     value: "₦323K", change: "+29%",  positive: true  as const },
-  { label: "Operating Margin",     value: "35.7%", change: "+3.5%", positive: true  as const },
-  { label: "Revenue Volatility",   value: "7.4%",  change: "-1.6%", positive: true  as const },
-  { label: "Expense Ratio",        value: "64.3%", change: "-3.5%", positive: true  as const },
-  { label: "Cash Reserve Ratio",   value: "26.8%", change: "+6.1%", positive: true  as const },
-  { label: "Recurring Revenue %",  value: "65%",   change: "+9%",   positive: true  as const },
-];
-
-const CONSOLIDATED_MONTHLY = HQ_MONTHLY.map((d, i) => ({
-  month: d.month,
-  revenue:  d.revenue  + LEKKI_MONTHLY[i].revenue,
-  expenses: d.expenses + LEKKI_MONTHLY[i].expenses,
-}));
-const CONSOLIDATED_CASHFLOW = CONSOLIDATED_MONTHLY.map(d => ({ month: d.month, net: d.revenue - d.expenses }));
-const CONSOLIDATED_METRICS = [
-  { label: "Avg Monthly Revenue",  value: "₦2.32M", change: "+14%",  positive: true  as const },
-  { label: "Avg Monthly Expenses", value: "₦1.49M", change: "+9%",   positive: null },
-  { label: "Avg Net Cashflow",     value: "₦830K",  change: "+22%",  positive: true  as const },
-  { label: "Operating Margin",     value: "35.8%",  change: "+3.1%", positive: true  as const },
-  { label: "Revenue Volatility",   value: "8.4%",   change: "-1.2%", positive: true  as const },
-  { label: "Expense Ratio",        value: "64.2%",  change: "-3.1%", positive: true  as const },
-  { label: "Cash Reserve Ratio",   value: "24.1%",  change: "+4.8%", positive: true  as const },
-  { label: "Recurring Revenue %",  value: "61%",    change: "+7%",   positive: true  as const },
-];
-
-const BRANCH_CONTRIBUTIONS = [
-  { entity: ENTITIES[0], revenue_pct: 61, revenue_total: 16976000, cashflow_total:  6076000, margin: 35.9, color: "#0A2540" },
-  { entity: ENTITIES[1], revenue_pct: 39, revenue_total: 10876000, cashflow_total:  3876000, margin: 35.7, color: "#00D4FF" },
-];
-
-const EXPENSE_BREAKDOWN = [
-  { category: "Supplier / COGS", amount: 7820000, pct: 42, color: "#818CF8" },
-  { category: "Payroll",         amount: 5180000, pct: 28, color: "#F59E0B" },
-  { category: "Operations",      amount: 2960000, pct: 16, color: "#38BDF8" },
-  { category: "Tax & Levies",    amount: 1480000, pct: 8,  color: "#EF4444" },
-  { category: "Other",           amount: 1110000, pct: 6,  color: "#D1D5DB" },
-];
-
-const COUNTERPARTIES = [
-  { name: "Jumia Food",             type: "Customer", txn_count: 48, total: 4120000, pct: 22 },
-  { name: "Flour Mills Nigeria",    type: "Supplier", txn_count: 36, total: 2840000, pct: 15 },
-  { name: "Catering Contracts",     type: "Customer", txn_count: 24, total: 2560000, pct: 14 },
-  { name: "Staff Payroll",          type: "Expense",  txn_count: 12, total: 1920000, pct: 10 },
-  { name: "Wholesale Distributors", type: "Customer", txn_count: 18, total: 1740000, pct: 9  },
-];
-
-const SCORE = { data_months_analyzed: 24 };
-
-const PERIODS = ["6M", "12M", "24M"];
-
-/* ─────────────────────────────────────────────────────────
-   CASH FLOW FORECAST DATA
-   In production: GET /business/forecast?entity_id=xxx&months=6
-   Pipeline already has the signals (recurring patterns, revenue
-   volatility, seasonal weights). This is a UI shell wired to
-   mock data until the endpoint is implemented.
-
-   Each month carries:
-     projected  – central estimate (₦)
-     upper      – optimistic bound (+1σ)
-     lower      – conservative bound (-1σ)
-     inflow     – projected gross credits
-     outflow    – projected gross debits
-───────────────────────────────────────────────────────── */
-interface ForecastMonth {
+interface HistoricalMonth {
   month: string;
-  projected: number;
-  upper: number;
-  lower: number;
   inflow: number;
   outflow: number;
+  net_cashflow: number;
+  trend: number;
+  seasonality: number;
+  residual: number;
 }
 
-const HQ_FORECAST: ForecastMonth[] = [
-  { month: "Jan", projected:  860000, upper: 1050000, lower:  680000, inflow: 2040000, outflow: 1180000 },
-  { month: "Feb", projected:  900000, upper: 1120000, lower:  690000, inflow: 2110000, outflow: 1210000 },
-  { month: "Mar", projected:  980000, upper: 1250000, lower:  720000, inflow: 2250000, outflow: 1270000 },
-  { month: "Apr", projected: 1020000, upper: 1340000, lower:  720000, inflow: 2340000, outflow: 1320000 },
-  { month: "May", projected: 1080000, upper: 1440000, lower:  730000, inflow: 2460000, outflow: 1380000 },
-  { month: "Jun", projected: 1140000, upper: 1550000, lower:  740000, inflow: 2580000, outflow: 1440000 },
-];
+interface ForecastMonth {
+  month: string;
+  inflow: number;
+  outflow: number;
+  forecast: number;
+  upper_bound: number;
+  lower_bound: number;
+}
 
-const LEKKI_FORECAST: ForecastMonth[] = [
-  { month: "Jan", projected:  540000, upper:  660000, lower:  430000, inflow: 1300000, outflow:  760000 },
-  { month: "Feb", projected:  570000, upper:  700000, lower:  440000, inflow: 1360000, outflow:  790000 },
-  { month: "Mar", projected:  610000, upper:  770000, lower:  450000, inflow: 1450000, outflow:  840000 },
-  { month: "Apr", projected:  640000, upper:  820000, lower:  450000, inflow: 1510000, outflow:  870000 },
-  { month: "May", projected:  680000, upper:  890000, lower:  460000, inflow: 1600000, outflow:  920000 },
-  { month: "Jun", projected:  720000, upper:  960000, lower:  470000, inflow: 1690000, outflow:  970000 },
-];
+interface CashflowForecast {
+  forecast_id: string;
+  trend_direction: "improving" | "declining" | "stable";
+  trend_slope: number;
+  seasonality_detected: boolean;
+  peak_month: string | null;
+  trough_month: string | null;
+  data_months_used: number;
+  historical: HistoricalMonth[];
+  forecast_months: ForecastMonth[];
+}
 
-const CONSOLIDATED_FORECAST: ForecastMonth[] = HQ_FORECAST.map((d, i) => ({
-  month:     d.month,
-  projected: d.projected  + LEKKI_FORECAST[i].projected,
-  upper:     d.upper      + LEKKI_FORECAST[i].upper,
-  lower:     d.lower      + LEKKI_FORECAST[i].lower,
-  inflow:    d.inflow     + LEKKI_FORECAST[i].inflow,
-  outflow:   d.outflow    + LEKKI_FORECAST[i].outflow,
-}));
+interface AggregatedMetrics {
+  monthly_revenue_avg?: number;
+  monthly_expense_avg?: number;
+  net_cashflow_avg?: number;
+  revenue_growth_rate?: number;
+  transaction_count_total?: number;
+}
 
-/* ─────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────── */
-function fmt(n: number) {
+const PERIODS = ["6M", "12M", "24M"] as const;
+type Period = typeof PERIODS[number];
+
+const EXPENSE_COLORS = ["#818CF8", "#F59E0B", "#38BDF8", "#EF4444", "#10B981", "#D1D5DB"];
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+function fmt(n: number): string {
+  if (n == null || isNaN(n)) return "₦—";
   if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `₦${(n / 1_000).toFixed(0)}K`;
-  return `₦${n}`;
+  if (n >= 1_000) return `₦${(n / 1_000).toFixed(0)}K`;
+  return `₦${n.toFixed(0)}`;
 }
 
-const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
-  hq: "HQ", branch: "Branch", franchise: "Franchise", office: "Office", warehouse: "Warehouse",
-};
-const ENTITY_TYPE_COLORS: Record<EntityType, { bg: string; color: string; border: string }> = {
-  hq:        { bg: "#EEF2FF", color: "#4338CA", border: "#C7D2FE" },
-  branch:    { bg: "#ECFDF5", color: "#059669", border: "#A7F3D0" },
-  franchise: { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA" },
-  office:    { bg: "#F0F9FF", color: "#0369A1", border: "#BAE6FD" },
-  warehouse: { bg: "#F5F3FF", color: "#7C3AED", border: "#DDD6FE" },
-};
+function periodStartDate(period: Period): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - (period === "6M" ? 6 : period === "12M" ? 12 : 24));
+  d.setDate(1);
+  return d.toISOString().split("T")[0];
+}
 
-/* ─────────────────────────────────────────────────────────
-   SHARED COMPONENTS
-───────────────────────────────────────────────────────── */
+function aggregateByMonth(txs: RawTransaction[]): MonthlyRow[] {
+  const map: Record<string, { revenue: number; expenses: number }> = {};
+  for (const tx of txs) {
+    const d = new Date(tx.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!map[key]) map[key] = { revenue: 0, expenses: 0 };
+    if (tx.direction === "credit") map[key].revenue += Number(tx.amount);
+    else map[key].expenses += Number(tx.amount);
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, v]) => ({
+      month: new Date(Number(key.split("-")[0]), Number(key.split("-")[1]) - 1, 1)
+        .toLocaleDateString("en-GB", { month: "short" }),
+      monthKey: key,
+      revenue: v.revenue,
+      expenses: v.expenses,
+      net: v.revenue - v.expenses,
+    }));
+}
+
+function computeMetrics(rows: MonthlyRow[], saved: AggregatedMetrics): MetricTileData[] {
+  if (!rows.length) return [];
+  const avgRev  = rows.reduce((s, r) => s + r.revenue,  0) / rows.length;
+  const avgExp  = rows.reduce((s, r) => s + r.expenses, 0) / rows.length;
+  const avgNet  = rows.reduce((s, r) => s + r.net,      0) / rows.length;
+  const margin  = avgRev > 0 ? (avgNet / avgRev) * 100 : 0;
+  const expRatio = avgRev > 0 ? (avgExp / avgRev) * 100 : 0;
+  const stdDev  = Math.sqrt(rows.reduce((s, r) => s + Math.pow(r.revenue - avgRev, 2), 0) / rows.length);
+  const volatility = avgRev > 0 ? (stdDev / avgRev) * 100 : 0;
+  const half = Math.floor(rows.length / 2);
+  const firstH = rows.slice(0, half).reduce((s, r) => s + r.revenue, 0) / (half || 1);
+  const secH   = rows.slice(half).reduce((s, r) => s + r.revenue, 0) / ((rows.length - half) || 1);
+  const growth = saved.revenue_growth_rate ?? (firstH > 0 ? (secH - firstH) / firstH : 0);
+
+  return [
+    { label: "Avg Monthly Revenue",  value: fmt(avgRev),                       sub: `over ${rows.length} months`,        positive: null },
+    { label: "Avg Monthly Expenses", value: fmt(avgExp),                       sub: `over ${rows.length} months`,        positive: null },
+    { label: "Avg Net Cashflow",     value: fmt(avgNet),                       sub: "revenue minus expenses",            positive: avgNet >= 0 },
+    { label: "Operating Margin",     value: `${margin.toFixed(1)}%`,           sub: "net / revenue",                     positive: margin > 30 ? true : margin > 0 ? null : false },
+    { label: "Revenue Volatility",   value: `${volatility.toFixed(1)}%`,       sub: "monthly std dev",                   positive: volatility < 15 ? true : volatility < 30 ? null : false },
+    { label: "Expense Ratio",        value: `${expRatio.toFixed(1)}%`,         sub: "expenses / revenue",                positive: expRatio < 70 ? true : expRatio < 85 ? null : false },
+    { label: "Revenue Growth",       value: `${growth >= 0 ? "+" : ""}${(growth * 100).toFixed(1)}%`, sub: "first vs second half", positive: growth > 0 ? true : growth === 0 ? null : false },
+    { label: "Months of Data",       value: `${rows.length}`,                  sub: rows.length >= 12 ? "sufficient history" : "building history", positive: rows.length >= 12 ? true : null },
+  ];
+}
+
+function computeExpenses(txs: RawTransaction[]): ExpenseItem[] {
+  const map: Record<string, number> = {};
+  for (const tx of txs) {
+    if (tx.direction !== "debit") continue;
+    const cat = tx.category || "Other";
+    map[cat] = (map[cat] || 0) + Number(tx.amount);
+  }
+  const total = Object.values(map).reduce((s, v) => s + v, 0) || 1;
+  return Object.entries(map)
+    .sort(([, a], [, b]) => b - a)
+    .map(([category, amount], i) => ({
+      category, amount,
+      pct: Math.round((amount / total) * 100),
+      color: EXPENSE_COLORS[i % EXPENSE_COLORS.length],
+    }));
+}
+
+function computeCounterparties(txs: RawTransaction[]): Counterparty[] {
+  const map: Record<string, { total: number; count: number; dir: string }> = {};
+  for (const tx of txs) {
+    const name = tx.counterparty_cluster || "Unknown";
+    if (!map[name]) map[name] = { total: 0, count: 0, dir: tx.direction };
+    map[name].total += Number(tx.amount);
+    map[name].count++;
+  }
+  const grand = Object.values(map).reduce((s, v) => s + v.total, 0) || 1;
+  return Object.entries(map)
+    .sort(([, a], [, b]) => b.total - a.total)
+    .slice(0, 5)
+    .map(([name, v]) => ({
+      name,
+      type: v.dir === "credit" ? "Customer" : "Expense" as "Customer" | "Expense",
+      txn_count: v.count,
+      total: v.total,
+      pct: Math.round((v.total / grand) * 100),
+    }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// SHARED COMPONENTS
+// ─────────────────────────────────────────────────────────────
+
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, ...style }}>{children}</div>;
 }
@@ -298,220 +219,11 @@ function CardHeader({ title, sub, action }: { title: string; sub?: string; actio
   );
 }
 
-function EntityBadge({ type, small = false }: { type: EntityType; small?: boolean }) {
-  const c = ENTITY_TYPE_COLORS[type];
-  return (
-    <span style={{ fontSize: small ? 9 : 10, fontWeight: 700, color: c.color, background: c.bg, border: `1px solid ${c.border}`, padding: small ? "1px 6px" : "2px 8px", borderRadius: 9999, whiteSpace: "nowrap" as const }}>
-      {ENTITY_TYPE_LABELS[type]}
-    </span>
-  );
+function SkeletonBox({ w = "100%", h = 16, r = 6 }: { w?: string | number; h?: number; r?: number }) {
+  return <div style={{ width: w, height: h, borderRadius: r, background: "#F3F4F6", animation: "pulse 1.5s infinite" }} />;
 }
 
-/* ─────────────────────────────────────────────────────────
-   BAR CHART
-───────────────────────────────────────────────────────── */
-function BarChart({ data, height = 120 }: {
-  data: { month: string; revenue: number; expenses: number }[];
-  height?: number;
-}) {
-  const max = Math.max(...data.map(d => d.revenue));
-  return (
-    <div style={{ padding: "20px 24px 16px" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height }}>
-        {data.map(d => (
-          <div key={d.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, height: "100%" }}>
-            <div style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 2 }}>
-              <div style={{ width: "100%", height: `${(d.revenue / max) * 100}%`, background: "#0A2540", borderRadius: "3px 3px 0 0", minHeight: 4 }} />
-              <div style={{ width: "100%", height: `${(d.expenses / max) * 100}%`, background: "#E5E7EB", borderRadius: "3px 3px 0 0", minHeight: 3, marginTop: -((d.expenses / max) * height) - 2, opacity: 0.8 }} />
-            </div>
-            <span style={{ fontSize: 9, color: "#9CA3AF" }}>{d.month}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
-        {[{ label: "Revenue", color: "#0A2540", border: false }, { label: "Expenses", color: "#E5E7EB", border: true }].map(l => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color, border: l.border ? "1px solid #D1D5DB" : "none" }} />
-            <span style={{ fontSize: 11, color: "#9CA3AF" }}>{l.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   CASHFLOW CHART
-───────────────────────────────────────────────────────── */
-function CashflowChart({ data }: { data: { month: string; net: number }[] }) {
-  const W = 600, H = 100;
-  const max   = Math.max(...data.map(d => d.net));
-  const range = max || 1;
-  const points = data.map((d, i) => ({ x: (i / (data.length - 1)) * W, y: H - ((d.net / range) * (H - 12)) }));
-  const pathD  = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const areaD  = `${pathD} L ${W} ${H} L 0 ${H} Z`;
-  return (
-    <div style={{ padding: "16px 24px 20px" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 100, overflow: "visible" }}>
-        <defs>
-          <linearGradient id="cf-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {[0.25, 0.5, 0.75].map(p => <line key={p} x1="0" y1={H * p} x2={W} y2={H * p} stroke="#F3F4F6" strokeWidth="1" />)}
-        <path d={areaD} fill="url(#cf-grad)" />
-        <path d={pathD} fill="none" stroke="#00D4FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#00D4FF" stroke="white" strokeWidth="1.5" />)}
-      </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-        {data.map(d => <span key={d.month} style={{ fontSize: 9, color: "#9CA3AF" }}>{d.month}</span>)}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   FORECAST CHART
-   Renders the last 4 historical months (solid cyan) joined
-   seamlessly to 6 projected months (dashed indigo) with a
-   shaded confidence band showing the upper/lower bounds.
-───────────────────────────────────────────────────────── */
-function ForecastChart({
-  historical,
-  forecast,
-}: {
-  historical: { month: string; net: number }[];
-  forecast:   ForecastMonth[];
-}) {
-  const W = 700, H = 110;
-  const HIST_COUNT = 4;
-
-  const histSlice  = historical.slice(-HIST_COUNT);
-  const allNets    = [...histSlice.map(d => d.net), ...forecast.map(d => d.projected)];
-  const allUppers  = [...histSlice.map(d => d.net), ...forecast.map(d => d.upper)];
-  const allLowers  = [...histSlice.map(d => d.net), ...forecast.map(d => d.lower)];
-  const totalCount = allNets.length;
-  const max        = Math.max(...allUppers, 1);
-  const min        = Math.min(...allLowers, 0);
-  const range      = max - min || 1;
-
-  function toY(v: number) { return H - ((v - min) / range) * (H - 14) - 4; }
-  function toX(i: number) { return (i / (totalCount - 1)) * W; }
-
-  const histPoints = histSlice.map((_, i) => ({ x: toX(i), y: toY(allNets[i]) }));
-  const histPath   = histPoints.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-
-  const fcastPoints = forecast.map((_, i) => ({
-    x: toX(HIST_COUNT - 1 + i),
-    y: toY(forecast[i].projected),
-  }));
-  const fcastPath = [
-    `M ${histPoints[histPoints.length - 1].x} ${histPoints[histPoints.length - 1].y}`,
-    ...fcastPoints.map(p => `L ${p.x} ${p.y}`),
-  ].join(" ");
-
-  const upperPts = forecast.map((d, i) => ({ x: toX(HIST_COUNT - 1 + i), y: toY(d.upper) }));
-  const lowerPts = forecast.map((d, i) => ({ x: toX(HIST_COUNT - 1 + i), y: toY(d.lower) }));
-  const bandPath = [
-    `M ${histPoints[histPoints.length - 1].x} ${histPoints[histPoints.length - 1].y}`,
-    ...upperPts.map(p => `L ${p.x} ${p.y}`),
-    ...lowerPts.slice().reverse().map(p => `L ${p.x} ${p.y}`),
-    "Z",
-  ].join(" ");
-
-  const allMonths = [...histSlice.map(d => d.month), ...forecast.map(d => d.month)];
-
-  return (
-    <div style={{ padding: "16px 24px 20px" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 110, overflow: "visible" }}>
-        <defs>
-          <linearGradient id="hist-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="band-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#818CF8" stopOpacity="0.10" />
-            <stop offset="100%" stopColor="#818CF8" stopOpacity="0.03" />
-          </linearGradient>
-        </defs>
-
-        {[0.25, 0.5, 0.75].map(p => (
-          <line key={p} x1="0" y1={H * p} x2={W} y2={H * p} stroke="#F3F4F6" strokeWidth="1" />
-        ))}
-
-        <line
-          x1={toX(HIST_COUNT - 1)} y1="0"
-          x2={toX(HIST_COUNT - 1)} y2={H}
-          stroke="#E5E7EB" strokeWidth="1" strokeDasharray="4 3"
-        />
-
-        <path d={bandPath} fill="url(#band-grad)" />
-
-        <path
-          d={`${histPath} L ${histPoints[histPoints.length - 1].x} ${H} L 0 ${H} Z`}
-          fill="url(#hist-grad)"
-        />
-
-        <path d={histPath} fill="none" stroke="#00D4FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={fcastPath} fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" />
-
-        {upperPts.length > 1 && (
-          <path
-            d={upperPts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")}
-            fill="none" stroke="#818CF8" strokeWidth="1" strokeOpacity="0.35" strokeDasharray="3 4"
-          />
-        )}
-        {lowerPts.length > 1 && (
-          <path
-            d={lowerPts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")}
-            fill="none" stroke="#818CF8" strokeWidth="1" strokeOpacity="0.35" strokeDasharray="3 4"
-          />
-        )}
-
-        {histPoints.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#00D4FF" stroke="white" strokeWidth="1.5" />
-        ))}
-        {fcastPoints.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#818CF8" stroke="white" strokeWidth="1.5" />
-        ))}
-      </svg>
-
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-        {allMonths.map((m, i) => (
-          <span key={m + i} style={{ fontSize: 9, color: i < HIST_COUNT ? "#9CA3AF" : "#818CF8", fontWeight: i >= HIST_COUNT ? 600 : 400 }}>{m}</span>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
-        {[
-          { label: "Historical",          color: "#00D4FF", dashed: false, band: false },
-          { label: "Projected (central)", color: "#818CF8", dashed: true,  band: false },
-          { label: "Confidence band",     color: "#818CF8", dashed: false, band: true  },
-        ].map(l => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            {l.band ? (
-              <div style={{ width: 14, height: 8, borderRadius: 2, background: "rgba(129,140,248,0.18)", border: "1px solid rgba(129,140,248,0.35)" }} />
-            ) : (
-              <svg width="14" height="8">
-                <line x1="0" y1="4" x2="14" y2="4" stroke={l.color} strokeWidth="2"
-                  strokeDasharray={l.dashed ? "4 3" : "none"} strokeLinecap="round" />
-              </svg>
-            )}
-            <span style={{ fontSize: 10, color: "#9CA3AF" }}>{l.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   METRIC TILE
-───────────────────────────────────────────────────────── */
-function MetricTile({ label, value, change, positive }: {
-  label: string; value: string; change: string; positive: boolean | null;
-}) {
+function MetricTile({ label, value, positive, sub }: MetricTileData) {
   const cc   = positive === true ? "#10B981" : positive === false ? "#EF4444" : "#9CA3AF";
   const Icon = positive === true ? TrendingUp : positive === false ? TrendingDown : Minus;
   return (
@@ -520,172 +232,373 @@ function MetricTile({ label, value, change, positive }: {
       <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 6 }}>{value}</p>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <Icon size={11} style={{ color: cc }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: cc }}>{change}</span>
-        <span style={{ fontSize: 11, color: "#9CA3AF" }}>vs prev period</span>
+        <span style={{ fontSize: 11, color: "#9CA3AF" }}>{sub}</span>
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   BRANCH CONTRIBUTIONS (consolidated view only)
-───────────────────────────────────────────────────────── */
-function BranchContributions({ contributions, unlinkedFranchises }: {
-  contributions: typeof BRANCH_CONTRIBUTIONS;
-  unlinkedFranchises: Entity[];
-}) {
+// ─────────────────────────────────────────────────────────────
+// SVG BAR CHART — grouped revenue + expense bars per month
+// ─────────────────────────────────────────────────────────────
+
+function BarChart({ data }: { data: MonthlyRow[] }) {
+  if (!data.length) return (
+    <div style={{ padding: "24px", textAlign: "center" as const }}>
+      <p style={{ fontSize: 12, color: "#9CA3AF" }}>No transactions in this period.</p>
+    </div>
+  );
+
+  const W = 700, H = 130, PAD_LEFT = 40, PAD_BOTTOM = 24, PAD_TOP = 10;
+  const chartW = W - PAD_LEFT;
+  const chartH = H - PAD_BOTTOM - PAD_TOP;
+  const max    = Math.max(...data.map(d => Math.max(d.revenue, d.expenses)), 1);
+  const colW   = chartW / data.length;
+  const barW   = Math.max(Math.min(colW * 0.35, 24), 4);
+  const gap    = barW * 0.4;
+
+  const yGrids = [0.25, 0.5, 0.75, 1];
+  const toY    = (v: number) => PAD_TOP + chartH - (v / max) * chartH;
+  const toX    = (i: number) => PAD_LEFT + i * colW + colW / 2;
+
+  return (
+    <div style={{ padding: "16px 24px 16px" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 130, overflow: "visible" }}>
+        {/* Y-axis grid lines + labels */}
+        {yGrids.map(p => {
+          const y = toY(max * p);
+          return (
+            <g key={p}>
+              <line x1={PAD_LEFT} y1={y} x2={W} y2={y} stroke="#F3F4F6" strokeWidth="1" />
+              <text x={PAD_LEFT - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#D1D5DB">
+                {fmt(max * p)}
+              </text>
+            </g>
+          );
+        })}
+        {/* Baseline */}
+        <line x1={PAD_LEFT} y1={toY(0)} x2={W} y2={toY(0)} stroke="#E5E7EB" strokeWidth="1" />
+
+        {/* Bars */}
+        {data.map((d, i) => {
+          const cx   = toX(i);
+          const revH = (d.revenue  / max) * chartH;
+          const expH = (d.expenses / max) * chartH;
+          const base = toY(0);
+          return (
+            <g key={d.monthKey}>
+              {/* Revenue bar */}
+              <rect
+                x={cx - gap / 2 - barW}
+                y={base - revH}
+                width={barW}
+                height={Math.max(revH, 2)}
+                fill="#0A2540"
+                rx="2"
+              />
+              {/* Expense bar */}
+              <rect
+                x={cx + gap / 2}
+                y={base - expH}
+                width={barW}
+                height={Math.max(expH, 2)}
+                fill="#00D4FF"
+                opacity="0.55"
+                rx="2"
+              />
+              {/* Month label */}
+              <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill="#9CA3AF">{d.month}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
+        {[
+          { label: "Revenue",  color: "#0A2540" },
+          { label: "Expenses", color: "#00D4FF", opacity: 0.55 },
+        ].map(l => (
+          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color, opacity: l.opacity ?? 1 }} />
+            <span style={{ fontSize: 11, color: "#9CA3AF" }}>{l.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SVG CASHFLOW LINE CHART
+// ─────────────────────────────────────────────────────────────
+
+function CashflowChart({ data }: { data: MonthlyRow[] }) {
+  if (!data.length) return (
+    <div style={{ padding: "24px", textAlign: "center" as const }}>
+      <p style={{ fontSize: 12, color: "#9CA3AF" }}>No data for this period.</p>
+    </div>
+  );
+
+  // Single data point — SVG line path would be degenerate (invisible); show a value card instead
+  if (data.length === 1) {
+    const net = data[0].net;
+    return (
+      <div style={{ padding: "16px 24px 20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 130, background: "#F9FAFB", borderRadius: 10, border: "1px dashed #E5E7EB" }}>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, color: net >= 0 ? "#10B981" : "#EF4444", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 6 }}>{fmt(net)}</p>
+          <p style={{ fontSize: 12, color: "#9CA3AF" }}>Net cashflow · {data[0].month} · only 1 month in this range</p>
+        </div>
+      </div>
+    );
+  }
+
+  const W = 700, H = 130, PAD_LEFT = 40, PAD_BOTTOM = 24, PAD_TOP = 10;
+  const chartW = W - PAD_LEFT;
+  const chartH = H - PAD_BOTTOM - PAD_TOP;
+  const nets   = data.map(d => d.net);
+  const maxAbs = Math.max(...nets.map(Math.abs), 1);
+  const mid    = PAD_TOP + chartH / 2;
+
+  const toY = (v: number) => mid - (v / maxAbs) * (chartH / 2 - 4);
+  const toX = (i: number) => PAD_LEFT + (data.length > 1 ? (i / (data.length - 1)) : 0.5) * chartW;
+
+  const points = nets.map((v, i) => ({ x: toX(i), y: toY(v) }));
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+  const areaPath = `${linePath} L${points[points.length - 1].x},${mid} L${points[0].x},${mid} Z`;
+
+  const trend = nets.length >= 2 ? nets[nets.length - 1] - nets[0] : 0;
+  const trendColor = trend >= 0 ? "#10B981" : "#EF4444";
+
+  return (
+    <div style={{ padding: "16px 24px 16px" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 130, overflow: "visible" }}>
+        <defs>
+          <linearGradient id="cf-grad-fa" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Y gridlines */}
+        {[-0.5, 0, 0.5].map(p => {
+          const y = mid - p * (chartH / 2);
+          return (
+            <g key={p}>
+              <line x1={PAD_LEFT} y1={y} x2={W} y2={y} stroke={p === 0 ? "#E5E7EB" : "#F3F4F6"} strokeWidth={p === 0 ? 1.5 : 1} strokeDasharray={p === 0 ? "4 3" : "none"} />
+              {p !== 0 && (
+                <text x={PAD_LEFT - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#D1D5DB">
+                  {fmt(maxAbs * Math.abs(p))}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Area + line */}
+        <path d={areaPath} fill="url(#cf-grad-fa)" />
+        <path d={linePath} fill="none" stroke="#00D4FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Dots */}
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#00D4FF" stroke="white" strokeWidth="1.5" />
+        ))}
+
+        {/* Month labels */}
+        {data.map((d, i) => (
+          <text key={d.monthKey} x={toX(i)} y={H - 4} textAnchor="middle" fontSize="9" fill="#9CA3AF">{d.month}</text>
+        ))}
+      </svg>
+
+      {nets.length >= 2 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
+          {trend >= 0
+            ? <TrendingUp size={12} style={{ color: trendColor }} />
+            : <TrendingDown size={12} style={{ color: trendColor }} />}
+          <span style={{ fontSize: 11, fontWeight: 600, color: trendColor }}>
+            {trend >= 0 ? "+" : ""}{fmt(trend)} vs first month
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENTITY PERFORMANCE (single entity, expandable for branches)
+// ─────────────────────────────────────────────────────────────
+
+function EntityPerformance({ rows, businessName, period }: { rows: MonthlyRow[]; businessName: string; period: Period }) {
+  if (!rows.length) return null;
+  const totalRevenue  = rows.reduce((s, r) => s + r.revenue,  0);
+  const totalCashflow = rows.reduce((s, r) => s + r.net,      0);
+  const margin        = totalRevenue > 0 ? ((totalCashflow / totalRevenue) * 100).toFixed(1) : "0.0";
+
   return (
     <Card>
       <CardHeader
-        title="Entity Performance Breakdown"
-        sub="Revenue contribution and financial health per operating location"
-        action={<Link href="/data-sources" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#9CA3AF", textDecoration: "none" }}>Manage sources <ChevronRight size={12} /></Link>}
+        title="Entity Performance"
+        sub="Revenue contribution and financial health"
+        action={
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "#F9FAFB", border: "1px solid #E5E7EB" }}>
+            <GitBranch size={11} style={{ color: "#9CA3AF" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF" }}>Single entity</span>
+          </div>
+        }
       />
-      <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
-        {/* Stacked bar */}
+      <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Revenue share bar — single entity = 100% */}
         <div>
           <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Revenue share</p>
-          <div style={{ height: 14, borderRadius: 9999, overflow: "hidden", display: "flex" }}>
-            {contributions.map((c, i) => (
-              <div key={c.entity.id} style={{ width: `${c.revenue_pct}%`, background: c.color, borderRadius: i === 0 ? "9999px 0 0 9999px" : i === contributions.length - 1 ? "0 9999px 9999px 0" : "0" }} />
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 7, flexWrap: "wrap" as const }}>
-            {contributions.map(c => (
-              <div key={c.entity.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: c.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 11, color: "#6B7280" }}>{c.entity.shortName} — {c.revenue_pct}%</span>
-              </div>
-            ))}
-            {unlinkedFranchises.map(f => (
-              <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: "#D97706", flexShrink: 0 }} />
-                <span style={{ fontSize: 11, color: "#D97706" }}>{f.shortName} — no data</span>
-              </div>
-            ))}
+          <div style={{ height: 14, borderRadius: 9999, background: "#0A2540", overflow: "hidden" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: "#0A2540" }} />
+            <span style={{ fontSize: 11, color: "#6B7280" }}>{businessName} — 100%</span>
           </div>
         </div>
+
         {/* Table */}
-        <div className="cl-table-scroll"><div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #F3F4F6", minWidth: 540 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px 80px 80px", padding: "8px 16px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
-            {["Entity","Revenue (12M)","Net Cashflow","Margin","Status"].map(h => (
-              <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
-            ))}
-          </div>
-          {contributions.map((c, i) => (
-            <div key={c.entity.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px 80px 80px", padding: "14px 16px", borderBottom: i < contributions.length - 1 || unlinkedFranchises.length > 0 ? "1px solid #F9FAFB" : "none", alignItems: "center" }}>
+        <div className="cl-table-scroll">
+          <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #F3F4F6", minWidth: 500 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px 80px", padding: "8px 16px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+              {["Entity", `Revenue (${period})`, "Net Cashflow", "Margin", "Status"].map(h => (
+                <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px 80px", padding: "14px 16px", alignItems: "center" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{c.entity.shortName}</p>
-                  <EntityBadge type={c.entity.type} small />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#0A2540", flexShrink: 0 }} />
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{businessName}</p>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", padding: "1px 6px", borderRadius: 9999 }}>HQ</span>
                 </div>
-                <p style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 15 }}>{c.entity.location}</p>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmt(c.revenue_total)}</p>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#10B981" }}>{fmt(c.cashflow_total)}</p>
-              <p style={{ fontSize: 12, fontWeight: 600, color: c.margin >= 35 ? "#10B981" : "#F59E0B" }}>{c.margin}%</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmt(totalRevenue)}</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: totalCashflow >= 0 ? "#10B981" : "#EF4444" }}>{fmt(totalCashflow)}</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: Number(margin) >= 20 ? "#10B981" : "#F59E0B" }}>{margin}%</p>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
-                <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>Linked</span>
+                <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>Active</span>
               </div>
             </div>
-          ))}
-          {unlinkedFranchises.map(f => (
-            <div key={f.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px 80px 80px", padding: "14px 16px", borderTop: "1px solid #F9FAFB", alignItems: "center", background: "#FFFBEB" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#D97706", flexShrink: 0 }} />
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{f.shortName}</p>
-                  <EntityBadge type={f.type} small />
-                </div>
-                <p style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 15 }}>{f.location}</p>
-              </div>
-              <p style={{ fontSize: 12, color: "#D1D5DB", fontStyle: "italic" as const }}>Not included</p>
-              <p style={{ fontSize: 12, color: "#D1D5DB", fontStyle: "italic" as const }}>Not included</p>
-              <p style={{ fontSize: 12, color: "#D1D5DB", fontStyle: "italic" as const }}>—</p>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#D97706" }} />
-                <span style={{ fontSize: 11, color: "#D97706", fontWeight: 600 }}>No data</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        </div>
-          {unlinkedFranchises.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 9 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <AlertCircle size={13} style={{ color: "#D97706", flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: "#92400E" }}>
-                <strong>{unlinkedFranchises.map(f => f.shortName).join(", ")}</strong> {unlinkedFranchises.length === 1 ? "is a" : "are"} separate legal {unlinkedFranchises.length === 1 ? "entity" : "entities"} and {unlinkedFranchises.length === 1 ? "has" : "have"} not yet shared financial data. Consolidated totals reflect only linked entities.
-              </p>
-            </div>
-            <Link href="/data-sources" style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" as const }}>
-              <Share2 size={11} /> Invite them
-            </Link>
           </div>
-        )}
+        </div>
       </div>
     </Card>
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   FRANCHISE NO-DATA STATE
-───────────────────────────────────────────────────────── */
-function FranchiseNoData({ entity }: { entity: Entity }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 12, padding: "16px 20px", display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <AlertCircle size={16} style={{ color: "#D97706", flexShrink: 0, marginTop: 1 }} />
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#92400E", marginBottom: 3 }}>{entity.name} — Financial data not yet available</p>
-          <p style={{ fontSize: 12, color: "#B45309", lineHeight: 1.7 }}>
-            Franchises are <strong>independent legal entities</strong> with their own CAC registration, accounts, and books.
-            To include their financials here, they must link their own bank accounts on their Creditlinker profile and consent to share data with this business.
-          </p>
-        </div>
-      </div>
-      <Card style={{ padding: "48px 32px", textAlign: "center" as const }}>
-        <div style={{ width: 56, height: 56, borderRadius: 14, background: "#FFF7ED", border: "1px solid #FED7AA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
-          <Share2 size={24} style={{ color: "#C2410C" }} />
-        </div>
-        <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 6 }}>
-          Invite {entity.shortName} to connect
-        </p>
-        <p style={{ fontSize: 13, color: "#9CA3AF", maxWidth: 380, margin: "0 auto 24px", lineHeight: 1.7 }}>
-          Send them an invitation to link their bank account via Mono or upload statements directly.
-          Once they consent to share, their financial data will appear here and contribute to your consolidated view.
-        </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <Link href="/data-sources" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 20px", borderRadius: 9, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-            <Share2 size={13} /> Send data invitation
-          </Link>
-          <Link href="/business-profile" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 20px", borderRadius: 9, border: "1px solid #E5E7EB", color: "#374151", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-            Edit franchise profile
-          </Link>
-        </div>
-      </Card>
-    </div>
-  );
-}
+// ─────────────────────────────────────────────────────────────
+// PAGE
+// ─────────────────────────────────────────────────────────────
 
-/* ─────────────────────────────────────────────────────────
-   PAGE
-───────────────────────────────────────────────────────── */
 export default function FinancialAnalysisPage() {
-  const [period,       setPeriod]       = useState("12M");
-  const [activeEntity, setActiveEntity] = useState("consolidated");
+  const { activeBusiness, isLoading: bizLoading } = useActiveBusiness();
 
-  const linkedEntities     = ENTITIES.filter(e => e.data_linked);
-  const unlinkedFranchises = ENTITIES.filter(e => !e.data_linked && e.type === "franchise");
-  const isConsolidated     = activeEntity === "consolidated";
-  const selectedEntity     = isConsolidated ? null : ENTITIES.find(e => e.id === activeEntity) ?? null;
-  const franchiseNoData    = selectedEntity?.type === "franchise" && !selectedEntity.data_linked;
+  const [period,         setPeriod]         = useState<Period>("12M");
+  const [loading,        setLoading]        = useState(true);
+  const [monthlyData,    setMonthlyData]    = useState<MonthlyRow[]>([]);
+  const [metrics,        setMetrics]        = useState<MetricTileData[]>([]);
+  const [expenses,       setExpenses]       = useState<ExpenseItem[]>([]);
+  const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
+  const [forecast,        setForecast]        = useState<CashflowForecast | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(true);
+  const [forecastError,   setForecastError]   = useState<string | null>(null);
 
-  const monthlyData  = isConsolidated ? CONSOLIDATED_MONTHLY : activeEntity === "hq" ? HQ_MONTHLY  : activeEntity === "br_001" ? LEKKI_MONTHLY  : [];
-  const cashflowData = isConsolidated ? CONSOLIDATED_CASHFLOW : activeEntity === "hq" ? HQ_CASHFLOW : activeEntity === "br_001" ? LEKKI_CASHFLOW : [];
-  const metricsData  = isConsolidated ? CONSOLIDATED_METRICS  : activeEntity === "hq" ? HQ_METRICS  : activeEntity === "br_001" ? LEKKI_METRICS  : [];
+  const loadForecast = useCallback(async () => {
+    if (!activeBusiness) return;
+    setForecastLoading(true);
+    setForecastError(null);
+    try {
+      const { data: cached, error } = await supabase
+        .from("cashflow_forecasts")
+        .select("forecast, computed_at")
+        .eq("business_id", activeBusiness.business_id)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        // PGRST116 = no rows found, anything else is a real error
+        throw new Error(error.message);
+      }
+
+      if (cached?.forecast) {
+        const f = cached.forecast as any;
+        setForecast({
+          forecast_id:          f.forecast_id,
+          trend_direction:      f.trend_direction,
+          trend_slope:          f.trend_slope,
+          seasonality_detected: f.seasonality_detected,
+          peak_month:           f.peak_month,
+          trough_month:         f.trough_month,
+          data_months_used:     f.data_months_used,
+          historical:           (f.historical ?? []).map((m: any) => ({
+            month:        m.month,
+            inflow:       m.inflow       ?? 0,
+            outflow:      m.outflow      ?? 0,
+            net_cashflow: m.net_cashflow ?? 0,
+            trend:        m.trend        ?? 0,
+            seasonality:  m.seasonality  ?? 0,
+            residual:     m.residual     ?? 0,
+          })),
+          forecast_months: (f.forecast ?? []).map((m: any) => ({
+            month:       m.month,
+            inflow:      m.inflow      ?? 0,
+            outflow:     m.outflow     ?? 0,
+            forecast:    m.forecast    ?? 0,
+            upper_bound: m.upper_bound ?? 0,
+            lower_bound: m.lower_bound ?? 0,
+          })),
+        });
+      }
+      // If no cached forecast, leave forecast null — pipeline hasn't run yet
+    } catch (err) {
+      setForecastError(err instanceof Error ? err.message : "Failed to load forecast");
+    } finally {
+      setForecastLoading(false);
+    }
+  }, [activeBusiness?.business_id]);
+
+  const load = useCallback(async () => {
+    if (!activeBusiness) return;
+    setLoading(true);
+
+    const startDate = periodStartDate(period);
+    const bizId     = activeBusiness.business_id;
+
+    const [txRes, metricsRes] = await Promise.all([
+      supabase
+        .from("normalized_transactions")
+        .select("date, amount, direction, category, counterparty_cluster")
+        .eq("business_id", bizId)
+        .gte("date", startDate)
+        .order("date", { ascending: true }),
+      supabase
+        .from("aggregated_metrics")
+        .select("metrics")
+        .eq("business_id", bizId)
+        .order("computed_at", { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
+
+    const txs:   RawTransaction[]  = (txRes.data ?? []) as RawTransaction[];
+    const saved: AggregatedMetrics = (metricsRes.data as any)?.metrics ?? {};
+
+    const monthly = aggregateByMonth(txs);
+    setMonthlyData(monthly);
+    setMetrics(computeMetrics(monthly, saved));
+    setExpenses(computeExpenses(txs));
+    setCounterparties(computeCounterparties(txs));
+    setLoading(false);
+  }, [activeBusiness?.business_id, period]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadForecast(); }, [loadForecast]);
+
+  if (bizLoading) return <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>Loading...</div>;
+  if (!activeBusiness) return <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>No business found.</div>;
+
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -693,235 +606,270 @@ export default function FinancialAnalysisPage() {
       {/* ── PAGE HEADER ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
         <div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Financial Analysis</h1>
-          <p style={{ fontSize: 13, color: "#9CA3AF" }}>Revenue, cashflow, and financial health across your business</p>
+          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>
+            Financial Analysis
+          </h1>
+          <p style={{ fontSize: 13, color: "#9CA3AF" }}>
+            Revenue, cashflow and financial health — {activeBusiness.name}
+          </p>
         </div>
-        {/* Period selector */}
-        <div style={{ display: "flex", gap: 4, background: "#F3F4F6", borderRadius: 9, padding: 3 }}>
-          {PERIODS.map(p => (
-            <button key={p} onClick={() => setPeriod(p)}
-              style={{ padding: "5px 14px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 700, background: period === p ? "white" : "transparent", color: period === p ? "#0A2540" : "#9CA3AF", boxShadow: period === p ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.12s" }}>
-              {p}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={load}
+            disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#6B7280", cursor: loading ? "not-allowed" : "pointer" }}
+          >
+            <RefreshCw size={12} style={{ opacity: loading ? 0.4 : 1 }} />
+            Refresh
+          </button>
+          <div style={{ display: "flex", gap: 4, background: "#F3F4F6", borderRadius: 9, padding: 3 }}>
+            {PERIODS.map(p => (
+              <button key={p} onClick={() => setPeriod(p)}
+                style={{ padding: "5px 14px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 700, background: period === p ? "white" : "transparent", color: period === p ? "#0A2540" : "#9CA3AF", boxShadow: period === p ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.12s" }}>
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* ── ENTITY TABS ── */}
-      <div className="fa-tabs-row" style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
-        {/* Consolidated tab */}
-        <button onClick={() => setActiveEntity("consolidated")}
-          style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 14px", borderRadius: 8, border: activeEntity === "consolidated" ? "1px solid #0A2540" : "1px solid #E5E7EB", background: activeEntity === "consolidated" ? "#0A2540" : "white", color: activeEntity === "consolidated" ? "white" : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.12s" }}>
-          <Building2 size={13} />
-          All entities
-          <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 9999, background: activeEntity === "consolidated" ? "rgba(255,255,255,0.2)" : "#F3F4F6", color: activeEntity === "consolidated" ? "white" : "#6B7280" }}>
-            {linkedEntities.length}
-          </span>
-        </button>
-
-        {/* Per-entity tabs */}
-        {ENTITIES.map(e => {
-          const active = activeEntity === e.id;
-          const locked = e.type === "franchise" && !e.data_linked;
-          const tc     = ENTITY_TYPE_COLORS[e.type];
-          return (
-            <button key={e.id} onClick={() => setActiveEntity(e.id)}
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 14px", borderRadius: 8, border: active ? `1px solid ${tc.color}` : "1px solid #E5E7EB", background: active ? tc.bg : "white", color: active ? tc.color : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.12s", opacity: locked ? 0.7 : 1 }}>
-              {locked ? <Lock size={11} style={{ color: "#D97706" }} /> : <MapPin size={11} />}
-              {e.shortName}
-              <EntityBadge type={e.type} small />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── ENTITY BANNER ── */}
-      {selectedEntity && ENTITY_SOURCES[selectedEntity.id] && (
-        <div style={{ padding: "10px 14px", borderRadius: 9, background: ENTITY_TYPE_COLORS[selectedEntity.type].bg, border: `1px solid ${ENTITY_TYPE_COLORS[selectedEntity.type].border}`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
-          <MapPin size={12} style={{ color: ENTITY_TYPE_COLORS[selectedEntity.type].color, flexShrink: 0 }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: ENTITY_TYPE_COLORS[selectedEntity.type].color }}>{selectedEntity.name}</span>
-          <span style={{ fontSize: 11, color: "#9CA3AF" }}>·</span>
-          <span style={{ fontSize: 11, color: "#9CA3AF" }}>Sourced from:</span>
-          {ENTITY_SOURCES[selectedEntity.id].map(src => (
-            <span key={src.label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: SOURCE_COLORS[src.type], background: "white", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 9999 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: SOURCE_COLORS[src.type], display: "inline-block" }} />
-              {src.label}
-            </span>
-          ))}
-          <Link href="/data-sources" style={{ fontSize: 11, fontWeight: 600, color: ENTITY_TYPE_COLORS[selectedEntity.type].color, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 2 }}>
-            Manage <ChevronRight size={10} />
-          </Link>
+      {/* ── KEY METRICS ── */}
+      {loading ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+          {[1,2,3,4,5,6,7,8].map(i => <SkeletonBox key={i} h={90} r={12} />)}
+        </div>
+      ) : metrics.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+          {metrics.map(m => <MetricTile key={m.label} {...m} />)}
+        </div>
+      ) : (
+        <div style={{ padding: "24px", textAlign: "center" as const, border: "1px solid #E5E7EB", borderRadius: 12 }}>
+          <p style={{ fontSize: 13, color: "#9CA3AF" }}>No transactions found for this period.</p>
         </div>
       )}
 
-      {/* ── FRANCHISE NO-DATA STATE ── */}
-      {franchiseNoData ? (
-        <FranchiseNoData entity={selectedEntity!} />
-      ) : (
-        <>
-          {/* KEY METRICS */}
-          {metricsData.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
-              {metricsData.map(m => <MetricTile key={m.label} {...m} />)}
+      {/* ── CHARTS ── */}
+      <div className="fa-charts-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <Card>
+          <CardHeader
+            title="Revenue vs Expenses"
+            sub={`Monthly breakdown · ${period} · ${activeBusiness.name}${
+              !loading && monthlyData.length
+                ? ` · ${monthlyData.length} month${monthlyData.length !== 1 ? "s" : ""} found`
+                : ""
+            }`}
+          />
+          {loading
+            ? <div style={{ padding: "20px 24px" }}><SkeletonBox h={130} r={8} /></div>
+            : <BarChart data={monthlyData} />}
+        </Card>
+        <Card>
+          <CardHeader
+            title="Net Cashflow"
+            sub={`Operating cashflow · ${period}${
+              !loading && monthlyData.length
+                ? ` · ${monthlyData.length} month${monthlyData.length !== 1 ? "s" : ""} found`
+                : ""
+            }`}
+            action={
+              !loading && monthlyData.length >= 2 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <TrendingUp size={12} style={{ color: "#10B981" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981" }}>
+                    {fmt(monthlyData.reduce((s, d) => s + d.net, 0) / monthlyData.length)}/mo avg
+                  </span>
+                </div>
+              ) : undefined
+            }
+          />
+          {loading
+            ? <div style={{ padding: "16px 24px 20px" }}><SkeletonBox h={130} r={8} /></div>
+            : <CashflowChart data={monthlyData} />}
+        </Card>
+      </div>
+
+      {/* ── CASH FLOW FORECAST ── */}
+      <Card>
+        <CardHeader
+          title="Cash Flow Forecast"
+          sub={forecast
+            ? `6-month projection based on ${forecast.data_months_used} months of verified data · Consolidated`
+            : "6-month projection"}
+          action={
+            forecastLoading ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#F5F3FF", border: "1px solid #DDD6FE" }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#818CF8", animation: "pulse 1.5s infinite" }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#6D28D9" }}>Computing…</span>
+              </div>
+            ) : forecast ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#ECFDF5", border: "1px solid #A7F3D0" }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>
+                  {forecast.trend_direction === "improving" ? "Improving" : forecast.trend_direction === "declining" ? "Declining" : "Stable"}
+                </span>
+              </div>
+            ) : (
+              <button onClick={loadForecast} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "#0A2540", border: "none", color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                <RefreshCw size={11} /> Retry
+              </button>
+            )
+          }
+        />
+        <div style={{ padding: "16px 24px 24px" }}>
+          {forecastLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <SkeletonBox h={180} r={8} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {[1,2,3,4].map(i => <SkeletonBox key={i} h={60} r={8} />)}
+              </div>
             </div>
-          )}
-
-          {/* CHARTS */}
-          {monthlyData.length > 0 && (
-            <div className="fa-charts-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Card>
-                <CardHeader
-                  title="Revenue vs Expenses"
-                  sub={`Monthly breakdown · ${period}${selectedEntity ? ` · ${selectedEntity.shortName}` : " · Consolidated"}`}
-                  action={<div style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={12} style={{ color: "#9CA3AF" }} /><span style={{ fontSize: 11, color: "#9CA3AF" }}>2024</span></div>}
-                />
-                <BarChart data={monthlyData} />
-              </Card>
-              <Card>
-                <CardHeader
-                  title="Net Cashflow"
-                  sub={`Operating cashflow · ${period}${selectedEntity ? ` · ${selectedEntity.shortName}` : ""}`}
-                  action={<div style={{ display: "flex", alignItems: "center", gap: 5 }}><TrendingUp size={12} style={{ color: "#10B981" }} /><span style={{ fontSize: 11, fontWeight: 600, color: "#10B981" }}>+22% trend</span></div>}
-                />
-                <CashflowChart data={cashflowData} />
-              </Card>
+          ) : forecastError ? (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "12px 16px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8 }}>
+              <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: "#991B1B" }}>{forecastError}</p>
             </div>
-          )}
+          ) : forecast ? (() => {
+            const months     = forecast.forecast_months;
+            const trendColor = forecast.trend_direction === "improving" ? "#10B981" : forecast.trend_direction === "declining" ? "#EF4444" : "#00D4FF";
+            const monthLabel = (key: string) => new Date(key + "-01").toLocaleDateString("en-GB", { month: "short" });
 
-          {/* CASH FLOW FORECAST */}
-          {(() => {
-            const forecastData = isConsolidated ? CONSOLIDATED_FORECAST
-              : activeEntity === "hq"     ? HQ_FORECAST
-              : activeEntity === "br_001" ? LEKKI_FORECAST
-              : null;
+            // All stats come directly from SDK — no browser computation
+            const totalNet     = months.reduce((s, m) => s + m.forecast, 0);
+            const totalInflow  = months.reduce((s, m) => s + m.inflow,   0);
+            const totalOutflow = months.reduce((s, m) => s + m.outflow,  0);
+            const avgNet       = totalNet / (months.length || 1);
+            const margin       = totalInflow > 0 ? (totalNet / totalInflow) * 100 : 0;
+            const peakM        = months.reduce((b, m) => m.forecast > b.forecast ? m : b, months[0]);
+            const troughM      = months.reduce((b, m) => m.forecast < b.forecast ? m : b, months[0]);
 
-            if (!forecastData || monthlyData.length === 0) return null;
+            // Chart uses SDK historical[] for past months — no dependency on transaction query
+            const histSlice = forecast.historical.slice(-4);
+            const histPts   = histSlice.map(m => ({ key: m.month, val: m.net_cashflow, projected: false as const }));
+            const projPts   = months.map(m => ({ key: m.month, val: m.forecast, projected: true as const, upper: m.upper_bound, lower: m.lower_bound }));
+            const allPts    = [...histPts, ...projPts];
 
-            const totalProjected6M = forecastData.reduce((s, d) => s + d.projected, 0);
-            const avgMonthly       = totalProjected6M / 6;
-            const totalInflow      = forecastData.reduce((s, d) => s + d.inflow, 0);
-            const totalOutflow     = forecastData.reduce((s, d) => s + d.outflow, 0);
-            const peakMonth        = forecastData.reduce((best, d) => d.projected > best.projected ? d : best, forecastData[0]);
-            const lowMonth         = forecastData.reduce((low,  d) => d.projected < low.projected  ? d : low,  forecastData[0]);
+            const W = 700, H = 180, PAD_L = 44, PAD_B = 28, PAD_T = 12;
+            const chartW = W - PAD_L;
+            const chartH = H - PAD_B - PAD_T;
+            const allVals = allPts.map(p => p.val).concat(projPts.flatMap(p => [p.upper, p.lower]));
+            const maxV = Math.max(...allVals, 1);
+            const minV = Math.min(...allVals, 0);
+            const range = maxV - minV || 1;
+            const toY = (v: number) => PAD_T + chartH - ((v - minV) / range) * chartH;
+            const toX = (i: number) => PAD_L + (allPts.length > 1 ? (i / (allPts.length - 1)) : 0.5) * chartW;
+
+            const histLine    = histPts.map((p, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(p.val)}`).join(" ");
+            const joinX       = toX(histPts.length - 1);
+            const joinY       = toY(histPts[histPts.length - 1]?.val ?? 0);
+            const projLine    = projPts.map((p, i) => `${i === 0 ? `M${joinX},${joinY} L` : "L"}${toX(histPts.length + i)},${toY(p.val)}`).join(" ");
+            const upperLine   = projPts.map((p, i) => `${i === 0 ? `M${joinX},${joinY} L` : "L"}${toX(histPts.length + i)},${toY(p.upper)}`).join(" ");
+            const lowerPtsArr = projPts.map((p, i) => ({ x: toX(histPts.length + i), y: toY(p.lower) }));
+            const bandPath    = [`M${joinX},${joinY}`, ...projPts.map((p, i) => `L${toX(histPts.length + i)},${toY(p.upper)}`), ...[...lowerPtsArr].reverse().map(p => `L${p.x},${p.y}`), `L${joinX},${joinY} Z`].join(" ");
 
             return (
-              <Card>
-                <CardHeader
-                  title="Cash Flow Forecast"
-                  sub={`6-month projection based on ${SCORE.data_months_analyzed} months of verified data${selectedEntity ? ` · ${selectedEntity.shortName}` : " · Consolidated"}`}
-                  action={
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#F5F3FF", border: "1px solid #DDD6FE" }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#818CF8" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#6D28D9" }}>Model v1 · SDK pending</span>
-                    </div>
-                  }
-                />
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-                <ForecastChart historical={cashflowData} forecast={forecastData} />
+                {/* Chart — historical from SDK, projected from SDK */}
+                <div>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 180, overflow: "visible" }}>
+                    <defs>
+                      <linearGradient id="fc-band2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={trendColor} stopOpacity="0.12" />
+                        <stop offset="100%" stopColor={trendColor} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    {[0, 0.25, 0.5, 0.75, 1].map(p => { const v = minV + range * p; const y = toY(v); return (<g key={p}><line x1={PAD_L} y1={y} x2={W} y2={y} stroke="#F3F4F6" strokeWidth="1" /><text x={PAD_L - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#D1D5DB">{fmt(v)}</text></g>); })}
+                    <line x1={joinX} y1={PAD_T} x2={joinX} y2={PAD_T + chartH} stroke="#E5E7EB" strokeWidth="1" strokeDasharray="3 3" />
+                    <path d={bandPath} fill="url(#fc-band2)" />
+                    <path d={upperLine} fill="none" stroke={trendColor} strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />
+                    <path d={lowerPtsArr.map((p, i) => `${i === 0 ? `M${joinX},${joinY} L` : "L"}${p.x},${p.y}`).join(" ")} fill="none" stroke={trendColor} strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />
+                    <path d={histLine} fill="none" stroke="#0A2540" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {histPts.map((p, i) => <circle key={i} cx={toX(i)} cy={toY(p.val)} r="3" fill="#0A2540" stroke="white" strokeWidth="1.5" />)}
+                    <path d={projLine} fill="none" stroke={trendColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 3" />
+                    {projPts.map((p, i) => <circle key={i} cx={toX(histPts.length + i)} cy={toY(p.val)} r="4" fill={trendColor} stroke="white" strokeWidth="1.5" />)}
+                    {allPts.map((p, i) => <text key={i} x={toX(i)} y={H - 6} textAnchor="middle" fontSize="9" fill={p.projected ? "#9CA3AF" : "#6B7280"}>{monthLabel(p.key)}</text>)}
+                    <text x={toX(1)} y={PAD_T + 8} textAnchor="middle" fontSize="8" fill="#9CA3AF">Historical</text>
+                    <text x={toX(histPts.length + 2)} y={PAD_T + 8} textAnchor="middle" fontSize="8" fill={trendColor}>Projected (central)</text>
+                  </svg>
+                  <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
+                    {[{ label: "Historical", color: "#0A2540", dash: false, band: false }, { label: "Projected (central)", color: trendColor, dash: true, band: false }, { label: "Confidence band", color: trendColor, dash: false, band: true }].map(l => (
+                      <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {l.band ? <div style={{ width: 14, height: 8, borderRadius: 2, background: trendColor, opacity: 0.15, border: `1px solid ${trendColor}` }} /> : <div style={{ width: 14, height: 2, background: l.color, borderRadius: 1, backgroundImage: l.dash ? `repeating-linear-gradient(90deg,${l.color} 0,${l.color} 4px,transparent 4px,transparent 7px)` : "none" }} />}
+                        <span style={{ fontSize: 11, color: "#9CA3AF" }}>{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                <div style={{ height: 1, background: "#F3F4F6", margin: "0 24px" }} />
-
-                {/* Summary stats */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", padding: "16px 0 0" }}>
+                {/* Summary stat tiles — inflow/outflow from SDK */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
                   {[
-                    { label: "Projected net (6M)",  value: fmt(totalProjected6M), sub: "Central estimate",       color: "#10B981" },
-                    { label: "Avg monthly surplus",  value: fmt(avgMonthly),       sub: "Central estimate",       color: "#10B981" },
-                    { label: "Peak month",           value: peakMonth.month,       sub: fmt(peakMonth.projected), color: "#0A2540" },
-                    { label: "Lowest month",         value: lowMonth.month,        sub: fmt(lowMonth.projected),  color: "#0A2540" },
-                  ].map((s, i) => (
-                    <div key={s.label} style={{ padding: "0 24px 20px", borderRight: i < 3 ? "1px solid #F3F4F6" : "none" }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>{s.label}</p>
-                      <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: s.color, letterSpacing: "-0.03em", marginBottom: 2, lineHeight: 1 }}>{s.value}</p>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{s.sub}</p>
+                    { label: "Projected net (6M)",     value: fmt(totalNet),             sub: "Central estimate" },
+                    { label: "Avg monthly surplus",    value: fmt(avgNet),               sub: "Central estimate" },
+                    { label: "Peak month",              value: monthLabel(peakM.month),   sub: fmt(peakM.forecast) },
+                    { label: "Lowest month",            value: monthLabel(troughM.month), sub: fmt(troughM.forecast) },
+                    { label: "Projected inflows (6M)",  value: fmt(totalInflow),          sub: "From SDK" },
+                    { label: "Projected outflows (6M)", value: fmt(totalOutflow),         sub: "From SDK" },
+                    { label: "Projected margin",        value: `${margin.toFixed(1)}%`,   sub: "Net / inflow" },
+                    { label: forecast.seasonality_detected ? "Seasonality" : "Trend slope", value: forecast.seasonality_detected ? "Detected" : `${fmt(forecast.trend_slope)}/mo`, sub: forecast.seasonality_detected ? "Seasonal pattern found" : "Monthly change" },
+                  ].map((tile, i) => (
+                    <div key={i} style={{ padding: "12px 14px", background: "#F9FAFB", borderRadius: 10, border: "1px solid #F3F4F6" }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 5 }}>{tile.label}</p>
+                      <p style={{ fontSize: 16, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 3 }}>{tile.value}</p>
+                      <p style={{ fontSize: 10, color: "#9CA3AF" }}>{tile.sub}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Inflow / outflow / net per month breakdown */}
-                <div style={{ margin: "0 24px 20px", background: "#F9FAFB", borderRadius: 10, border: "1px solid #E5E7EB", overflow: "hidden" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: "1px solid #E5E7EB" }}>
-                    <div style={{ padding: "12px 16px", borderRight: "1px solid #E5E7EB" }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Projected inflows (6M)</p>
-                      <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#10B981", letterSpacing: "-0.02em" }}>{fmt(totalInflow)}</p>
-                    </div>
-                    <div style={{ padding: "12px 16px", borderRight: "1px solid #E5E7EB" }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Projected outflows (6M)</p>
-                      <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#0A2540", letterSpacing: "-0.02em" }}>{fmt(totalOutflow)}</p>
-                    </div>
-                    <div style={{ padding: "12px 16px" }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Projected margin</p>
-                      <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#10B981", letterSpacing: "-0.02em" }}>
-                        {((totalProjected6M / totalInflow) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Per-month table */}
+                {/* Monthly breakdown table — inflow/outflow/net directly from SDK */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 10 }}>Monthly Breakdown</p>
                   <div className="cl-table-scroll">
-                    <div style={{ display: "grid", gridTemplateColumns: "80px repeat(6, 1fr)", minWidth: 560 }}>
-                      <div style={{ padding: "8px 16px", background: "#F3F4F6", borderBottom: "1px solid #E5E7EB" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Month</span>
+                    <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #F3F4F6", minWidth: 500 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "80px repeat(6, 1fr)", padding: "8px 16px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Month</p>
+                        {months.map((m, i) => <p key={i} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{monthLabel(m.month)}</p>)}
                       </div>
-                      {forecastData.map(d => (
-                        <div key={d.month} style={{ padding: "8px 10px", background: "#F3F4F6", borderBottom: "1px solid #E5E7EB", borderLeft: "1px solid #E5E7EB", textAlign: "center" as const }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#6B7280" }}>{d.month}</span>
-                        </div>
-                      ))}
-
-                      <div style={{ padding: "9px 16px" }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981" }}>Inflow</span>
-                      </div>
-                      {forecastData.map(d => (
-                        <div key={d.month + "in"} style={{ padding: "9px 10px", borderLeft: "1px solid #F3F4F6", textAlign: "center" as const }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981" }}>{fmt(d.inflow)}</span>
-                        </div>
-                      ))}
-
-                      <div style={{ padding: "9px 16px", borderTop: "1px solid #F3F4F6" }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>Outflow</span>
-                      </div>
-                      {forecastData.map(d => (
-                        <div key={d.month + "out"} style={{ padding: "9px 10px", borderLeft: "1px solid #F3F4F6", borderTop: "1px solid #F3F4F6", textAlign: "center" as const }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>{fmt(d.outflow)}</span>
-                        </div>
-                      ))}
-
-                      <div style={{ padding: "9px 16px", borderTop: "1px solid #F3F4F6", background: "#F9FAFB" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#0A2540" }}>Net</span>
-                      </div>
-                      {forecastData.map(d => (
-                        <div key={d.month + "net"} style={{ padding: "9px 10px", borderLeft: "1px solid #F3F4F6", borderTop: "1px solid #F3F4F6", textAlign: "center" as const, background: "#F9FAFB" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: d.projected >= 0 ? "#10B981" : "#EF4444" }}>{fmt(d.projected)}</span>
+                      {[
+                        { label: "Inflow",  vals: months.map(m => fmt(m.inflow)),   color: "#0A2540" },
+                        { label: "Outflow", vals: months.map(m => fmt(m.outflow)),  color: "#EF4444" },
+                        { label: "Net",     vals: months.map(m => fmt(m.forecast)), color: trendColor },
+                      ].map((row, ri) => (
+                        <div key={ri} style={{ display: "grid", gridTemplateColumns: "80px repeat(6, 1fr)", padding: "10px 16px", borderBottom: ri < 2 ? "1px solid #F9FAFB" : "none", alignItems: "center" }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF" }}>{row.label}</p>
+                          {row.vals.map((v, i) => <p key={i} style={{ fontSize: 12, fontWeight: 700, color: row.color, fontFamily: "var(--font-display)" }}>{v}</p>)}
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Disclaimer */}
-                <div style={{ margin: "0 24px 20px", display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 14px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8 }}>
-                  <AlertCircle size={13} style={{ color: "#D97706", flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 11, color: "#92400E", lineHeight: 1.65 }}>
-                    Projections are derived from historical revenue patterns, recurring transaction signals, and seasonal weights
-                    in your financial feature store. Confidence bands widen at 3–6 months due to increasing uncertainty.
-                    Actual results may vary. This does not constitute financial advice.
-                  </p>
-                </div>
-              </Card>
+              </div>
             );
-          })()}
-
-          {/* ENTITY CONTRIBUTION (consolidated only) */}
-          {isConsolidated && (
-            <BranchContributions contributions={BRANCH_CONTRIBUTIONS} unlinkedFranchises={unlinkedFranchises} />
+          })() : (
+            <div style={{ height: 80, borderRadius: 10, background: "#F9FAFB", border: "1px dashed #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>No forecast yet — run the pipeline to generate a 6-month projection.</p>
+            </div>
           )}
+        </div>
+      </Card>
 
-          {/* EXPENSE + COUNTERPARTIES */}
-          <div className="fa-expense-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Card>
-              <CardHeader title="Expense Breakdown" sub={`By category · last 12 months${selectedEntity ? ` · ${selectedEntity.shortName}` : ""}`} />
-              <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-                {EXPENSE_BREAKDOWN.map(item => (
+      {/* ── ENTITY PERFORMANCE ── */}
+      {!loading && <EntityPerformance rows={monthlyData} businessName={activeBusiness.name} period={period} />}
+
+      {/* ── EXPENSE + COUNTERPARTIES ── */}
+      <div className="fa-expense-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+        <Card>
+          <CardHeader title="Expense Breakdown" sub={`By category · last ${period} · debits only`} />
+          <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+            {loading ? (
+              <><SkeletonBox h={20} /><SkeletonBox h={20} /><SkeletonBox h={20} /><SkeletonBox h={20} /></>
+            ) : expenses.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#9CA3AF", textAlign: "center" as const, padding: "12px 0" }}>No expense data for this period.</p>
+            ) : (
+              <>
+                {expenses.map(item => (
                   <div key={item.category}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -941,54 +889,80 @@ export default function FinancialAnalysisPage() {
                 <div style={{ height: 1, background: "#F3F4F6", margin: "4px 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>Total</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmt(EXPENSE_BREAKDOWN.reduce((s, i) => s + i.amount, 0))}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmt(totalExpenses)}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Top Counterparties"
+            sub={`By transaction volume · last ${period}`}
+            action={
+              <Link href="/transactions" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
+                View all <ChevronRight size={12} />
+              </Link>
+            }
+          />
+          <div style={{ padding: "12px 0 8px" }}>
+            {loading ? (
+              <div style={{ padding: "12px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <SkeletonBox h={44} /><SkeletonBox h={44} /><SkeletonBox h={44} />
+              </div>
+            ) : counterparties.length === 0 ? (
+              <div style={{ padding: "16px 24px", textAlign: "center" as const }}>
+                <p style={{ fontSize: 12, color: "#9CA3AF" }}>No counterparty data for this period.</p>
+              </div>
+            ) : counterparties.map((cp, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 24px", borderBottom: i < counterparties.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 14, flexShrink: 0, textAlign: "center" as const }}>{i + 1}</span>
+                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: cp.type === "Customer" ? "#ECFDF5" : cp.type === "Supplier" ? "#EFF6FF" : "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", color: cp.type === "Customer" ? "#10B981" : cp.type === "Supplier" ? "#3B82F6" : "#EF4444" }}>
+                  {cp.type === "Customer" ? <ArrowDownLeft size={14} /> : cp.type === "Supplier" ? <ArrowUpRight size={14} /> : <Minus size={14} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{cp.name}</p>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>{cp.type} · {cp.txn_count} transaction{cp.txn_count !== 1 ? "s" : ""}</p>
+                </div>
+                <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{fmt(cp.total)}</p>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>{cp.pct}% of vol.</p>
                 </div>
               </div>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="Top Counterparties"
-                sub="By transaction volume · last 12 months"
-                action={<Link href="/transactions" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>View all <ChevronRight size={12} /></Link>}
-              />
-              <div style={{ padding: "12px 0 8px" }}>
-                {COUNTERPARTIES.map((cp, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 24px", borderBottom: i < COUNTERPARTIES.length - 1 ? "1px solid #F9FAFB" : "none" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 14, flexShrink: 0, textAlign: "center" as const }}>{i + 1}</span>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: cp.type === "Customer" ? "#ECFDF5" : cp.type === "Supplier" ? "#EFF6FF" : "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", color: cp.type === "Customer" ? "#10B981" : cp.type === "Supplier" ? "#3B82F6" : "#EF4444" }}>
-                      {cp.type === "Customer" ? <ArrowDownLeft size={14} /> : cp.type === "Supplier" ? <ArrowUpRight size={14} /> : <Minus size={14} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{cp.name}</p>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{cp.type} · {cp.txn_count} transactions</p>
-                    </div>
-                    <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{fmt(cp.total)}</p>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{cp.pct}% of vol.</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+            ))}
           </div>
+        </Card>
+      </div>
 
-          {/* REVENUE PATTERN ANALYSIS */}
+      {/* ── REVENUE PATTERN ANALYSIS ── */}
+      {!loading && monthlyData.length >= 2 && (() => {
+        const revenues   = monthlyData.map(d => d.revenue);
+        const mean       = revenues.reduce((s, v) => s + v, 0) / revenues.length;
+        const stdDev     = Math.sqrt(revenues.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / revenues.length);
+        const volatility = mean > 0 ? (stdDev / mean) * 100 : 0;
+        const half       = Math.floor(monthlyData.length / 2);
+        const firstH     = monthlyData.slice(0, half).reduce((s, d) => s + d.revenue, 0) / (half || 1);
+        const secH       = monthlyData.slice(half).reduce((s, d) => s + d.revenue, 0) / ((monthlyData.length - half) || 1);
+        const growth     = firstH > 0 ? ((secH - firstH) / firstH * 100) : 0;
+        const bestMonth  = monthlyData.reduce((b, d) => d.revenue > b.revenue ? d : b, monthlyData[0]);
+        const avgNet     = monthlyData.reduce((s, d) => s + d.net, 0) / monthlyData.length;
+
+        const patterns: { label: string; value: string; sub: string; positive: boolean | null }[] = [
+          { label: "Revenue Trend",      value: secH > firstH ? "Upward" : secH < firstH ? "Downward" : "Flat", sub: `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}% over ${period}`, positive: secH > firstH ? true : secH < firstH ? false : null },
+          { label: "Seasonality",        value: volatility < 15 ? "Low" : volatility < 30 ? "Medium" : "High",  sub: `${volatility.toFixed(1)}% monthly std dev`,                    positive: volatility < 15 ? true : volatility < 30 ? null : false },
+          { label: "Revenue Months",     value: `${monthlyData.filter(d => d.revenue > 0).length}/${monthlyData.length}`, sub: "months with revenue activity",                        positive: monthlyData.every(d => d.revenue > 0) ? true : null },
+          { label: "Best Month",         value: bestMonth.month,                                                           sub: fmt(bestMonth.revenue),                                positive: true },
+          { label: "Revenue Volatility", value: `${volatility.toFixed(1)}%`,                                              sub: "month-on-month std dev",                              positive: volatility < 15 ? true : volatility < 30 ? null : false },
+          { label: "Avg Net / Month",    value: fmt(avgNet),                                                               sub: "average monthly surplus",                             positive: avgNet > 0 ? true : false },
+        ];
+
+        return (
           <Card>
-            <CardHeader
-              title="Revenue Pattern Analysis"
-              sub={`Stability, seasonality, and growth signals${selectedEntity ? ` · ${selectedEntity.shortName}` : " · Consolidated"}`}
-            />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 0, padding: "16px 0 0", borderTop: "1px solid #F3F4F6", marginTop: 4 }}>
-              {([
-                { label: "Revenue Trend",       value: "Strong upward",  sub: "+52% over 12 months",   positive: true  },
-                { label: "Seasonality",          value: "Low",           sub: "Consistent year-round",  positive: true  },
-                { label: "Recurring Revenue",    value: isConsolidated ? "61%" : activeEntity === "br_001" ? "65%" : "58%", sub: "Of total inflows", positive: true },
-                { label: "Client Concentration", value: "Medium",        sub: "Top client = 22%",       positive: null },
-                { label: "Revenue Volatility",   value: isConsolidated ? "8.4%" : activeEntity === "br_001" ? "7.4%" : "9.1%", sub: "Month-on-month std dev", positive: true },
-                { label: "Growth Rate",          value: "+14% MoM avg",  sub: "Trailing 12 months",     positive: true  },
-              ] as { label: string; value: string; sub: string; positive: boolean | null }[]).map((item, i) => (
-                <div key={item.label} style={{ padding: "16px 24px 20px", borderRight: i % 3 !== 2 ? "1px solid #F3F4F6" : "none", borderBottom: i < 3 ? "1px solid #F3F4F6" : "none" }}>
+            <CardHeader title="Revenue Pattern Analysis" sub={`Stability, seasonality, and growth signals · ${period}`} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid #F3F4F6", marginTop: 4 }}>
+              {patterns.map((item, i) => (
+                <div key={item.label} className="fa-pattern-item" style={{ padding: "16px 24px 20px", borderRight: i % 3 !== 2 ? "1px solid #F3F4F6" : "none", borderBottom: i < 3 ? "1px solid #F3F4F6" : "none" }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>{item.label}</p>
                   <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 3 }}>{item.value}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -1001,19 +975,20 @@ export default function FinancialAnalysisPage() {
               ))}
             </div>
           </Card>
+        );
+      })()}
 
-          {/* IDENTITY NUDGE */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>These metrics feed directly into your financial identity score.</p>
-              <p style={{ fontSize: 12, color: "#9CA3AF" }}>Improving revenue stability and cashflow predictability will raise your score dimensions.</p>
-            </div>
-            <Link href="/financial-identity" style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 8, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}>
-              View Identity <ChevronRight size={13} />
-            </Link>
-          </div>
-        </>
-      )}
+      {/* ── IDENTITY NUDGE ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, flexWrap: "wrap" as const, gap: 12 }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>These metrics feed directly into your financial identity score.</p>
+          <p style={{ fontSize: 12, color: "#9CA3AF" }}>Improving revenue stability and cashflow predictability will raise your score dimensions.</p>
+        </div>
+        <Link href="/financial-identity" style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 8, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}>
+          View Identity <ChevronRight size={13} />
+        </Link>
+      </div>
+
     </div>
   );
 }

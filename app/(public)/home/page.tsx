@@ -334,6 +334,7 @@ export default function HomePage() {
         </div>
       </section>
 
+
       {/* ══ THE PROBLEM (3 lines, no fluff) ═══════════════════════ */}
       <section
         aria-label="The problem"

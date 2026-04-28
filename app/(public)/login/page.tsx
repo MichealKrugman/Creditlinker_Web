@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "@/lib/auth";
 import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,8 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
+  const router = useRouter();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -39,10 +43,14 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    // TODO: authenticate via Keycloak
-    setError("Invalid email or password.");
+    try {
+      const { redirectPath } = await signIn(email, password);
+      router.push(redirectPath);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

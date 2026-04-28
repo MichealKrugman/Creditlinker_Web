@@ -10,7 +10,10 @@ import {
   Plus, Crown, Shield, Eye, Check, LogOut, User,
   ChevronUp, ChevronDown, X,
 } from 'lucide-react';
-import { useActiveBusiness, MEMBERSHIPS, type BusinessRole } from '@/lib/business-context';
+import { useActiveBusiness, type BusinessRole } from '@/lib/business-context';
+import { useMessageCount } from '@/lib/message-count-context';
+import { signOut } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 import { useMobileNav } from '@/lib/mobile-nav-context';
 
 /* ─────────────────────────────────────────────────────────
@@ -89,7 +92,13 @@ function NavItem({
    BUSINESS SWITCHER
 ───────────────────────────────────────────────────────── */
 function BusinessSwitcher() {
-  const { activeBusiness, currentUser, switchBusiness, isSwitching } = useActiveBusiness();
+  const { activeBusiness, currentUser, memberships, switchBusiness, isSwitching } = useActiveBusiness();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -106,7 +115,8 @@ function BusinessSwitcher() {
     await switchBusiness(bizId);
   };
 
-  const RoleIcon = ROLE_ICONS[activeBusiness.role];
+  const RoleIcon = activeBusiness ? ROLE_ICONS[activeBusiness.role] : ROLE_ICONS['owner'];
+  if (!activeBusiness) return null;
 
   return (
     <div ref={ref} style={{ position: 'relative' as const }}>
@@ -120,7 +130,7 @@ function BusinessSwitcher() {
           </div>
 
           <div style={{ padding: '6px 0' }}>
-            {MEMBERSHIPS.map(biz => {
+            {memberships.map(biz => {
               const isActive    = biz.business_id === activeBusiness.business_id;
               const isSw        = isSwitching && !isActive;
               const BizRoleIcon = ROLE_ICONS[biz.role];
@@ -183,7 +193,7 @@ function BusinessSwitcher() {
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'}>
                 <User size={11} />
               </Link>
-              <button title="Sign out"
+              <button title="Sign out" onClick={handleSignOut}
                 style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', border: 'none', cursor: 'pointer' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'; (e.currentTarget as HTMLElement).style.color = '#f87171'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.3)'; }}>
@@ -236,7 +246,8 @@ function BusinessSwitcher() {
 export function BusinessSidebar() {
   const pathname  = usePathname();
   const { isOpen, close } = useMobileNav();
-  const BADGES: Record<string, number> = { '/messages': 2 };
+  const { unreadCount } = useMessageCount();
+  const BADGES: Record<string, number> = unreadCount > 0 ? { '/messages': unreadCount } : {};
 
   return (
     <>

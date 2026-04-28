@@ -2,12 +2,15 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Loader2,
   Building2, FileCheck, ChevronRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { createBusiness } from "@/lib/api";
+import { useActiveBusiness } from "@/lib/business-context";
 
 /* ─────────────────────────────────────────────────────────
    SECTOR OPTIONS (same master list as business-profile)
@@ -54,11 +57,14 @@ function LogoMark({ size = 28, dark = false }: { size?: number; dark?: boolean }
      3 → Done — creating the entity, redirect to dashboard
 ───────────────────────────────────────────────────────── */
 export default function NewBusinessPage() {
+  const router   = useRouter();
+  const { switchBusiness, refetch } = useActiveBusiness();
   const [step,       setStep]       = useState<1 | 2 | 3>(1);
   const [name,       setName]       = useState("");
   const [status,     setStatus]     = useState<"registered" | "unregistered">("registered");
   const [sector,     setSector]     = useState("");
   const [loading,    setLoading]    = useState(false);
+  const [apiError,   setApiError]   = useState<string | null>(null);
 
   /* ── Step 1 → 2 ── */
   const handleStep1 = () => {
@@ -70,16 +76,20 @@ export default function NewBusinessPage() {
   const handleCreate = async () => {
     if (!sector) return;
     setLoading(true);
-    // TODO: POST /business/register { name, status, sector }
-    // → creates the Business entity in the DB
-    // → adds UserBusinessMembership { user_id, business_id, role: "owner" }
-    // → sets active_business_id in session
-    // → redirect to /dashboard
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    setStep(3);
-    await new Promise(r => setTimeout(r, 800));
-    window.location.href = "/dashboard";
+    setApiError(null);
+    try {
+      const result = await createBusiness(name.trim(), sector, status);
+      // Refresh the BusinessProvider membership list so the new business appears,
+      // then switch to it before navigating so the dashboard loads the right context.
+      await refetch();
+      await switchBusiness(result.business_id);
+      setStep(3);
+      await new Promise(r => setTimeout(r, 800));
+      router.push("/dashboard");
+    } catch (err: any) {
+      setApiError(err?.message ?? "Something went wrong. Please try again.");
+      setLoading(false);
+    }
   };
 
   /* Panel copy per step */
@@ -301,6 +311,12 @@ export default function NewBusinessPage() {
                     : <>Create business <ArrowRight size={15} /></>
                   }
                 </Button>
+
+                {apiError && (
+                  <div style={{ marginTop: 12, padding: "11px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, fontSize: 13, color: "#DC2626", lineHeight: 1.5 }}>
+                    {apiError}
+                  </div>
+                )}
               </div>
             )}
 

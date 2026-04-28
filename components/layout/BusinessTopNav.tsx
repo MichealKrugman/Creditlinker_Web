@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useActiveBusiness } from '@/lib/business-context';
 import { useMobileNav } from '@/lib/mobile-nav-context';
+import { signOut } from '@/lib/auth';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard':          'Dashboard',
@@ -81,6 +82,15 @@ export function BusinessTopNav() {
   }, []);
 
   useEffect(() => { setMenuOpen(false); setSearchOpen(false); }, [pathname]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
+  if (!activeBusiness) return (
+    <header style={{ height: 64, background: 'white', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, zIndex: 40 }} />
+  );
 
   const scoreColor = activeBusiness.cl_score
     ? activeBusiness.cl_score >= 700 ? '#059669'
@@ -247,7 +257,7 @@ export function BusinessTopNav() {
               </div>
 
               <div style={{ borderTop: '1px solid #F3F4F6', padding: '6px 0' }}>
-                <button
+                <button onClick={handleSignOut}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#EF4444', textAlign: 'left' as const, transition: 'background 0.1s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
