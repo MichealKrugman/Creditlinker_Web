@@ -1,3 +1,4 @@
+"use client";
 // ============================================================
 // FranchiseDataSharing — updated component
 // Drop this in to replace the existing FranchiseDataSharing
@@ -11,6 +12,58 @@
 
 // NOTE: Add this import at the top of page.tsx alongside the others:
 // import { Shield } from "lucide-react";
+
+import { useState } from "react";
+import { Lock, Mail, Loader2, CheckCircle2, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+type EntityType = "hq" | "branch" | "franchise" | "office" | "warehouse";
+
+const ENTITY_TYPE_COLORS: Record<EntityType, { bg: string; color: string; border: string }> = {
+  hq:        { bg: "#EEF2FF", color: "#4338CA", border: "#C7D2FE" },
+  branch:    { bg: "#ECFDF5", color: "#059669", border: "#A7F3D0" },
+  franchise: { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA" },
+  office:    { bg: "#F0F9FF", color: "#0369A1", border: "#BAE6FD" },
+  warehouse: { bg: "#F5F3FF", color: "#7C3AED", border: "#DDD6FE" },
+};
+
+function EntityBadge({ type }: { type: EntityType }) {
+  const c = ENTITY_TYPE_COLORS[type];
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 9999, background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+      {type.charAt(0).toUpperCase() + type.slice(1)}
+    </span>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14 }}>{children}</div>;
+}
+
+function SectionHeader({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px 0", gap: 12 }}>
+      <div>
+        <p style={{ fontWeight: 700, fontSize: 14, color: "#0A2540" }}>{title}</p>
+        {sub && <p style={{ fontSize: 12, color: "#6B7280", marginTop: 3 }}>{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+interface Entity {
+  id: string;
+  name: string;
+  shortName: string;
+  type: EntityType;
+  location: string;
+  has_own_books: boolean;
+  data_linked: boolean;
+  sharing_consent: boolean;
+  invite_email?: string;
+  invite_status?: "pending" | "accepted" | "none";
+}
 
 const DATA_SHARING_OPTIONS = [
   { key: "bank_transactions",  label: "Bank Transactions",  sub: "Account statements & transaction history" },
