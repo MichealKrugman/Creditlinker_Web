@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 interface ScoreRow {
   composite_score:      number;
   lender_risk:          string;
-  risk_level:           string; // legacy alias — use lender_risk for risk, getScoreLabel() for display
+  risk_level?:          string | null; // legacy alias — use lender_risk for risk, getScoreLabel() for display
   dimensions: {
     revenue_stability?:       number;
     cashflow_predictability?: number;
