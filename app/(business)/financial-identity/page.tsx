@@ -150,7 +150,7 @@ function RecommendationsPanel({ recommendations, loading }: { recommendations: R
       title="How to Improve Your Score"
       sub={!loading && recommendations.length > 0 ? `${recommendations.length} actions identified` : undefined}
       badge={badge}
-      defaultOpen={true}
+      defaultOpen={false}
     >
       <div style={{ padding: "12px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         {loading ? (
