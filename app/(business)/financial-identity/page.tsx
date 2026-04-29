@@ -433,7 +433,7 @@ export default function FinancialIdentityPage() {
         supabase.from("normalized_transactions").select("date").eq("business_id", id).order("date", { ascending: false }).limit(1).maybeSingle(),
         supabase.from("creditlinker_scores").select("*").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).single(),
         supabase.from("linked_accounts").select("*").eq("business_id", id).order("is_primary", { ascending: false }),
-        supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(10),
+        supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(9),
         // Latest aggregated_metrics - contains active_risk_flags from the aggregation engine
         supabase.from("aggregated_metrics").select("metrics").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
@@ -699,7 +699,7 @@ export default function FinancialIdentityPage() {
         {/* ── IDENTITY HISTORY (collapsed by default) ── */}
         <CollapsibleSection
           title="Identity History"
-          sub={snapshots.length > 0 ? `${snapshots.length} snapshots` : "No runs yet"}
+          sub={snapshots.length > 0 ? `${Math.min(snapshots.length, 9)} snapshots` : "No runs yet"}
           defaultOpen={false}
         >
           <div>
@@ -711,7 +711,7 @@ export default function FinancialIdentityPage() {
               <div style={{ padding: "16px 20px", textAlign: "center" as const }}>
                 <p style={{ fontSize: 12, color: "#9CA3AF" }}>No history yet. Pipeline has not run.</p>
               </div>
-            ) : snapshots.map((snap, i) => (
+            ) : snapshots.slice(0, 9).map((snap, i) => (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, padding: "12px 20px", borderBottom: i < snapshots.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
                 <div>
                   <p style={{ fontSize: 12, fontWeight: i === 0 ? 600 : 400, color: "#374151" }}>{snap.taken_at}</p>
