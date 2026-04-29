@@ -123,7 +123,7 @@ const CAPITAL_DEFINITIONS: Record<string, string> = {
   overdraft_facility:
     "Spend beyond your balance when needed; repay as cash comes in.",
   term_loan:
-    "Lump sum repaid in fixed monthly instalments over 1–5 years.",
+    "Lump sum repaid in fixed monthly instalments over a specific period.",
 };
 
 const CAPITAL_LABELS: Record<string, string> = {
