@@ -506,6 +506,10 @@
     box-sizing: border-box;
   }
 
+  /* ── Data Sources: hide verbose text on mobile ── */
+  .ds-action-sub   { display: none !important; }
+  .ds-coverage-note { display: none !important; }
+
   /* ── Financial Analysis: metric tiles ── */
   .fa-metrics-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;

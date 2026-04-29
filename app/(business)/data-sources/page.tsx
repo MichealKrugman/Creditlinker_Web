@@ -442,7 +442,7 @@ function EntityCoverage({
           })}
         </div>
 
-        <div style={{ display: "flex", gap: 5, padding: "10px 12px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, alignItems: "flex-start" }}>
+        <div className="ds-coverage-note" style={{ display: "flex", gap: 5, padding: "10px 12px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, alignItems: "flex-start" }}>
           <AlertCircle size={12} style={{ color: "#0369A1", flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12, color: "#075985", lineHeight: 1.6 }}>
             Bank accounts and uploads are assigned to entities below. Each entity's assigned sources feed its view in{" "}
@@ -1404,7 +1404,7 @@ export default function DataSourcesPage() {
 
         {/* ── ACTION BAR ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 12 }}>
-          <p style={{ fontSize: 13, color: "#9CA3AF" }}>Bank accounts, statements, and ledgers — assigned per entity to power individual and consolidated analysis.</p>
+          <p className="ds-action-sub" style={{ fontSize: 13, color: "#9CA3AF" }}>Bank accounts, statements, and ledgers — assigned per entity to power individual and consolidated analysis.</p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
             <Button variant="outline" size="sm" onClick={() => setShowLedger(true)}    style={{ gap: 6 }}><BookOpen size={13} /> Upload Ledger</Button>
             <Button variant="primary" size="sm" onClick={() => setShowConnect(true)}   style={{ gap: 6 }}><Plus     size={13} /> Connect Bank</Button>
@@ -1420,7 +1420,6 @@ export default function DataSourcesPage() {
         <Card>
           <SectionHeader
             title="Connected Bank Accounts"
-            sub="Linked via Mono open banking. Each account is assigned to an entity — transactions flow to that entity's financial view."
           />
           <div style={{ padding: "12px 0 8px" }}>
             {accounts.length === 0 ? (
