@@ -542,25 +542,25 @@ export default function FinancialIdentityPage() {
         {/* ── HERO: SCORE + IDENTITY STATUS ── */}
         <Card style={{ overflow: "hidden" }}>
           {/* Top bar */}
-          <div style={{ background: "#0A2540", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <ShieldCheck size={17} color="#00D4FF" />
+          <div style={{ background: "#0A2540", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <ShieldCheck size={16} color="#00D4FF" />
               </div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "white", letterSpacing: "-0.03em" }}>Financial Identity</h2>
-                  <Badge variant={status.variant} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10 }}>{status.icon} {status.label}</Badge>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" as const }}>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: "white", letterSpacing: "-0.02em", whiteSpace: "nowrap" as const }}>Fin. Identity</h2>
+                  <Badge variant={status.variant} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, flexShrink: 0 }}>{status.icon} {status.label}</Badge>
                 </div>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Coverage: {coverage}</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 1, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>Coverage: {coverage}</p>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
               <button onClick={() => window.location.reload()} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <RefreshCw size={14} color="rgba(255,255,255,0.6)" />
               </button>
               {score && (
-                <button onClick={() => setShowShare(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "0 12px", height: 32, borderRadius: 8, background: "#00D4FF", color: "#0A2540", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                <button onClick={() => setShowShare(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "0 12px", height: 32, borderRadius: 8, background: "#00D4FF", color: "#0A2540", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", whiteSpace: "nowrap" as const }}>
                   <ArrowUpRight size={12} /> Share
                 </button>
               )}
@@ -568,24 +568,25 @@ export default function FinancialIdentityPage() {
           </div>
 
           {/* Score ring + stats */}
-          <div style={{ padding: "20px", display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 16 }}>
             {loading ? (
-              <><SkeletonBox w={100} h={100} r={50} /><div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}><SkeletonBox h={20} /><SkeletonBox h={14} w="70%" /></div></>
+              <><SkeletonBox w={120} h={120} r={60} /><div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}><SkeletonBox h={20} /><SkeletonBox h={14} w="70%" /></div></>
             ) : score ? (
               <>
                 <div style={{ flexShrink: 0 }}><ScoreRingLarge score={score.composite_score} /></div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", gap: 20 }}>
                     <div>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3 }}>Data Quality</p>
-                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_quality_score}%</p>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Data Quality</p>
+                      <p style={{ fontSize: 24, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>{score.data_quality_score}%</p>
                     </div>
+                    <div style={{ width: 1, background: "#F3F4F6", alignSelf: "stretch" }} />
                     <div>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3 }}>Months</p>
-                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Months</p>
+                      <p style={{ fontSize: 24, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
                     </div>
                   </div>
-                  <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 10 }}>Synced {relativeTime(lastSyncedAt)}</p>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>Synced {relativeTime(lastSyncedAt)}</p>
                 </div>
               </>
             ) : (
