@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  TrendingUp, TrendingDown, Minus, ChevronRight,
+  TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown,
   ArrowUpRight, ArrowDownLeft, RefreshCw,
   AlertCircle, GitBranch, Building2,
 } from "lucide-react";
@@ -424,6 +424,38 @@ function CashflowChart({ data }: { data: MonthlyRow[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// COLLAPSIBLE SECTION WRAPPER
+// ─────────────────────────────────────────────────────────────
+
+function CollapsibleSection({ title, sub, badge, defaultOpen = true, children, action }: {
+  title: string; sub?: string; badge?: React.ReactNode; defaultOpen?: boolean;
+  children: React.ReactNode; action?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>{title}</p>
+            {badge}
+          </div>
+          {sub && <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{sub}</p>}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {action}
+          <ChevronDown size={16} style={{ color: "#9CA3AF", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+        </div>
+      </button>
+      {open && <div style={{ borderTop: "1px solid #F3F4F6" }}>{children}</div>}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // ENTITY PERFORMANCE (single entity, expandable for branches)
 // ─────────────────────────────────────────────────────────────
 
@@ -434,17 +466,17 @@ function EntityPerformance({ rows, businessName, period }: { rows: MonthlyRow[];
   const margin        = totalRevenue > 0 ? ((totalCashflow / totalRevenue) * 100).toFixed(1) : "0.0";
 
   return (
-    <Card>
-      <CardHeader
-        title="Entity Performance"
-        sub="Revenue contribution and financial health"
-        action={
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "#F9FAFB", border: "1px solid #E5E7EB" }}>
-            <GitBranch size={11} style={{ color: "#9CA3AF" }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF" }}>Single entity</span>
-          </div>
-        }
-      />
+    <CollapsibleSection
+      title="Entity Performance"
+      sub="Revenue contribution and financial health"
+      defaultOpen={false}
+      action={
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "#F9FAFB", border: "1px solid #E5E7EB" }}>
+          <GitBranch size={11} style={{ color: "#9CA3AF" }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF" }}>Single entity</span>
+        </div>
+      }
+    >
       <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* Revenue share bar — single entity = 100% */}
@@ -453,24 +485,24 @@ function EntityPerformance({ rows, businessName, period }: { rows: MonthlyRow[];
           <div style={{ height: 14, borderRadius: 9999, background: "#0A2540", overflow: "hidden" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: "#0A2540" }} />
-            <span style={{ fontSize: 11, color: "#6B7280" }}>{businessName} — 100%</span>
+            <span style={{ fontSize: 11, color: "#6B7280" }}>{businessName} · 100%</span>
           </div>
         </div>
 
         {/* Table */}
         <div className="cl-table-scroll">
-          <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #F3F4F6", minWidth: 500 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px 80px", padding: "8px 16px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+          <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #F3F4F6", minWidth: 580 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "180px 120px 120px 80px 80px", padding: "8px 16px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
               {["Entity", `Revenue (${period})`, "Net Cashflow", "Margin", "Status"].map(h => (
                 <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
               ))}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px 80px", padding: "14px 16px", alignItems: "center" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "180px 120px 120px 80px 80px", padding: "14px 16px", alignItems: "center" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#0A2540", flexShrink: 0 }} />
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{businessName}</p>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", padding: "1px 6px", borderRadius: 9999 }}>HQ</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", padding: "1px 6px", borderRadius: 9999, flexShrink: 0 }}>HQ</span>
                 </div>
               </div>
               <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmt(totalRevenue)}</p>
@@ -484,7 +516,7 @@ function EntityPerformance({ rows, businessName, period }: { rows: MonthlyRow[];
           </div>
         </div>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 
@@ -610,7 +642,7 @@ export default function FinancialAnalysisPage() {
             Financial Analysis
           </h1>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
-            Revenue, cashflow and financial health — {activeBusiness.name}
+            Revenue, cashflow and financial health · {activeBusiness.name}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -689,32 +721,32 @@ export default function FinancialAnalysisPage() {
       </div>
 
       {/* ── CASH FLOW FORECAST ── */}
-      <Card>
-        <CardHeader
-          title="Cash Flow Forecast"
-          sub={forecast
-            ? `6-month projection based on ${forecast.data_months_used} months of verified data · Consolidated`
-            : "6-month projection"}
-          action={
-            forecastLoading ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#F5F3FF", border: "1px solid #DDD6FE" }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#818CF8", animation: "pulse 1.5s infinite" }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#6D28D9" }}>Computing…</span>
-              </div>
-            ) : forecast ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#ECFDF5", border: "1px solid #A7F3D0" }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>
-                  {forecast.trend_direction === "improving" ? "Improving" : forecast.trend_direction === "declining" ? "Declining" : "Stable"}
-                </span>
-              </div>
-            ) : (
-              <button onClick={loadForecast} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "#0A2540", border: "none", color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                <RefreshCw size={11} /> Retry
-              </button>
-            )
-          }
-        />
+      <CollapsibleSection
+        title="Cash Flow Forecast"
+        sub={forecast
+          ? `6-month projection based on ${forecast.data_months_used} months of verified data · Consolidated`
+          : "6-month projection"}
+        defaultOpen={false}
+        action={
+          forecastLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#F5F3FF", border: "1px solid #DDD6FE" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#818CF8", animation: "pulse 1.5s infinite" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6D28D9" }}>Computing…</span>
+            </div>
+          ) : forecast ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#ECFDF5", border: "1px solid #A7F3D0" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>
+                {forecast.trend_direction === "improving" ? "Improving" : forecast.trend_direction === "declining" ? "Declining" : "Stable"}
+              </span>
+            </div>
+          ) : (
+            <button onClick={loadForecast} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "#0A2540", border: "none", color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              <RefreshCw size={11} /> Retry
+            </button>
+          )
+        }
+      >
         <div style={{ padding: "16px 24px 24px" }}>
           {forecastLoading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -802,7 +834,7 @@ export default function FinancialAnalysisPage() {
                 </div>
 
                 {/* Summary stat tiles — inflow/outflow from SDK */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                <div className="fa-forecast-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
                   {[
                     { label: "Projected net (6M)",     value: fmt(totalNet),             sub: "Central estimate" },
                     { label: "Avg monthly surplus",    value: fmt(avgNet),               sub: "Central estimate" },
@@ -852,7 +884,7 @@ export default function FinancialAnalysisPage() {
             </div>
           )}
         </div>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── ENTITY PERFORMANCE ── */}
       {!loading && <EntityPerformance rows={monthlyData} businessName={activeBusiness.name} period={period} />}
@@ -860,8 +892,7 @@ export default function FinancialAnalysisPage() {
       {/* ── EXPENSE + COUNTERPARTIES ── */}
       <div className="fa-expense-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
-        <Card>
-          <CardHeader title="Expense Breakdown" sub={`By category · last ${period} · debits only`} />
+        <CollapsibleSection title="Expense Breakdown" sub={`By category · last ${period} · debits only`} defaultOpen={false}>
           <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
             {loading ? (
               <><SkeletonBox h={20} /><SkeletonBox h={20} /><SkeletonBox h={20} /><SkeletonBox h={20} /></>
@@ -894,18 +925,18 @@ export default function FinancialAnalysisPage() {
               </>
             )}
           </div>
-        </Card>
+        </CollapsibleSection>
 
-        <Card>
-          <CardHeader
-            title="Top Counterparties"
-            sub={`By transaction volume · last ${period}`}
-            action={
-              <Link href="/transactions" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
-                View all <ChevronRight size={12} />
-              </Link>
-            }
-          />
+        <CollapsibleSection
+          title="Top Counterparties"
+          sub={`By transaction volume · last ${period}`}
+          defaultOpen={false}
+          action={
+            <Link href="/transactions" onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
+              View all <ChevronRight size={12} />
+            </Link>
+          }
+        >
           <div style={{ padding: "12px 0 8px" }}>
             {loading ? (
               <div style={{ padding: "12px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -932,7 +963,7 @@ export default function FinancialAnalysisPage() {
               </div>
             ))}
           </div>
-        </Card>
+        </CollapsibleSection>
       </div>
 
       {/* ── REVENUE PATTERN ANALYSIS ── */}
@@ -958,9 +989,8 @@ export default function FinancialAnalysisPage() {
         ];
 
         return (
-          <Card>
-            <CardHeader title="Revenue Pattern Analysis" sub={`Stability, seasonality, and growth signals · ${period}`} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid #F3F4F6", marginTop: 4 }}>
+          <CollapsibleSection title="Revenue Pattern Analysis" sub={`Stability, seasonality, and growth signals · ${period}`} defaultOpen={false}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0 }}>
               {patterns.map((item, i) => (
                 <div key={item.label} className="fa-pattern-item" style={{ padding: "16px 24px 20px", borderRight: i % 3 !== 2 ? "1px solid #F3F4F6" : "none", borderBottom: i < 3 ? "1px solid #F3F4F6" : "none" }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>{item.label}</p>
@@ -974,7 +1004,7 @@ export default function FinancialAnalysisPage() {
                 </div>
               ))}
             </div>
-          </Card>
+          </CollapsibleSection>
         );
       })()}
 
