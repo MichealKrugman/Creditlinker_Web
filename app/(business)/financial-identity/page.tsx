@@ -6,7 +6,7 @@ import {
   ShieldCheck, RefreshCw, AlertCircle, CheckCircle2,
   Clock, ChevronRight, ArrowUpRight, TrendingUp,
   Database, Landmark, Info, X, Copy, CheckCheck,
-  Building2, Zap, ChevronDown as ChevDown,
+  Building2, Zap, ChevronDown as ChevDown, ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,30 +107,54 @@ function severityCfg(s: string) {
   return map[s] ?? map.medium;
 }
 
-function RecommendationsPanel({ recommendations, loading }: { recommendations: Recommendation[]; loading: boolean }) {
-  const [expanded, setExpanded] = useState<number | null>(0);
-  const totalGain = recommendations.reduce((s, r) => s + r.estimated_gain, 0);
-
+// ── COLLAPSIBLE SECTION WRAPPER ──
+function CollapsibleSection({ title, sub, badge, defaultOpen = false, children, action }: {
+  title: string; sub?: string; badge?: React.ReactNode; defaultOpen?: boolean;
+  children: React.ReactNode; action?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <Card>
-      <div style={{ padding: "20px 24px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: "linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,212,255,0.25))", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={13} style={{ color: "#00A8CC" }} />
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>{title}</p>
+              {badge}
             </div>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>How to Improve Your Score</p>
+            {sub && <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{sub}</p>}
           </div>
-          {!loading && recommendations.length > 0 && (
-            <p style={{ fontSize: 12, color: "#9CA3AF", marginLeft: 36 }}>
-              {recommendations.length} actions identified · up to <span style={{ color: "#10B981", fontWeight: 700 }}>+{totalGain} pts</span> potential gain
-            </p>
-          )}
         </div>
-      </div>
-      <div style={{ padding: "14px 24px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {action}
+          <ChevronDown size={16} style={{ color: "#9CA3AF", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+        </div>
+      </button>
+      {open && <div style={{ borderTop: "1px solid #F3F4F6" }}>{children}</div>}
+    </Card>
+  );
+}
+
+function RecommendationsPanel({ recommendations, loading }: { recommendations: Recommendation[]; loading: boolean }) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const totalGain = recommendations.reduce((s, r) => s + r.estimated_gain, 0);
+  const badge = !loading && recommendations.length > 0 ? (
+    <span style={{ fontSize: 11, fontWeight: 700, color: "#10B981", background: "rgba(16,185,129,0.1)", padding: "2px 8px", borderRadius: 9999 }}>+{totalGain} pts available</span>
+  ) : undefined;
+
+  return (
+    <CollapsibleSection
+      title="How to Improve Your Score"
+      sub={!loading && recommendations.length > 0 ? `${recommendations.length} actions identified` : undefined}
+      badge={badge}
+      defaultOpen={true}
+    >
+      <div style={{ padding: "12px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         {loading ? (
-          <><SkeletonBox h={52} r={10} /><SkeletonBox h={52} r={10} /><SkeletonBox h={52} r={10} /></>
+          <><SkeletonBox h={52} r={10} /><SkeletonBox h={52} r={10} /></>
         ) : recommendations.length === 0 ? (
           <p style={{ fontSize: 13, color: "#9CA3AF", textAlign: "center" as const, padding: "12px 0" }}>No improvement actions yet. Run the pipeline to generate recommendations.</p>
         ) : recommendations.map((rec, i) => {
@@ -141,13 +165,12 @@ function RecommendationsPanel({ recommendations, loading }: { recommendations: R
               <button onClick={() => setExpanded(isOpen ? null : i)} style={{ width: "100%", display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", background: isOpen ? "#F9FAFB" : "white", border: "none", cursor: "pointer", textAlign: "left" as const, transition: "background 0.1s" }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: rec.dimension_color, flexShrink: 0, marginTop: 4 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 2, flexWrap: "wrap" as const }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{rec.dimension}</p>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", flexShrink: 0 }}>score {rec.current_score}</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{rec.dimension}</p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#10B981", fontFamily: "var(--font-display)" }}>+{rec.estimated_gain} pts</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#10B981", fontFamily: "var(--font-display)" }}>+{rec.estimated_gain}</span>
                       <span style={{ fontSize: 9, fontWeight: 700, color: pc.color, background: pc.bg, border: `1px solid ${pc.border}`, padding: "2px 6px", borderRadius: 9999, whiteSpace: "nowrap" as const }}>{pc.label}</span>
                       <ChevDown size={13} style={{ color: "#9CA3AF", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
                     </div>
@@ -158,30 +181,23 @@ function RecommendationsPanel({ recommendations, loading }: { recommendations: R
               {isOpen && (
                 <div style={{ padding: "0 16px 16px", background: "#F9FAFB", borderTop: "1px solid #F3F4F6" }}>
                   <div style={{ padding: "12px 0 10px" }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>What the pipeline detected</p>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>What was detected</p>
                     <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.65 }}>{rec.cause}</p>
                   </div>
                   <div style={{ padding: "10px 14px", background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 8, marginBottom: 12 }}>
                     <p style={{ fontSize: 10, fontWeight: 700, color: "#0A5060", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Recommended action</p>
                     <p style={{ fontSize: 13, color: "#0A5060", lineHeight: 1.65 }}>{rec.action}</p>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8 }}>
-                    <p style={{ fontSize: 11, color: "#9CA3AF" }}>Estimated improvement after next pipeline run</p>
-                    <Link href={rec.action_route} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                      {rec.action_label} <ArrowUpRight size={11} />
-                    </Link>
-                  </div>
+                  <Link href={rec.action_route} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "9px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                    {rec.action_label} <ArrowUpRight size={11} />
+                  </Link>
                 </div>
               )}
             </div>
           );
         })}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-          <Info size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
-          <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.5 }}>Recommendations are generated after each pipeline run. Point gains are estimates.</p>
-        </div>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 
@@ -223,7 +239,7 @@ function relativeTime(iso: string | null): string {
 function formatCoverage(start: string | null, end: string | null): string {
   if (!start) return "No data yet";
   const fmt = (d: string) => new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-  return `${fmt(start)}${end ? ` – ${fmt(end)}` : " – present"}`;
+  return `${fmt(start)}${end ? ` to ${fmt(end)}` : " to present"}`;  
 }
 
 // ----------------------------------------------------------
@@ -270,6 +286,23 @@ function ScoreRingLarge({ score, max = 1000 }: { score: number; max?: number }) 
 
 function SkeletonBox({ w = "100%", h = 16, r = 6 }: { w?: string | number; h?: number; r?: number }) {
   return <div style={{ width: w, height: h, borderRadius: r, background: "#F3F4F6", animation: "pulse 1.5s infinite" }} />;
+}
+
+function DimensionRow({ d }: { d: ScoreDimension }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #F9FAFB" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{d.label}</p>
+          <span style={{ fontSize: 14, fontWeight: 800, color: d.color, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{d.value}</span>
+        </div>
+        <div style={{ height: 5, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${d.value}%`, background: d.color, borderRadius: 9999 }} />
+        </div>
+      </div>
+      <TrendingUp size={13} style={{ color: d.positive === true ? "#10B981" : d.positive === false ? "#EF4444" : "#9CA3AF", flexShrink: 0 }} />
+    </div>
+  );
 }
 
 function DimensionCard({ d }: { d: ScoreDimension }) {
@@ -401,7 +434,7 @@ export default function FinancialIdentityPage() {
         supabase.from("creditlinker_scores").select("*").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).single(),
         supabase.from("linked_accounts").select("*").eq("business_id", id).order("is_primary", { ascending: false }),
         supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(10),
-        // Latest aggregated_metrics — contains active_risk_flags from the aggregation engine
+        // Latest aggregated_metrics - contains active_risk_flags from the aggregation engine
         supabase.from("aggregated_metrics").select("metrics").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
@@ -444,7 +477,7 @@ export default function FinancialIdentityPage() {
 
       // Risk flags: transaction-level signals from the aggregation engine.
       // These are real behavioural patterns detected across the full transaction dataset
-      // (debt stress, volatility spikes, concentration, cashflow gaps, etc.).
+      // (debt stress, volatility spikes, concentration, cashflow gaps, etc).
       const activeFlags: any[] = metricsRes.data?.metrics?.active_risk_flags ?? [];
       setRiskFlags(activeFlags.map((f: any) => ({
         type:         f.type?.replace(/_/g, " ") ?? "Unknown",
@@ -506,233 +539,213 @@ export default function FinancialIdentityPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-        {/* ── IDENTITY STATUS BANNER ── */}
-        <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap" as const }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: "#0A2540", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <ShieldCheck size={20} color="#00D4FF" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" as const }}>
-                <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#0A2540", letterSpacing: "-0.03em" }}>Financial Identity</h2>
-                <Badge variant={status.variant} style={{ display: "flex", alignItems: "center", gap: 4 }}>{status.icon} {status.label}</Badge>
+        {/* ── HERO: SCORE + IDENTITY STATUS ── */}
+        <Card style={{ overflow: "hidden" }}>
+          {/* Top bar */}
+          <div style={{ background: "#0A2540", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <ShieldCheck size={17} color="#00D4FF" />
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>ID: <span style={{ fontFamily: "monospace", color: "#6B7280" }}>{activeBusiness.financial_identity_id}</span></span>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Coverage: <span style={{ color: "#6B7280", fontWeight: 500 }}>{coverage}</span></span>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>Last synced: <span style={{ color: "#6B7280", fontWeight: 500 }}>{relativeTime(lastSyncedAt)}</span></span>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "white", letterSpacing: "-0.03em" }}>Financial Identity</h2>
+                  <Badge variant={status.variant} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10 }}>{status.icon} {status.label}</Badge>
+                </div>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Coverage: {coverage}</p>
               </div>
             </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-            <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={() => window.location.reload()}>
-              <RefreshCw size={13} /> Refresh
-            </Button>
-            {score && (
-              <button onClick={() => setShowShare(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer" }}>
-                <ArrowUpRight size={13} /> Share Identity
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => window.location.reload()} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <RefreshCw size={14} color="rgba(255,255,255,0.6)" />
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* ── MAIN GRID ── */}
-        <div className="fi-sidebar-grid" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, alignItems: "start" }}>
-
-          {/* ── LEFT ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-
-            {/* Score ring */}
-            <Card style={{ padding: "24px 20px", textAlign: "center" as const }}>
-              {loading ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                  <SkeletonBox w={160} h={160} r={80} />
-                  <SkeletonBox w="60%" h={20} />
-                </div>
-              ) : score ? (
-                <>
-                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                    <ScoreRingLarge score={score.composite_score} />
-                  </div>
-                  <div style={{ height: 1, background: "#F3F4F6", margin: "16px 0" }} />
-                  <div className="fi-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, textAlign: "left" as const }}>
-                    <div>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3 }}>Data Quality</p>
-                      <p style={{ fontSize: 20, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{score.data_quality_score}%</p>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3 }}>Months Analysed</p>
-                      <p style={{ fontSize: 20, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{score.data_months_analyzed}</p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div style={{ padding: "20px 0", textAlign: "center" as const }}>
-                  <p style={{ fontSize: 13, color: "#9CA3AF" }}>No score yet. Connect a bank account and run the pipeline.</p>
-                </div>
-              )}
-            </Card>
-
-            {/* Linked accounts */}
-            <Card>
-              <SectionHeader title="Linked Accounts" action={
-                <Link href="/data-sources" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>
-                  Manage <ChevronRight size={12} />
-                </Link>
-              } />
-              <div style={{ padding: "10px 0 8px" }}>
-                {loading ? (
-                  <div style={{ padding: "12px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    <SkeletonBox h={40} /><SkeletonBox h={40} />
-                  </div>
-                ) : accounts.length === 0 ? (
-                  <div style={{ padding: "16px 24px", textAlign: "center" as const }}>
-                    <p style={{ fontSize: 12, color: "#9CA3AF" }}>No accounts linked yet.</p>
-                    <Link href="/data-sources" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>Connect an account →</Link>
-                  </div>
-                ) : accounts.map((acc, i) => (
-                  <div key={acc.account_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 24px", borderBottom: i < accounts.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#0A2540" }}>
-                      {acc.bank_name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{acc.bank_name}</p>
-                        {acc.is_primary && <Badge variant="secondary" style={{ fontSize: 9, padding: "1px 5px" }}>Primary</Badge>}
-                      </div>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{acc.account_number_masked} · {relativeTime(acc.last_synced)}</p>
-                    </div>
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981" }} />
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-
-          {/* ── RIGHT ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-
-            {/* Score dimensions */}
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap" as const, gap: 8 }}>
-                <div>
-                  <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 2 }}>Score Dimensions</h3>
-                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>Six independent financial health indicators, each scored 0–100.</p>
-                </div>
-                <Link href="/financial-analysis" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", flexShrink: 0 }}>
-                  Deep analysis <ChevronRight size={13} />
-                </Link>
-              </div>
-              {loading ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-                  {[1,2,3,4,5,6].map(i => <SkeletonBox key={i} h={140} r={12} />)}
-                </div>
-              ) : dimensions.length === 0 ? (
-                <div style={{ padding: "24px", textAlign: "center" as const, border: "1px solid #E5E7EB", borderRadius: 12 }}>
-                  <p style={{ fontSize: 13, color: "#9CA3AF" }}>Run the pipeline to generate your score dimensions.</p>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-                  {dimensions.map(d => <DimensionCard key={d.key} d={d} />)}
-                </div>
-              )}
-            </div>
-
-            <RecommendationsPanel recommendations={recommendations} loading={loading} />
-
-            {/* Risk flags */}
-            <Card>
-              <SectionHeader title="Risk Flags" sub={riskFlags.length > 0 ? `${riskFlags.length} active flag${riskFlags.length > 1 ? "s" : ""} detected` : "No active flags"} />
-              <div style={{ padding: "12px 24px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-                {riskFlags.length === 0 ? (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", background: "#F0FDF4", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10 }}>
-                    <CheckCircle2 size={15} style={{ color: "#10B981", flexShrink: 0, marginTop: 1 }} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#065F46" }}>No risk flags detected</p>
-                      <p style={{ fontSize: 12, color: "#6B7280", marginTop: 2, lineHeight: 1.5 }}>Your financial profile is clean. Maintain healthy cashflow and expense patterns to keep it this way.</p>
-                    </div>
-                  </div>
-                ) : riskFlags.map((flag, i) => {
-                  const sc = severityCfg(flag.severity);
-                  return (
-                    <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 10 }}>
-                      <AlertCircle size={15} style={{ color: sc.icon, flexShrink: 0, marginTop: 1 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, gap: 8, flexWrap: "wrap" as const }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", textTransform: "capitalize" as const }}>{flag.type}</p>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: sc.icon, padding: "1px 6px", borderRadius: 9999, border: `1px solid ${sc.border}` }}>{sc.label}</span>
-                          </div>
-                          {flag.score_impact > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", flexShrink: 0 }}>−{flag.score_impact} pts</span>}
-                        </div>
-                        <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>{flag.description}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-
-            {/* Identity history */}
-            <Card>
-              <SectionHeader title="Identity History" sub="Snapshots recorded after each pipeline run." />
-              <div style={{ padding: "10px 0 8px" }}>
-                {loading ? (
-                  <div style={{ padding: "12px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    <SkeletonBox h={40} /><SkeletonBox h={40} /><SkeletonBox h={40} />
-                  </div>
-                ) : snapshots.length === 0 ? (
-                  <div style={{ padding: "16px 24px", textAlign: "center" as const }}>
-                    <p style={{ fontSize: 12, color: "#9CA3AF" }}>No history yet. Pipeline has not run.</p>
-                  </div>
-                ) : (
-                  <div className="cl-table-scroll">
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 80px", padding: "6px 24px 10px", borderBottom: "1px solid #F3F4F6", minWidth: 400 }}>
-                      {["Date", "Score", "Risk Level", "Quality"].map(h => (
-                        <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
-                      ))}
-                    </div>
-                    {snapshots.map((snap, i) => (
-                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 80px", padding: "12px 24px", borderBottom: i < snapshots.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", minWidth: 400 }}>
-                        <p style={{ fontSize: 13, color: "#374151", fontWeight: i === 0 ? 600 : 400 }}>
-                          {snap.taken_at} {i === 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>(latest)</span>}
-                        </p>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: snap.score >= 760 ? "#10B981" : snap.score >= 640 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)" }}>{snap.score}</p>
-                        <Badge variant={snap.risk?.toLowerCase().includes("low") ? "success" : snap.risk?.toLowerCase().includes("medium") ? "warning" : "destructive"} style={{ width: "fit-content" }}>{snap.risk}</Badge>
-                        <p style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{snap.quality}%</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Financing banner */}
-            <div style={{ background: "#0A2540", borderRadius: 14, padding: "22px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
-              <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: openToFinancing ? "rgba(0,212,255,0.1)" : "rgba(245,158,11,0.1)", border: `1px solid ${openToFinancing ? "rgba(0,212,255,0.2)" : "rgba(245,158,11,0.2)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Landmark size={18} color={openToFinancing ? "#00D4FF" : "#F59E0B"} />
-                </div>
-                <div>
-                  <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "white", letterSpacing: "-0.02em", marginBottom: 3 }}>
-                    {openToFinancing ? "Ready to connect with capital providers?" : "Not visible to capital providers"}
-                  </p>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>
-                    {openToFinancing ? "Share your financial identity with financers you trust — on your terms." : "Open to Financing is off. Enable it in Settings to become discoverable."}
-                  </p>
-                </div>
-              </div>
-              {openToFinancing ? (
-                <Link href="/financers" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, background: "#00D4FF", color: "#0A2540", fontSize: 13, fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
-                  <Database size={13} /> Manage Access
-                </Link>
-              ) : (
-                <button onClick={() => setShowFinancingGate(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, background: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)", fontSize: 13, fontWeight: 700, flexShrink: 0, cursor: "pointer" }}>
-                  <Database size={13} /> Enable Access
+              {score && (
+                <button onClick={() => setShowShare(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "0 12px", height: 32, borderRadius: 8, background: "#00D4FF", color: "#0A2540", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                  <ArrowUpRight size={12} /> Share
                 </button>
               )}
             </div>
           </div>
+
+          {/* Score ring + stats */}
+          <div style={{ padding: "20px", display: "flex", alignItems: "center", gap: 20 }}>
+            {loading ? (
+              <><SkeletonBox w={100} h={100} r={50} /><div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}><SkeletonBox h={20} /><SkeletonBox h={14} w="70%" /></div></>
+            ) : score ? (
+              <>
+                <div style={{ flexShrink: 0 }}><ScoreRingLarge score={score.composite_score} /></div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3 }}>Data Quality</p>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_quality_score}%</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3 }}>Months</p>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 10 }}>Synced {relativeTime(lastSyncedAt)}</p>
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize: 13, color: "#9CA3AF", padding: "12px 0" }}>No score yet. Connect a bank account and run the pipeline.</p>
+            )}
+          </div>
+        </Card>
+
+        {/* ── SCORE DIMENSIONS (collapsible) ── */}
+        <CollapsibleSection
+          title="Score Dimensions"
+          sub="6 financial health indicators"
+          defaultOpen={true}
+          action={
+            <Link href="/financial-analysis" onClick={e => e.stopPropagation()} style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>
+              Deep analysis <ChevronRight size={12} />
+            </Link>
+          }
+        >
+          <div style={{ padding: "4px 20px 16px" }}>
+            {loading ? (
+              <><SkeletonBox h={40} r={8} /><SkeletonBox h={40} r={8} style={{ marginTop: 8 }} /></>
+            ) : dimensions.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#9CA3AF", padding: "16px 0", textAlign: "center" as const }}>Run the pipeline to generate your score dimensions.</p>
+            ) : (
+              dimensions.map(d => <DimensionRow key={d.key} d={d} />)
+            )}
+          </div>
+        </CollapsibleSection>
+
+        {/* ── LINKED ACCOUNTS (collapsible) ── */}
+        <CollapsibleSection
+          title="Linked Accounts"
+          sub={loading ? undefined : `${accounts.length} account${accounts.length !== 1 ? "s" : ""} connected`}
+          defaultOpen={false}
+          action={
+            <Link href="/data-sources" onClick={e => e.stopPropagation()} style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>
+              Manage <ChevronRight size={12} />
+            </Link>
+          }
+        >
+          <div>
+            {loading ? (
+              <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <SkeletonBox h={40} /><SkeletonBox h={40} />
+              </div>
+            ) : accounts.length === 0 ? (
+              <div style={{ padding: "16px 20px", textAlign: "center" as const }}>
+                <p style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 6 }}>No accounts linked yet.</p>
+                <Link href="/data-sources" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>Connect an account →</Link>
+              </div>
+            ) : accounts.map((acc, i) => (
+              <div key={acc.account_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: i < accounts.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#0A2540" }}>
+                  {acc.bank_name.slice(0, 2).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{acc.bank_name}</p>
+                    {acc.is_primary && <Badge variant="secondary" style={{ fontSize: 9, padding: "1px 5px" }}>Primary</Badge>}
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>{acc.account_number_masked} · {relativeTime(acc.last_synced)}</p>
+                </div>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981" }} />
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+
+        {/* ── RECOMMENDATIONS ── */}
+        <RecommendationsPanel recommendations={recommendations} loading={loading} />
+
+        {/* ── RISK FLAGS (collapsible, closed by default) ── */}
+        <CollapsibleSection
+          title="Risk Flags"
+          sub={riskFlags.length > 0 ? `${riskFlags.length} active flag${riskFlags.length > 1 ? "s" : ""} detected` : "No active flags"}
+          badge={
+            riskFlags.length > 0
+              ? <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "rgba(239,68,68,0.08)", padding: "2px 7px", borderRadius: 9999 }}>{riskFlags.length}</span>
+              : <span style={{ fontSize: 11, fontWeight: 700, color: "#10B981", background: "rgba(16,185,129,0.08)", padding: "2px 7px", borderRadius: 9999 }}>✓</span>
+          }
+          defaultOpen={false}
+        >
+          <div style={{ padding: "12px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {riskFlags.length === 0 ? (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", background: "#F0FDF4", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10 }}>
+                <CheckCircle2 size={15} style={{ color: "#10B981", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 13, fontWeight: 600, color: "#065F46" }}>No risk flags detected. Your profile is clean.</p>
+              </div>
+            ) : riskFlags.map((flag, i) => {
+              const sc = severityCfg(flag.severity);
+              return (
+                <div key={i} style={{ display: "flex", gap: 12, padding: "12px 14px", background: sc.bg, border: `1px solid ${sc.border}`, borderRadius: 10 }}>
+                  <AlertCircle size={15} style={{ color: sc.icon, flexShrink: 0, marginTop: 1 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, gap: 8 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", textTransform: "capitalize" as const }}>{flag.type}</p>
+                      {flag.score_impact > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", flexShrink: 0 }}>−{flag.score_impact} pts</span>}
+                    </div>
+                    <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>{flag.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CollapsibleSection>
+
+        {/* ── IDENTITY HISTORY (collapsed by default) ── */}
+        <CollapsibleSection
+          title="Identity History"
+          sub={snapshots.length > 0 ? `${snapshots.length} snapshots` : "No runs yet"}
+          defaultOpen={false}
+        >
+          <div>
+            {loading ? (
+              <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <SkeletonBox h={36} /><SkeletonBox h={36} /><SkeletonBox h={36} />
+              </div>
+            ) : snapshots.length === 0 ? (
+              <div style={{ padding: "16px 20px", textAlign: "center" as const }}>
+                <p style={{ fontSize: 12, color: "#9CA3AF" }}>No history yet. Pipeline has not run.</p>
+              </div>
+            ) : snapshots.map((snap, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, padding: "12px 20px", borderBottom: i < snapshots.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: i === 0 ? 600 : 400, color: "#374151" }}>{snap.taken_at}</p>
+                  {i === 0 && <span style={{ fontSize: 10, color: "#9CA3AF" }}>latest</span>}
+                </div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: snap.score >= 760 ? "#10B981" : snap.score >= 640 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)" }}>{snap.score}</p>
+                <Badge variant={snap.risk?.toLowerCase().includes("low") ? "success" : snap.risk?.toLowerCase().includes("medium") ? "warning" : "destructive"} style={{ fontSize: 10 }}>{snap.risk}</Badge>
+                <p style={{ fontSize: 12, color: "#6B7280" }}>{snap.quality}%</p>
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+
+        {/* ── FINANCING BANNER ── */}
+        <div style={{ background: "#0A2540", borderRadius: 14, padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: openToFinancing ? "rgba(0,212,255,0.1)" : "rgba(245,158,11,0.1)", border: `1px solid ${openToFinancing ? "rgba(0,212,255,0.2)" : "rgba(245,158,11,0.2)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Landmark size={16} color={openToFinancing ? "#00D4FF" : "#F59E0B"} />
+            </div>
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "white", letterSpacing: "-0.02em", marginBottom: 2 }}>
+                {openToFinancing ? "Connect with capital providers" : "Not visible to capital providers"}
+              </p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
+                {openToFinancing ? "Share your identity with financers you trust." : "Enable Open to Financing in Settings."}
+              </p>
+            </div>
+          </div>
+          {openToFinancing ? (
+            <Link href="/financers" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px", borderRadius: 9, background: "#00D4FF", color: "#0A2540", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+              <Database size={13} /> Manage Access
+            </Link>
+          ) : (
+            <button onClick={() => setShowFinancingGate(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "10px", borderRadius: 9, background: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <Database size={13} /> Enable Access
+            </button>
+          )}
         </div>
       </div>
 
