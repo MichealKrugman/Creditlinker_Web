@@ -505,6 +505,28 @@
     overflow: hidden;
     box-sizing: border-box;
   }
+
+  /* ── Financial Analysis: metric tiles ── */
+  .fa-metrics-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .fa-metric-tile {
+    padding: 10px 11px !important;
+    border-radius: 10px !important;
+  }
+  .fa-metric-label {
+    font-size: 9px !important;
+    margin-bottom: 5px !important;
+    letter-spacing: 0.04em !important;
+  }
+  .fa-metric-value {
+    font-size: 16px !important;
+    margin-bottom: 4px !important;
+  }
+  .fa-metric-sub {
+    font-size: 9px !important;
+  }
 }
 
 @media (max-width: 480px) {

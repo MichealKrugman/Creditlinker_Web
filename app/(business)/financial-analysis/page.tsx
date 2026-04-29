@@ -227,12 +227,12 @@ function MetricTile({ label, value, positive, sub }: MetricTileData) {
   const cc   = positive === true ? "#10B981" : positive === false ? "#EF4444" : "#9CA3AF";
   const Icon = positive === true ? TrendingUp : positive === false ? TrendingDown : Minus;
   return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "16px 18px" }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>{label}</p>
-      <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 6 }}>{value}</p>
+    <div className="fa-metric-tile" style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "16px 18px" }}>
+      <p className="fa-metric-label" style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>{label}</p>
+      <p className="fa-metric-value" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 6 }}>{value}</p>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <Icon size={11} style={{ color: cc }} />
-        <span style={{ fontSize: 11, color: "#9CA3AF" }}>{sub}</span>
+        <span className="fa-metric-sub" style={{ fontSize: 11, color: "#9CA3AF" }}>{sub}</span>
       </div>
     </div>
   );
@@ -671,7 +671,7 @@ export default function FinancialAnalysisPage() {
           {[1,2,3,4,5,6,7,8].map(i => <SkeletonBox key={i} h={90} r={12} />)}
         </div>
       ) : metrics.length > 0 ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+        <div className="fa-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
           {metrics.map(m => <MetricTile key={m.label} {...m} />)}
         </div>
       ) : (
