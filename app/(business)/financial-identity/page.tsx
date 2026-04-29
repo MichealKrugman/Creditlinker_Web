@@ -272,14 +272,14 @@ function SectionHeader({ title, sub, action }: { title: string; sub?: string; ac
 }
 
 function ScoreRingLarge({ score, max = 1000 }: { score: number; max?: number }) {
-  const r = 64, circ = 2 * Math.PI * r, dash = circ * (score / max);
+  const r = 44, circ = 2 * Math.PI * r, dash = circ * (score / max);
   return (
-    <svg width="160" height="160" viewBox="0 0 160 160">
-      <circle cx="80" cy="80" r={r} fill="none" stroke="#F3F4F6" strokeWidth="10" />
-      <circle cx="80" cy="80" r={r} fill="none" stroke="#00D4FF" strokeWidth="10" strokeLinecap="round"
-        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} transform="rotate(-90 80 80)" />
-      <text x="80" y="74" textAnchor="middle" fontSize="32" fontWeight="800" fill="#0A2540" fontFamily="var(--font-display)" letterSpacing="-2">{score}</text>
-      <text x="80" y="91" textAnchor="middle" fontSize="11" fontWeight="600" fill="#9CA3AF" fontFamily="var(--font-display)">out of {max.toLocaleString()}</text>
+    <svg width="110" height="110" viewBox="0 0 110 110">
+      <circle cx="55" cy="55" r={r} fill="none" stroke="#F3F4F6" strokeWidth="8" />
+      <circle cx="55" cy="55" r={r} fill="none" stroke="#00D4FF" strokeWidth="8" strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} transform="rotate(-90 55 55)" />
+      <text x="55" y="50" textAnchor="middle" fontSize="24" fontWeight="800" fill="#0A2540" fontFamily="var(--font-display)" letterSpacing="-1">{score}</text>
+      <text x="55" y="65" textAnchor="middle" fontSize="9" fontWeight="600" fill="#9CA3AF" fontFamily="var(--font-display)">out of {max.toLocaleString()}</text>
     </svg>
   );
 }
@@ -547,15 +547,17 @@ export default function FinancialIdentityPage() {
               <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <ShieldCheck size={16} color="#00D4FF" />
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" as const }}>
-                  <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: "white", letterSpacing: "-0.02em", whiteSpace: "nowrap" as const }}>Fin. Identity</h2>
-                  <Badge variant={status.variant} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, flexShrink: 0 }}>{status.icon} {status.label}</Badge>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: "white", letterSpacing: "-0.02em" }}>Financial Identity</h2>
                 </div>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 1, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>Coverage: {coverage}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+                  <Badge variant={status.variant} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10 }}>{status.icon} {status.label}</Badge>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{coverage}</p>
+                </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 }}>
               <button onClick={() => window.location.reload()} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <RefreshCw size={14} color="rgba(255,255,255,0.6)" />
               </button>
@@ -574,16 +576,16 @@ export default function FinancialIdentityPage() {
             ) : score ? (
               <>
                 <div style={{ flexShrink: 0 }}><ScoreRingLarge score={score.composite_score} /></div>
-                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", gap: 20 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", flexDirection: "row", gap: 16, marginBottom: 10 }}>
                     <div>
                       <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Data Quality</p>
-                      <p style={{ fontSize: 24, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>{score.data_quality_score}%</p>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_quality_score}%</p>
                     </div>
-                    <div style={{ width: 1, background: "#F3F4F6", alignSelf: "stretch" }} />
+                    <div style={{ width: 1, background: "#F3F4F6" }} />
                     <div>
                       <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Months</p>
-                      <p style={{ fontSize: 24, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
                     </div>
                   </div>
                   <p style={{ fontSize: 11, color: "#9CA3AF" }}>Synced {relativeTime(lastSyncedAt)}</p>
