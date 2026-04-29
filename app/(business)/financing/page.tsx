@@ -826,13 +826,11 @@ function ReadinessCard({
   onClick: () => void;
 }) {
   const color = readinessColor(item.readiness_score);
-  const r = 22;
+  const r = 20;
   const circ = 2 * Math.PI * r;
   const dash = circ * (item.readiness_score / 100);
   const passCount = item.criteria.filter((c) => c.result === "pass").length;
-  const partialCount = item.criteria.filter(
-    (c) => c.result === "partial"
-  ).length;
+  const partialCount = item.criteria.filter((c) => c.result === "partial").length;
   const failCount = item.criteria.filter((c) => c.result === "fail").length;
 
   return (
@@ -842,111 +840,59 @@ function ReadinessCard({
         background: "white",
         border: "1px solid #E5E7EB",
         borderRadius: 12,
-        padding: "18px 20px",
+        padding: "14px 16px",
         display: "flex",
         alignItems: "center",
-        gap: 16,
+        gap: 14,
         cursor: "pointer",
         transition: "all 0.15s",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.borderColor = "#0A2540";
-        (e.currentTarget as HTMLElement).style.boxShadow =
-          "0 2px 10px rgba(10,37,64,0.07)";
+        (e.currentTarget as HTMLElement).style.background = "#FAFAFA";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB";
-        (e.currentTarget as HTMLElement).style.boxShadow = "none";
+        (e.currentTarget as HTMLElement).style.background = "white";
       }}
     >
-      <svg width="52" height="52" viewBox="0 0 52 52" style={{ flexShrink: 0 }}>
-        <circle
-          cx="26"
-          cy="26"
-          r={r}
-          fill="none"
-          stroke="#F3F4F6"
-          strokeWidth="5"
-        />
-        <circle
-          cx="26"
-          cy="26"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="5"
+      {/* Score ring */}
+      <svg width="48" height="48" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
+        <circle cx="24" cy="24" r={r} fill="none" stroke="#F3F4F6" strokeWidth="5" />
+        <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="5"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${circ}`}
           strokeDashoffset={circ * 0.25}
-          transform="rotate(-90 26 26)"
+          transform="rotate(-90 24 24)"
         />
-        <text
-          x="26"
-          y="30"
-          textAnchor="middle"
-          fontSize="11"
-          fontWeight="800"
-          fill={color}
-          fontFamily="var(--font-display)"
-        >
+        <text x="24" y="28" textAnchor="middle" fontSize="11" fontWeight="800"
+          fill={color} fontFamily="var(--font-display)">
           {item.readiness_score}
         </text>
       </svg>
+
+      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: "#0A2540",
-            fontFamily: "var(--font-display)",
-            letterSpacing: "-0.02em",
-            marginBottom: 3,
-          }}
-        >
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", letterSpacing: "-0.01em", marginBottom: 3 }}>
           {item.label}
         </p>
-        <p
-          style={{
-            fontSize: 11,
-            color: "#6B7280",
-            lineHeight: 1.5,
-            marginBottom: 8,
-          }}
-        >
+        <p style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.5, marginBottom: 6 }}>
           {item.definition}
         </p>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flexWrap: "wrap" as const,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
           <Badge
-            variant={
-              item.status === "eligible"
-                ? "success"
-                : item.status === "conditional"
-                ? "warning"
-                : "destructive"
-            }
-            style={{ fontSize: 10 }}
+            variant={item.status === "eligible" ? "success" : item.status === "conditional" ? "warning" : "destructive"}
+            style={{ fontSize: 9, padding: "1px 6px" }}
           >
-            {item.status === "eligible"
-              ? "Eligible"
-              : item.status === "conditional"
-              ? "Conditional"
-              : "Not Ready"}
+            {item.status === "eligible" ? "Eligible" : item.status === "conditional" ? "Conditional" : "Not Ready"}
           </Badge>
           <span style={{ fontSize: 10, color: "#9CA3AF" }}>
-            {passCount}✓
-            {partialCount > 0 ? ` ${partialCount}~` : ""}
-            {failCount > 0 ? ` ${failCount}✗` : ""}
+            {passCount}✓{partialCount > 0 ? ` ${partialCount}~` : ""}{failCount > 0 ? ` ${failCount}✗` : ""}
           </span>
         </div>
       </div>
-      <ChevronRight size={15} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+
+      <ChevronRight size={14} style={{ color: "#D1D5DB", flexShrink: 0 }} />
     </div>
   );
 }
@@ -1816,6 +1762,8 @@ export default function FinancingPage() {
   const [incomingRequests, setIncomingRequests] = useState<MarketplaceItem[]>([]);
   const [capFilter,        setCapFilter]        = useState("All");
   const [activeAssessment, setActiveAssessment] = useState<ReadinessItem | null>(null);
+  const [afOpen,           setAfOpen]           = useState(false);
+  const [mkOpen,           setMkOpen]           = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -2003,14 +1951,7 @@ export default function FinancingPage() {
                 </Link>
               }
             />
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 12,
-                padding: "16px 24px 24px",
-              }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px 16px" }}>
               {readiness.map((item) => (
                 <ReadinessCard
                   key={item.assessment_id}
@@ -2025,249 +1966,133 @@ export default function FinancingPage() {
         {/* ── ACTIVE FINANCING ── */}
         {activeFin.length > 0 && (
           <Card>
-            <SectionHeader
-              title="Active Financing"
-              sub="Financing currently in progress."
-            />
-            <div style={{ padding: "12px 0 8px" }}>
-              {activeFin.map((rec, i) => {
-                const sc = statusConfig(rec.status);
-                const amount = rec.terms?.amount ?? 0;
-                return (
-                  <div
-                    key={rec.financing_id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "44px 1fr auto auto",
-                      alignItems: "center",
-                      gap: 16,
-                      padding: "14px 24px",
-                      borderBottom:
-                        i < activeFin.length - 1
-                          ? "1px solid #F3F4F6"
-                          : "none",
-                    }}
-                  >
-                    {/* Icon */}
+            <button
+              onClick={() => setAfOpen(o => !o)}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}
+            >
+              <div>
+                <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 2 }}>Active Financing</p>
+                <p style={{ fontSize: 12, color: "#9CA3AF" }}>{activeFin.length} financing record{activeFin.length !== 1 ? "s" : ""} in progress</p>
+              </div>
+              <ChevronRight size={15} style={{ color: "#9CA3AF", flexShrink: 0, transform: afOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+            </button>
+            {afOpen && (
+              <div style={{ borderTop: "1px solid #F3F4F6" }}>
+                {activeFin.map((rec, i) => {
+                  const sc = statusConfig(rec.status);
+                  const amount = rec.terms?.amount ?? 0;
+                  return (
                     <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 10,
-                        background: "#F3F4F6",
-                        flexShrink: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: "#0A2540",
-                      }}
+                      key={rec.financing_id}
+                      style={{ padding: "14px 16px", borderBottom: i < activeFin.length - 1 ? "1px solid #F3F4F6" : "none" }}
                     >
-                      {rec.institution_name.slice(0, 2).toUpperCase()}
-                    </div>
-
-                    {/* Info */}
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginBottom: 3,
-                        }}
-                      >
-                        <p
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: "#0A2540",
-                          }}
-                        >
-                          {rec.institution_name}
-                        </p>
-                        <Badge variant={sc.variant} style={{ fontSize: 10 }}>
-                          {sc.label}
-                        </Badge>
+                      {/* Top row: icon + info + amount */}
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 9, background: "#F3F4F6", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0A2540" }}>
+                          {rec.institution_name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" as const }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                              {rec.institution_name}
+                            </p>
+                            <Badge variant={sc.variant} style={{ fontSize: 9, flexShrink: 0 }}>{sc.label}</Badge>
+                          </div>
+                          <p style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.5 }}>
+                            {CAPITAL_LABELS[rec.capital_category] ?? rec.capital_category}
+                            {rec.terms.due ? ` · Due ${rec.terms.due}` : ""}
+                          </p>
+                        </div>
+                        {amount > 0 && (
+                          <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                            <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#0A2540", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                              {fmt(amount)}
+                            </p>
+                            {rec.terms.rate && <p style={{ fontSize: 10, color: "#9CA3AF", marginTop: 2 }}>{rec.terms.rate}</p>}
+                          </div>
+                        )}
                       </div>
-                      <p style={{ fontSize: 12, color: "#9CA3AF" }}>
-                        {CAPITAL_LABELS[rec.capital_category] ??
-                          rec.capital_category}{" "}
-                        · Granted {fmtDate(rec.granted_at)}
-                        {rec.terms.due ? ` · Due ${rec.terms.due}` : ""}
-                      </p>
+                      {/* Bottom row: actions */}
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        {amount > 0 && (
+                          <SettleButton
+                            financingId={rec.financing_id}
+                            totalAmount={amount}
+                            initialProof={rec.settlement_proof}
+                            onSettled={loadData}
+                          />
+                        )}
+                        <Link href="/disputes" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)", background: "#FEF2F2", fontSize: 12, fontWeight: 600, color: "#EF4444", textDecoration: "none" }}>
+                          <AlertCircle size={12} /> Dispute
+                        </Link>
+                      </div>
                     </div>
-
-                    {/* Amount */}
-                    <div style={{ textAlign: "right" as const }}>
-                      <p
-                        style={{
-                          fontFamily: "var(--font-display)",
-                          fontWeight: 800,
-                          fontSize: 18,
-                          color: "#0A2540",
-                          letterSpacing: "-0.03em",
-                        }}
-                      >
-                        {amount > 0 ? fmt(amount) : "—"}
-                      </p>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-                        {rec.terms.rate ?? ""}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {amount > 0 && (
-                        <SettleButton
-                          financingId={rec.financing_id}
-                          totalAmount={amount}
-                          initialProof={rec.settlement_proof}
-                          onSettled={loadData}
-                        />
-                      )}
-                      <Link
-                        href="/disputes"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "4px 10px",
-                          borderRadius: 6,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "#EF4444",
-                          textDecoration: "none",
-                        }}
-                      >
-                        <AlertCircle size={12} /> Dispute
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
         )}
 
         {/* ── MARKETPLACE ── */}
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 16,
-              flexWrap: "wrap",
-              gap: 10,
-            }}
+        <Card>
+          <button
+            onClick={() => setMkOpen(o => !o)}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}
           >
             <div>
-              <h3
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  color: "#0A2540",
-                  letterSpacing: "-0.02em",
-                  marginBottom: 2,
-                }}
-              >
-                Financing Marketplace
-              </h3>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 2 }}>Financing Marketplace</p>
               <p style={{ fontSize: 12, color: "#9CA3AF" }}>
-                {filteredMarket.length} capital provider
-                {filteredMarket.length !== 1 ? "s" : ""} matched to your
-                financial identity.
+                {marketplace.length} capital provider{marketplace.length !== 1 ? "s" : ""} matched to your financial identity
               </p>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                flexWrap: "wrap" as const,
-              }}
-            >
-              <Filter size={13} style={{ color: "#9CA3AF" }} />
-              {CAPITAL_FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setCapFilter(f)}
-                  style={{
-                    padding: "5px 14px",
-                    borderRadius: 9999,
-                    border: "1.5px solid",
-                    borderColor: capFilter === f ? "#0A2540" : "#E5E7EB",
-                    background: capFilter === f ? "#0A2540" : "white",
-                    color: capFilter === f ? "white" : "#6B7280",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    transition: "all 0.12s",
-                  }}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
+            <ChevronRight size={15} style={{ color: "#9CA3AF", flexShrink: 0, transform: mkOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+          </button>
 
-          {filteredMarket.length === 0 ? (
-            <div
-              style={{
-                padding: "40px 20px",
-                textAlign: "center",
-                border: "1px dashed #E5E7EB",
-                borderRadius: 12,
-              }}
-            >
-              <Banknote
-                size={24}
-                style={{ color: "#D1D5DB", margin: "0 auto 10px" }}
-              />
-              <p
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#6B7280",
-                  marginBottom: 4,
-                }}
-              >
-                No matches for this filter
-              </p>
-              <p style={{ fontSize: 12, color: "#9CA3AF" }}>
-                Try a different category or check back after your pipeline
-                runs.
-              </p>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(300px, 1fr))",
-                gap: 14,
-              }}
-            >
-              {filteredMarket.map((item) => (
-                <MarketplaceCard
-                  key={item.match_id}
-                  item={item}
-                  onAccessGranted={(id) => {
-                    setMarketplace((prev) =>
-                      prev.map((m) =>
-                        m.match_id === id
-                          ? { ...m, status: "access_requested", consent_granted: false }
-                          : m
-                      )
-                    );
-                  }}
-                />
-              ))}
+          {mkOpen && (
+            <div style={{ borderTop: "1px solid #F3F4F6" }}>
+              {/* Filter bar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const, padding: "12px 16px", borderBottom: "1px solid #F3F4F6" }}>
+                <Filter size={12} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                {CAPITAL_FILTERS.map((f) => (
+                  <button key={f} onClick={() => setCapFilter(f)}
+                    style={{ padding: "4px 12px", borderRadius: 9999, border: "1.5px solid", borderColor: capFilter === f ? "#0A2540" : "#E5E7EB", background: capFilter === f ? "#0A2540" : "white", color: capFilter === f ? "white" : "#6B7280", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.12s" }}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ padding: "14px 16px" }}>
+                {filteredMarket.length === 0 ? (
+                  <div style={{ padding: "32px 20px", textAlign: "center" as const, border: "1px dashed #E5E7EB", borderRadius: 10 }}>
+                    <Banknote size={22} style={{ color: "#D1D5DB", margin: "0 auto 8px" }} />
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 4 }}>No matches for this filter</p>
+                    <p style={{ fontSize: 12, color: "#9CA3AF" }}>Try a different category or check back after your pipeline runs.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                    {filteredMarket.map((item) => (
+                      <MarketplaceCard
+                        key={item.match_id}
+                        item={item}
+                        onAccessGranted={(id) => {
+                          setMarketplace((prev) =>
+                            prev.map((m) =>
+                              m.match_id === id
+                                ? { ...m, status: "access_requested", consent_granted: false }
+                                : m
+                            )
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* ── INCOMING CONSENT REQUESTS ── */}
         <Card>
@@ -2473,106 +2298,40 @@ function IncomingRequestRow({
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: "14px 16px",
-        background: "#F9FAFB",
-        border: "1px solid #E5E7EB",
-        borderRadius: 10,
-      }}
-    >
-      <div
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 9,
-          background: "#E5E7EB",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 11,
-          fontWeight: 800,
-          color: "#0A2540",
-        }}
-      >
-        {item.name.slice(0, 2).toUpperCase()}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: "#0A2540",
-            marginBottom: 2,
-          }}
-        >
-          {item.name}
-        </p>
-        <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-          {item.type} · Requesting access to your financial profile
-        </p>
-        {error && (
-          <p style={{ fontSize: 11, color: "#EF4444", marginTop: 4 }}>
-            {error}
+    <div style={{ padding: "14px 16px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10 }}>
+      {/* Top: institution info */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 9, background: "#E5E7EB", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0A2540" }}>
+          {item.name.slice(0, 2).toUpperCase()}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+            {item.name}
           </p>
-        )}
+          <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+            {item.type} · {item.label}
+          </p>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+      {/* Error */}
+      {error && (
+        <p style={{ fontSize: 11, color: "#EF4444", marginBottom: 10 }}>{error}</p>
+      )}
+      {/* Bottom: actions */}
+      <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={() => handle("deny")}
           disabled={!!loading}
-          style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 7,
-            border: "1px solid #E5E7EB",
-            background: "white",
-            fontSize: 12,
-            fontWeight: 600,
-            color: "#6B7280",
-            cursor: loading ? "default" : "pointer",
-            opacity: loading === "deny" ? 0.6 : 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
+          style={{ flex: 1, height: 36, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#6B7280", cursor: loading ? "default" : "pointer", opacity: loading === "deny" ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}
         >
-          {loading === "deny" ? (
-            <Loader2 size={11} className="animate-spin" />
-          ) : (
-            <XCircle size={11} />
-          )}{" "}
-          Deny
+          {loading === "deny" ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />} Deny
         </button>
         <button
           onClick={() => handle("approve")}
           disabled={!!loading}
-          style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 7,
-            border: "none",
-            background: "#0A2540",
-            fontSize: 12,
-            fontWeight: 600,
-            color: "white",
-            cursor: loading ? "default" : "pointer",
-            opacity: loading === "approve" ? 0.6 : 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
+          style={{ flex: 2, height: 36, borderRadius: 8, border: "none", background: "#0A2540", fontSize: 12, fontWeight: 600, color: "white", cursor: loading ? "default" : "pointer", opacity: loading === "approve" ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}
         >
-          {loading === "approve" ? (
-            <Loader2 size={11} className="animate-spin" />
-          ) : (
-            <CheckCircle2 size={11} />
-          )}{" "}
-          Approve
+          {loading === "approve" ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Approve
         </button>
       </div>
     </div>

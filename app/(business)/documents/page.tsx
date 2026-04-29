@@ -630,18 +630,10 @@ function CategoryCard({
 
           {/* Empty state */}
           {isEmpty && (
-            <div style={{ padding: "16px 20px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" as const }}>
+            <div style={{ padding: "12px 20px 16px" }}>
               <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>
                 No documents uploaded yet.{cat.required ? " Required for verification." : ""}
               </p>
-              <button
-                onClick={(e) => { e.stopPropagation(); onUpload(); }}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "2px dashed #E5E7EB", background: "none", fontSize: 12, fontWeight: 600, color: "#9CA3AF", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" as const, flexShrink: 0 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; }}
-              >
-                <Upload size={13} /> Upload now
-              </button>
             </div>
           )}
         </div>

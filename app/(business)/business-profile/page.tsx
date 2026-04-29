@@ -237,12 +237,12 @@ function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => 
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden", ...style }}>{children}</div>;
 }
-function CardHeader({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
+function CardHeader({ title, sub, action, hideMobileSub }: { title: string; sub?: string; action?: React.ReactNode; hideMobileSub?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #F3F4F6", gap: 12, flexWrap: "wrap" as const }}>
       <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: sub ? 3 : 0 }}>{title}</p>
-        {sub && <p style={{ fontSize: 12, color: "#9CA3AF" }}>{sub}</p>}
+        {sub && <p className={hideMobileSub ? "bp-hide-mobile" : undefined} style={{ fontSize: 12, color: "#9CA3AF" }}>{sub}</p>}
       </div>
       {action && <div style={{ flexShrink: 0 }}>{action}</div>}
     </div>
@@ -923,7 +923,7 @@ export default function BusinessProfilePage() {
   /* ── RENDER ──────────────────────────────────────────── */
   return (
     <>
-      <style>{`@keyframes cl-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+      <style>{`@keyframes cl-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}} @media(max-width:768px){.bp-hide-mobile{display:none!important}}`}</style>
 
       {pendingDelete && (
         <ConfirmDeleteModal title={`Delete ${pendingDelete.label}?`} description={pendingDelete.description} onConfirm={pendingDelete.onConfirm} onClose={() => setPendingDelete(null)} />
@@ -1122,7 +1122,7 @@ export default function BusinessProfilePage() {
         {/* ── TAB 1: PROFILE ── */}
         {activeTab === "profile" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "12px 16px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10 }}>
+            <div className="bp-hide-mobile" style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "12px 16px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10 }}>
               <Info size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>Fields are populated from registration, your uploaded documents, and your Creditlinker account. Locked fields can only change by updating their source.</p>
             </div>
@@ -1150,7 +1150,7 @@ export default function BusinessProfilePage() {
             </Card>
 
             <Card>
-              <CardHeader title="Account Owner" sub="From your Creditlinker account. Update via account settings." />
+              <CardHeader title="Account Owner" />
               <FieldRow label="Full name" value={ownerName} origin="account" />
               <div style={{ padding: "12px 24px", borderTop: "1px solid #F9FAFB" }}>
                 <p style={{ fontSize: 12, color: "#9CA3AF" }}>To update your name or email, <Link href="/settings" style={{ color: "#0A2540", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 2 }}>go to Settings</Link>.</p>
@@ -1163,7 +1163,7 @@ export default function BusinessProfilePage() {
               />
               <div style={{ padding: "10px 0 8px" }}>
                 {directors.length === 0 ? (
-                  <div style={{ padding: "20px 24px" }}>
+                  <div className="bp-hide-mobile" style={{ padding: "20px 24px" }}>
                     <p style={{ fontSize: 13, color: "#9CA3AF" }}>No ownership documents uploaded yet. <Link href="/documents" style={{ color: "#0A2540", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 2 }}>Upload now</Link>.</p>
                   </div>
                 ) : directors.map((dir, i) => (
@@ -1188,7 +1188,7 @@ export default function BusinessProfilePage() {
             </Card>
 
             <Card>
-              <CardHeader title="Capital Preferences" sub="The financing types you are open to receiving." />
+              <CardHeader title="Capital Preferences" sub="The financing types you are open to receiving." hideMobileSub />
               <div style={{ padding: "16px 24px 20px" }}>
                 <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 8, marginBottom: 14 }}>
                   {capital.map(cat => (
@@ -1214,6 +1214,7 @@ export default function BusinessProfilePage() {
                 title="Branches, Franchises & Locations"
                 sub="All operating entities. Branches share your legal entity. Franchises are independent — invite them to share data."
                 action={<Button variant="outline" size="sm" onClick={() => setModal({ type: "add_branch" })} style={{ gap: 5 }}><Plus size={12} /> Add location</Button>}
+                hideMobileSub
               />
               <div style={{ padding: "10px 0 8px" }}>
                 {branches.length === 0 ? (
@@ -1265,7 +1266,7 @@ export default function BusinessProfilePage() {
                   );
                 })}
               </div>
-              <div style={{ padding: "10px 24px 14px", borderTop: "1px solid #F3F4F6" }}>
+              <div className="bp-hide-mobile" style={{ padding: "10px 24px 14px", borderTop: "1px solid #F3F4F6" }}>
                 <p style={{ fontSize: 12, color: "#9CA3AF" }}>
                   {branches.length} location{branches.length !== 1 ? "s" : ""}{branches.filter(b => b.type === "franchise").length > 0 ? ` · ${branches.filter(b => b.type === "franchise").length} franchise${branches.filter(b => b.type === "franchise").length !== 1 ? "s" : ""}` : ""} · Visible to financers evaluating your operational footprint.
                 </p>
