@@ -607,7 +607,7 @@ export default function FinancialIdentityPage() {
         >
           <div style={{ padding: "4px 20px 16px" }}>
             {loading ? (
-              <><SkeletonBox h={40} r={8} /><SkeletonBox h={40} r={8} style={{ marginTop: 8 }} /></>
+              <><SkeletonBox h={40} r={8} /><div style={{ marginTop: 8 }}><SkeletonBox h={40} r={8} /></div></>
             ) : dimensions.length === 0 ? (
               <p style={{ fontSize: 13, color: "#9CA3AF", padding: "16px 0", textAlign: "center" as const }}>Run the pipeline to generate your score dimensions.</p>
             ) : (
