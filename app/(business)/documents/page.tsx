@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Upload, FileText, CheckCircle2, Clock, AlertCircle,
   Trash2, Download, Eye, X, Loader2, Plus, ShieldCheck,
-  File, FileBadge, BookOpen,
+  File, FileBadge, BookOpen, ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -558,6 +558,7 @@ function CategoryCard({
   onUpload:        () => void;
   onDeleteRequest: (doc: UploadedDoc) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const allVerified = cat.documents.length > 0 && cat.documents.every((d) => d.status === "verified");
   const hasRejected = cat.documents.some((d) => d.status === "rejected");
   const isEmpty     = cat.documents.length === 0;
@@ -565,74 +566,84 @@ function CategoryCard({
   return (
     <div style={{ background: "white", border: `1px solid ${hasRejected ? "rgba(239,68,68,0.25)" : "#E5E7EB"}`, borderRadius: 14, overflow: "hidden" }}>
 
-      {/* Category header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "16px 20px", borderBottom: isEmpty ? "none" : "1px solid #F3F4F6", gap: 12, flexWrap: "wrap" as const }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flex: 1, minWidth: 0 }}>
+      {/* ── Collapsed title row — always visible, click anywhere to toggle ── */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const, borderBottom: open ? "1px solid #F3F4F6" : "none" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
             background: allVerified ? "#ECFDF5" : hasRejected ? "#FEF2F2" : "#F3F4F6",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: allVerified ? "#10B981" : hasRejected ? "#EF4444" : "#6B7280",
           }}>
             {cat.icon}
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" as const }}>
-              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>
-                {cat.label}
-              </p>
-              {cat.required && (
-                <Badge variant="outline" style={{ fontSize: 9, padding: "1px 6px" }}>Required</Badge>
-              )}
-              {allVerified && (
-                <Badge variant="success" style={{ fontSize: 9, padding: "1px 6px" }}>Complete</Badge>
-              )}
-            </div>
-            <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.5 }}>{cat.description}</p>
-            <p style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>
-              <span style={{ color: "#00A8CC", fontWeight: 600 }}>↑ </span>{cat.impact}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const, minWidth: 0 }}>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>
+              {cat.label}
             </p>
+            {cat.required && <Badge variant="outline" style={{ fontSize: 9, padding: "1px 6px" }}>Required</Badge>}
+            {allVerified && <Badge variant="success" style={{ fontSize: 9, padding: "1px 6px" }}>Complete</Badge>}
+            {hasRejected && <Badge variant="destructive" style={{ fontSize: 9, padding: "1px 6px" }}>Needs attention</Badge>}
+            {!isEmpty && <span style={{ fontSize: 11, color: "#9CA3AF" }}>{cat.documents.length} file{cat.documents.length !== 1 ? "s" : ""}</span>}
           </div>
         </div>
+        <ChevronDown size={15} style={{ color: "#9CA3AF", flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+      </button>
 
-        <button
-          onClick={onUpload}
-          style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", cursor: "pointer", flexShrink: 0, transition: "all 0.12s" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.background = "#F9FAFB"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.background = "white"; }}
-        >
-          <Plus size={12} /> Upload
-        </button>
-      </div>
-
-      {/* Documents list */}
-      {cat.documents.length > 0 && (
+      {/* ── Expanded body ── */}
+      {open && (
         <div>
-          <div className="doc-desktop-row" style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 110px auto", gap: 14, padding: "6px 24px 8px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6" }}>
-            {["", "Filename", "Size", "Uploaded", "Status"].map((h) => (
-              <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
-            ))}
+          {/* Description + impact + upload button */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "14px 20px", gap: 12, flexWrap: "wrap" as const, borderBottom: !isEmpty ? "1px solid #F3F4F6" : "none" }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.5, marginBottom: 4 }}>{cat.description}</p>
+              <p style={{ fontSize: 11, color: "#6B7280" }}>
+                <span style={{ color: "#00A8CC", fontWeight: 600 }}>↑ </span>{cat.impact}
+              </p>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onUpload(); }}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", cursor: "pointer", flexShrink: 0, transition: "all 0.12s" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.background = "#F9FAFB"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.background = "white"; }}
+            >
+              <Plus size={12} /> Upload
+            </button>
           </div>
-          {cat.documents.map((doc) => (
-            <DocumentRow key={doc.doc_id} doc={doc} onDeleteRequest={onDeleteRequest} />
-          ))}
-        </div>
-      )}
 
-      {/* Empty state */}
-      {isEmpty && (
-        <div style={{ padding: "16px 20px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" as const }}>
-          <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>
-            No documents uploaded yet.{cat.required ? " Required for verification." : ""}
-          </p>
-          <button
-            onClick={onUpload}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "2px dashed #E5E7EB", background: "none", fontSize: 12, fontWeight: 600, color: "#9CA3AF", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" as const, flexShrink: 0 }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; }}
-          >
-            <Upload size={13} /> Upload now
-          </button>
+          {/* Documents list */}
+          {!isEmpty && (
+            <div>
+              <div className="doc-desktop-row" style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 110px auto", gap: 14, padding: "6px 24px 8px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6" }}>
+                {["", "Filename", "Size", "Uploaded", "Status"].map((h) => (
+                  <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{h}</p>
+                ))}
+              </div>
+              {cat.documents.map((doc) => (
+                <DocumentRow key={doc.doc_id} doc={doc} onDeleteRequest={onDeleteRequest} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {isEmpty && (
+            <div style={{ padding: "16px 20px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" as const }}>
+              <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>
+                No documents uploaded yet.{cat.required ? " Required for verification." : ""}
+              </p>
+              <button
+                onClick={(e) => { e.stopPropagation(); onUpload(); }}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "2px dashed #E5E7EB", background: "none", fontSize: 12, fontWeight: 600, color: "#9CA3AF", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" as const, flexShrink: 0 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; }}
+              >
+                <Upload size={13} /> Upload now
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
