@@ -282,6 +282,25 @@
    BUSINESS PORTAL — PAGE RESPONSIVE GRIDS
 ══════════════════════════════════════════ */
 
+/* Financial Identity: desktop default */
+.fi-mobile-layout  { display: none; }
+.fi-desktop-layout { display: block; }
+
+/* Financial Identity: hero stats bar */
+.fi-hero-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  flex: 1;
+  min-width: 0;
+}
+.fi-hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
 /* Horizontal scroll wrapper for data tables */
 .cl-table-scroll {
   overflow-x: auto;
@@ -380,9 +399,14 @@
   .fnc-fa-charts-grid  { grid-template-columns: 1fr !important; }
 
   /* ── Financial Identity ── */
+  .fi-hero-stats { justify-content: flex-start; gap: 16px; }
+  .fi-hero-stat  { align-items: flex-start; }
   .fi-sidebar-grid { grid-template-columns: 1fr !important; }
   .fi-sidebar-grid > * { min-width: 0 !important; width: 100% !important; }
   .fi-two-col      { grid-template-columns: 1fr !important; }
+
+  .fi-mobile-layout  { display: block !important; }
+  .fi-desktop-layout { display: none !important; }
 
   /* ── Financial Analysis ── */
   .fa-charts-grid      { grid-template-columns: 1fr !important; }

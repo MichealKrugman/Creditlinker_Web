@@ -576,19 +576,21 @@ export default function FinancialIdentityPage() {
             ) : score ? (
               <>
                 <div style={{ flexShrink: 0 }}><ScoreRingLarge score={score.composite_score} /></div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", flexDirection: "row", gap: 16, marginBottom: 10 }}>
-                    <div>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Data Quality</p>
-                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_quality_score}%</p>
-                    </div>
-                    <div style={{ width: 1, background: "#F3F4F6" }} />
-                    <div>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Months</p>
-                      <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
-                    </div>
+                <div className="fi-hero-stats">
+                  <div className="fi-hero-stat">
+                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Data Quality</p>
+                    <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_quality_score}%</p>
                   </div>
-                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>Synced {relativeTime(lastSyncedAt)}</p>
+                  <div style={{ width: 1, alignSelf: "stretch", background: "#F3F4F6", flexShrink: 0 }} />
+                  <div className="fi-hero-stat">
+                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Months</p>
+                    <p style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>{score.data_months_analyzed}</p>
+                  </div>
+                  <div style={{ width: 1, alignSelf: "stretch", background: "#F3F4F6", flexShrink: 0 }} />
+                  <div className="fi-hero-stat">
+                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Synced</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.02em", lineHeight: 1 }}>{relativeTime(lastSyncedAt)}</p>
+                  </div>
                 </div>
               </>
             ) : (
