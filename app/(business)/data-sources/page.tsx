@@ -1464,6 +1464,31 @@ export default function DataSourcesPage() {
     }
   };
 
+  const handleDisconnect = async (accountId: string) => {
+    if (!confirm("Disconnect this account? This cannot be undone.")) return;
+    await supabase
+      .from("linked_accounts")
+      .delete()
+      .eq("account_id", accountId)
+      .eq("business_id", activeBusiness!.business_id);
+    setActiveMenu(null);
+    await loadAll();
+  };
+
+  const handleSetPrimary = async (accountId: string) => {
+    // Clear existing primary, then set new one
+    await supabase
+      .from("linked_accounts")
+      .update({ is_primary: false })
+      .eq("business_id", activeBusiness!.business_id);
+    await supabase
+      .from("linked_accounts")
+      .update({ is_primary: true })
+      .eq("account_id", accountId);
+    setActiveMenu(null);
+    await loadAll();
+  };
+
   const franchises = entities.filter(e => e.has_own_books);
   const bid        = activeBusiness?.business_id ?? "";
 
@@ -1554,8 +1579,8 @@ export default function DataSourcesPage() {
                         </button>
                         {activeMenu === acc.account_id && (
                           <div style={{ position: "absolute" as const, right: 0, top: 36, background: "white", border: "1px solid #E5E7EB", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 50, minWidth: 160, overflow: "hidden" }}>
-                            {!acc.is_primary && <button style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#374151", textAlign: "left" as const }}><CheckCircle2 size={13} /> Set as primary</button>}
-                            <button style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#EF4444", textAlign: "left" as const, borderTop: "1px solid #F3F4F6" }}><Trash2 size={13} /> Disconnect</button>
+                            {!acc.is_primary && <button onClick={() => handleSetPrimary(acc.account_id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#374151", textAlign: "left" as const }}><CheckCircle2 size={13} /> Set as primary</button>}
+                            <button onClick={() => handleDisconnect(acc.account_id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#EF4444", textAlign: "left" as const, borderTop: "1px solid #F3F4F6" }}><Trash2 size={13} /> Disconnect</button>
                           </div>
                         )}
                       </div>
@@ -1594,8 +1619,8 @@ export default function DataSourcesPage() {
                             </button>
                             {activeMenu === acc.account_id && (
                               <div style={{ position: "absolute" as const, right: 0, top: 36, background: "white", border: "1px solid #E5E7EB", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 50, minWidth: 160, overflow: "hidden" }}>
-                                {!acc.is_primary && <button style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#374151", textAlign: "left" as const }}><CheckCircle2 size={13} /> Set as primary</button>}
-                                <button style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#EF4444", textAlign: "left" as const, borderTop: "1px solid #F3F4F6" }}><Trash2 size={13} /> Disconnect</button>
+                                {!acc.is_primary && <button onClick={() => handleSetPrimary(acc.account_id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#374151", textAlign: "left" as const }}><CheckCircle2 size={13} /> Set as primary</button>}
+                                <button onClick={() => handleDisconnect(acc.account_id)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: "#EF4444", textAlign: "left" as const, borderTop: "1px solid #F3F4F6" }}><Trash2 size={13} /> Disconnect</button>
                               </div>
                             )}
                           </div>
