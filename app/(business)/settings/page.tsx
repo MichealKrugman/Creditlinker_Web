@@ -27,6 +27,7 @@ interface AccountSettings {
   mfa_enabled:   boolean;
   last_login:    string | null;
   business_id:   string;
+  business_name: string;
   member_since:  string;
   open_to_financing: boolean;
   kyc_status:    string;
@@ -490,10 +491,7 @@ function DeleteAccountModal({ settings, onClose }: { settings: AccountSettings; 
     return () => clearTimeout(t);
   }, [step, countdown]);
 
-  const nameMatches = confirmName.trim().toLowerCase() === (settings.full_name ?? "").trim().toLowerCase();
-  // We use the business name — fetch it from the API response
-  // settings doesn't carry business_name directly; we use business_id as fallback display
-  // The edge function validates against the real DB value.
+  const nameMatches = confirmName.trim().toLowerCase() === (settings.business_name ?? "").trim().toLowerCase();
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -511,8 +509,8 @@ function DeleteAccountModal({ settings, onClose }: { settings: AccountSettings; 
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Deletion failed");
-      // Edge function signs the user out — clear local session and redirect
-      await supabase.auth.signOut();
+      // Don't sign out — user may have other businesses.
+      // Redirect to "/" so the business selector shows remaining businesses.
       window.location.href = "/";
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong. Please try again.");
@@ -561,16 +559,16 @@ function DeleteAccountModal({ settings, onClose }: { settings: AccountSettings; 
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
-                  Type your full name to continue
+                  Type your business name to continue
                 </label>
                 <Input
                   value={confirmName}
                   onChange={e => setConfirmName(e.target.value)}
-                  placeholder={settings.full_name ?? "Your full name"}
+                  placeholder={settings.business_name ?? "Business name"}
                   style={{ height: 42, fontSize: 13, borderColor: confirmName && !nameMatches ? "#EF4444" : undefined }}
                 />
                 {confirmName && !nameMatches && (
-                  <p style={{ fontSize: 11, color: "#EF4444" }}>Name does not match your account name.</p>
+                  <p style={{ fontSize: 11, color: "#EF4444" }}>Name does not match your business name.</p>
                 )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
