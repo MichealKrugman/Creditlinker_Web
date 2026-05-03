@@ -471,11 +471,180 @@ function AccountTab({ settings, onRefresh }: { settings: AccountSettings; onRefr
 }
 
 /* ─────────────────────────────────────────────────────────
+   DELETE ACCOUNT MODAL
+───────────────────────────────────────────────────────── */
+function DeleteAccountModal({ settings, onClose }: { settings: AccountSettings; onClose: () => void }) {
+  const COUNTDOWN = 30;
+  const [step,          setStep]          = useState<1 | 2 | 3>(1);
+  const [confirmName,   setConfirmName]   = useState("");
+  const [reason,        setReason]        = useState("");
+  const [countdown,     setCountdown]     = useState(COUNTDOWN);
+  const [deleting,      setDeleting]      = useState(false);
+  const [error,         setError]         = useState("");
+
+  // Start countdown when user reaches step 2
+  useEffect(() => {
+    if (step !== 2) return;
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, countdown]);
+
+  const nameMatches = confirmName.trim().toLowerCase() === (settings.full_name ?? "").trim().toLowerCase();
+  // We use the business name — fetch it from the API response
+  // settings doesn't carry business_name directly; we use business_id as fallback display
+  // The edge function validates against the real DB value.
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-business-data`,
+        {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body:    JSON.stringify({ business_id: settings.business_id, confirmation_name: confirmName.trim(), reason: reason.trim() || null }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Deletion failed");
+      // Edge function signs the user out — clear local session and redirect
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (e: any) {
+      setError(e?.message ?? "Something went wrong. Please try again.");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 80px rgba(0,0,0,0.25)", overflow: "hidden" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #FEE2E2", background: "#FFF5F5" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#991B1B", letterSpacing: "-0.02em" }}>Delete account data</p>
+            <p style={{ fontSize: 12, color: "#EF4444", marginTop: 2 }}>This action cannot be undone by you.</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 4 }}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Step 1 — Warning + name confirmation */}
+          {step === 1 && (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ padding: "12px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#991B1B", marginBottom: 6 }}>What happens when you delete</p>
+                  <ul style={{ margin: 0, padding: "0 0 0 16px", display: "flex", flexDirection: "column", gap: 4 }}>
+                    {[
+                      "You will be immediately signed out and lose all access.",
+                      "Your transactions, scores, and financial history will no longer be visible to you.",
+                      "Active bank account connections will be deactivated.",
+                      "Any ongoing financing records will be frozen.",
+                      "Creditlinker retains your data for legal and regulatory compliance purposes.",
+                    ].map((item, i) => (
+                      <li key={i} style={{ fontSize: 12, color: "#7F1D1D", lineHeight: 1.6 }}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div style={{ padding: "10px 14px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10 }}>
+                  <p style={{ fontSize: 12, color: "#92400E", lineHeight: 1.6 }}>
+                    Under the Nigeria Data Protection Act (NDPA) you have the right to request erasure. Creditlinker may retain data required by financial regulations for up to 7 years.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
+                  Type your full name to continue
+                </label>
+                <Input
+                  value={confirmName}
+                  onChange={e => setConfirmName(e.target.value)}
+                  placeholder={settings.full_name ?? "Your full name"}
+                  style={{ height: 42, fontSize: 13, borderColor: confirmName && !nameMatches ? "#EF4444" : undefined }}
+                />
+                {confirmName && !nameMatches && (
+                  <p style={{ fontSize: 11, color: "#EF4444" }}>Name does not match your account name.</p>
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
+                  Reason <span style={{ fontWeight: 400, color: "#9CA3AF" }}>(optional)</span>
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  placeholder="Help us understand why you're leaving…"
+                  rows={3}
+                  style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13, color: "#0A2540", resize: "none", outline: "none", fontFamily: "inherit", lineHeight: 1.6 }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={onClose} style={{ flex: 1, height: 42, borderRadius: 9, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
+                <button
+                  onClick={() => { setStep(2); }}
+                  disabled={!nameMatches}
+                  style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: nameMatches ? "#EF4444" : "#F3F4F6", color: nameMatches ? "white" : "#9CA3AF", fontSize: 13, fontWeight: 700, cursor: nameMatches ? "pointer" : "not-allowed", transition: "all 0.15s" }}
+                >
+                  Continue
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Step 2 — Countdown */}
+          {step === 2 && (
+            <>
+              <div style={{ textAlign: "center" as const, padding: "12px 0" }}>
+                <div style={{ width: 80, height: 80, borderRadius: "50%", border: `4px solid ${countdown > 0 ? "#FCA5A5" : "#EF4444"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", transition: "border-color 0.3s" }}>
+                  <p style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800, color: countdown > 0 ? "#EF4444" : "#991B1B", letterSpacing: "-0.04em" }}>
+                    {countdown > 0 ? countdown : "✓"}
+                  </p>
+                </div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", marginBottom: 6 }}>
+                  {countdown > 0 ? `Please wait ${countdown} second${countdown !== 1 ? "s" : ""}…` : "You may now confirm deletion."}
+                </p>
+                <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>
+                  {countdown > 0
+                    ? "This delay is required to prevent accidental deletion. Use this time to reconsider."
+                    : "If you have changed your mind, click Cancel. This is your last chance."
+                  }
+                </p>
+              </div>
+              {error && <InlineError msg={error} />}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={onClose} style={{ flex: 1, height: 42, borderRadius: 9, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
+                <button
+                  onClick={handleDelete}
+                  disabled={countdown > 0 || deleting}
+                  style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: countdown > 0 ? "#F3F4F6" : "#991B1B", color: countdown > 0 ? "#9CA3AF" : "white", fontSize: 13, fontWeight: 700, cursor: countdown > 0 || deleting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.3s" }}
+                >
+                  {deleting ? <><Loader2 size={13} className="animate-spin" /> Deleting…</> : "Permanently delete"}
+                </button>
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    SECURITY TAB
 ───────────────────────────────────────────────────────── */
 function SecurityTab({ settings, onShowPasswordModal }: { settings: AccountSettings; onShowPasswordModal: () => void }) {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {showDeleteModal && <DeleteAccountModal settings={settings} onClose={() => setShowDeleteModal(false)} />}
       <Card>
         <CardHeader title="Password" sub="Use a strong, unique password to protect your account." />
         <SettingRow label="Account password" sub="Last changed: unknown">
@@ -536,10 +705,32 @@ function SecurityTab({ settings, onShowPasswordModal }: { settings: AccountSetti
           </div>
         )}
       </Card>
+
+      {/* ── DANGER ZONE — buried at the bottom intentionally ── */}
+      <div style={{ marginTop: 16 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</p>
+        <div style={{ border: "1px solid #FECACA", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", gap: 24 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#991B1B", marginBottom: 3 }}>Delete account data</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.5 }}
+              >Permanently revoke your access and request erasure of your data. You will be signed out immediately. This cannot be undone by you.</p>
+            </div>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 8, border: "1.5px solid #FECACA", background: "white", fontSize: 13, fontWeight: 700, color: "#EF4444", cursor: "pointer", whiteSpace: "nowrap" as const, transition: "all 0.12s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#FEF2F2"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "white"; }}
+            >
+              Delete data
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
-
 /* ─────────────────────────────────────────────────────────
    NOTIFICATIONS TAB
 ───────────────────────────────────────────────────────── */
