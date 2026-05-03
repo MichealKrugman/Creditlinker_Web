@@ -508,7 +508,15 @@ function DeleteAccountModal({ settings, onClose }: { settings: AccountSettings; 
         }
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Deletion failed");
+      if (!res.ok) {
+        if (data.code === 'OPEN_FINANCING') {
+          setError('You have active financing. Go to the Financing page, settle all open records, then return here to delete.');
+        } else {
+          setError(data.error ?? 'Deletion failed');
+        }
+        setDeleting(false);
+        return;
+      }
       // Don't sign out — user may have other businesses.
       // Redirect to "/" so the business selector shows remaining businesses.
       window.location.href = "/";
