@@ -733,10 +733,14 @@ function ConnectModal({
       });
 
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const publicKey    = process.env.NEXT_PUBLIC_MONO_PUBLIC_KEY!;
+      console.log("[Mono] Initialising widget with key:", publicKey?.slice(0, 12) + "…");
 
       const mono = new (window as any).MonoConnect({
-        key:       process.env.NEXT_PUBLIC_MONO_PUBLIC_KEY!,
+        key:      publicKey,
+        onLoad:   () => console.log("[Mono] Widget loaded"),
         onSuccess: async ({ code }: { code: string }) => {
+          console.log("[Mono] Success — exchanging code");
           const res = await fetch(`${supabaseUrl}/functions/v1/link-mono-account`, {
             method:  "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
@@ -752,11 +756,13 @@ function ConnectModal({
           }
         },
         onClose: () => {
+          // Mono widget closed without completing — stay on our modal so user can retry
+          console.log("[Mono] Widget closed without success");
           setLoading(false);
-          onClose();
         },
       });
       mono.setup();
+      console.log("[Mono] Calling open()");
       mono.open();
     } catch (err) {
       console.error("Mono widget error:", err);
