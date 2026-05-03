@@ -309,6 +309,9 @@ export default function TransactionsPage() {
   const [openTagRect,    setOpenTagRect]    = useState<DOMRect | null>(null);
   const [recentlyTagged, setRecentlyTagged] = useState<Set<string>>(new Set());
 
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
+
   // ── Date range (derived from all transactions for this business)
   const [dateRange,      setDateRange]      = useState<{ min: string; max: string } | null>(null);
 
@@ -329,7 +332,7 @@ export default function TransactionsPage() {
       const [accountsRes, branchesRes, catRes] = await Promise.all([
         supabase
           .from("linked_accounts")
-          .select("account_id, bank_name, account_number_masked, branch_id")
+          .select("account_id, bank_name, account_number_masked, entity_id")
           .eq("business_id", bid),
         supabase
           .from("branches")
@@ -358,8 +361,8 @@ export default function TransactionsPage() {
       for (const acc of accountsRes.data ?? []) {
         const display = `${acc.bank_name} ${acc.account_number_masked ?? ""}`.trim();
         dispMap[acc.account_id]  = display;
-        // Accounts with no branch_id → assign to real HQ branch (so they appear under HQ, not a ghost entity)
-        const eid                = acc.branch_id ?? hqBranchId ?? "hq";
+        // Accounts with no entity_id → assign to real HQ branch
+        const eid                = acc.entity_id ?? hqBranchId ?? "hq";
         entMap[acc.account_id]   = eid;
         if (!entAccMap[eid]) entAccMap[eid] = [];
         entAccMap[eid].push(acc.account_id);
@@ -487,7 +490,7 @@ export default function TransactionsPage() {
     const buildBase = () => {
       let q = supabase
         .from("normalized_transactions")
-        .select("id, date, amount, direction, category, counterparty_cluster, account_id, is_recurring, is_internal_transfer, flags", { count: "exact" })
+        .select("id, date, amount, direction, category, counterparty_cluster, description, account_id, is_recurring, is_internal_transfer, flags", { count: "exact" })
         .eq("business_id", bid);
 
       if (scopeAccountIds !== null) {
@@ -496,8 +499,10 @@ export default function TransactionsPage() {
       }
       if (direction !== "All")       q = q.eq("direction", direction.toLowerCase());
       if (category  !== "All")       q = q.eq("category",  category);
-      if (debouncedSearch)           q = q.ilike("counterparty_cluster", `%${debouncedSearch}%`);
+      if (debouncedSearch)           q = q.or(`counterparty_cluster.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
       if (showTaggedOnly)            q = q.in("id", taggedIds);
+      if (dateFrom)                  q = q.gte("date", dateFrom);
+      if (dateTo)                    q = q.lte("date", dateTo);
 
       return q;
     };
@@ -521,18 +526,28 @@ export default function TransactionsPage() {
       return;
     }
 
-    // 6. Aggregate stats — fetch amount+direction for all matching rows.
-    // .limit(100000) overrides PostgREST's default 1000-row cap so totals are exact.
-    const aggBase = buildBase();
-    const { data: aggRows } = aggBase
-      ? await aggBase.select("amount, direction").limit(100000).returns<{ amount: number; direction: string }[]>()
-      : { data: [] };
+    // 6. Aggregate stats — two DB-side sum queries, no rows sent to client
+    const buildBaseForStats = () => {
+      let q = supabase
+        .from("normalized_transactions")
+        .select("amount", { count: "exact" })
+        .eq("business_id", bid);
+      if (scopeAccountIds !== null && scopeAccountIds.length > 0) q = q.in("account_id", scopeAccountIds);
+      if (direction !== "All") q = q.eq("direction", direction.toLowerCase());
+      if (category  !== "All") q = q.eq("category",  category);
+      if (debouncedSearch)     q = q.or(`counterparty_cluster.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
+      if (showTaggedOnly)      q = q.in("id", taggedIds);
+      if (dateFrom)            q = q.gte("date", dateFrom);
+      if (dateTo)              q = q.lte("date", dateTo);
+      return q;
+    };
 
-    let totalIn = 0, totalOut = 0;
-    for (const r of aggRows ?? []) {
-      if (r.direction === "credit") totalIn  += Number(r.amount);
-      else                          totalOut += Number(r.amount);
-    }
+    const [creditRes, debitRes] = await Promise.all([
+      buildBaseForStats().eq("direction", "credit").select("amount.sum()"),
+      buildBaseForStats().eq("direction", "debit").select("amount.sum()"),
+    ]);
+    const totalIn  = Number((creditRes.data as any)?.[0]?.sum ?? 0);
+    const totalOut = Number((debitRes.data  as any)?.[0]?.sum ?? 0);
 
     // 7. Unknown count (large-value uncategorised) for nudge banner — scoped to entity, no other filters
     const unknownBase = (() => {
@@ -555,7 +570,7 @@ export default function TransactionsPage() {
       return {
         id:                   tx.id,
         date:                 tx.date,
-        description:          (tx.counterparty_cluster as string | null) ?? (tx.category as string),
+        description:          (tx.counterparty_cluster as string | null) ?? (tx.description as string | null) ?? (tx.category as string),
         amount:               Number(tx.amount),
         direction:            tx.direction as "credit" | "debit",
         category:             userTag ? userTag.category : (tx.category as string),
@@ -646,7 +661,40 @@ export default function TransactionsPage() {
     fetchPage();
   };
 
-  /* ── Download: call export-transactions edge function ── */
+  /* ── Sync: fetch transactions for all accounts in current scope ── */
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    if (!activeBusiness || syncing) return;
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` };
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const bid = activeBusiness.business_id;
+
+      // Determine which accounts to sync
+      const accountIds = activeEntity === "all"
+        ? Object.keys(accountDisplay)
+        : (entityAccountIds[activeEntity] ?? []);
+
+      // Fire all syncs in parallel
+      await Promise.all(accountIds.map(aid =>
+        fetch(`${supabaseUrl}/functions/v1/fetch-mono-transactions`, {
+          method: "POST", headers,
+          body: JSON.stringify({ account_id: aid, business_id: bid }),
+        })
+      ));
+
+      // Refresh page data
+      await fetchPage();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  /* ── Download ── */
   const [exporting, setExporting] = useState(false);
 
   const handleDownload = async () => {
@@ -700,11 +748,11 @@ export default function TransactionsPage() {
   /* ── Derived ── */
   const netFlow       = statsIn - statsOut;
   const totalPages    = Math.ceil(totalCount / PAGE_SIZE);
-  const hasFilters    = search !== "" || direction !== "All" || category !== "All" || showTaggedOnly;
+  const hasFilters    = search !== "" || direction !== "All" || category !== "All" || showTaggedOnly || !!dateFrom || !!dateTo;
   const selectedEntity = activeEntity === "all" ? null : entities.find(e => e.id === activeEntity) ?? null;
 
   const clearFilters = () => {
-    setSearch(""); setDirection("All"); setCategory("All"); setShowTaggedOnly(false); setPage(1);
+    setSearch(""); setDirection("All"); setCategory("All"); setShowTaggedOnly(false); setDateFrom(""); setDateTo(""); setPage(1);
   };
 
   /* ── Loading guard ── */
@@ -748,8 +796,8 @@ export default function TransactionsPage() {
           <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleDownload} disabled={exporting}>
             <Download size={13} /> {exporting ? 'Exporting…' : 'Export'}
           </Button>
-          <Button variant="primary" size="sm" style={{ gap: 6 }} onClick={() => { window.location.href = "/data-sources"; }}>
-            <RefreshCw size={13} /> Sync
+          <Button variant="primary" size="sm" style={{ gap: 6 }} onClick={handleSync} disabled={syncing}>
+            <RefreshCw size={13} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing…" : "Sync"}
           </Button>
         </div>
       </div>
@@ -906,6 +954,17 @@ export default function TransactionsPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 70 }}>Tagged</span>
               <FilterPill label="Human-tagged only" active={showTaggedOnly} onClick={() => { setShowTaggedOnly(!showTaggedOnly); setPage(1); }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 70 }}>Date</span>
+              <input type="date" value={dateFrom} max={dateTo || undefined} onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1.5px solid #E5E7EB", fontSize: 12, color: dateFrom ? "#0A2540" : "#9CA3AF", cursor: "pointer", outline: "none" }} />
+              <span style={{ fontSize: 12, color: "#9CA3AF" }}>to</span>
+              <input type="date" value={dateTo} min={dateFrom || undefined} onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1.5px solid #E5E7EB", fontSize: 12, color: dateTo ? "#0A2540" : "#9CA3AF", cursor: "pointer", outline: "none" }} />
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(""); setDateTo(""); setPage(1); }} style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}><X size={11} /> Clear dates</button>
+              )}
             </div>
           </div>
         )}
