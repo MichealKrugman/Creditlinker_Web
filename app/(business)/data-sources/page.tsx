@@ -697,17 +697,72 @@ function DropZone({ accept, inputId, file, onFile, label }: {
 /* ─────────────────────────────────────────────────────────
    CONNECT BANK MODAL
 ───────────────────────────────────────────────────────── */
-function ConnectModal({ onClose, entities }: { onClose: () => void; entities: Entity[] }) {
+function ConnectModal({
+  onClose,
+  entities,
+  businessId,
+  authToken,
+  onRefresh,
+}: {
+  onClose:    () => void;
+  entities:   Entity[];
+  businessId: string;
+  authToken:  string;
+  onRefresh:  () => void;
+}) {
   const [step,     setStep]     = useState<1 | 2>(1);
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "hq");
   const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
 
   const handleConnect = async () => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    // TODO: launch Mono widget with entity_id once Mono key is available
-    onClose();
+    setError(null);
+    try {
+      // Ensure Mono Connect script is loaded
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).MonoConnect) { resolve(); return; }
+        const existing = document.getElementById("mono-connect-js");
+        if (existing) { existing.addEventListener("load", () => resolve()); return; }
+        const script    = document.createElement("script");
+        script.id       = "mono-connect-js";
+        script.src      = "https://connect.withmono.com/connect.js";
+        script.onload   = () => resolve();
+        script.onerror  = () => reject(new Error("Failed to load Mono script"));
+        document.head.appendChild(script);
+      });
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+      const mono = new (window as any).MonoConnect({
+        key:       process.env.NEXT_PUBLIC_MONO_PUBLIC_KEY!,
+        onSuccess: async ({ code }: { code: string }) => {
+          const res = await fetch(`${supabaseUrl}/functions/v1/link-mono-account`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+            body:    JSON.stringify({ code, entity_id: entityId, business_id: businessId }),
+          });
+          if (res.ok) {
+            onRefresh();
+            onClose();
+          } else {
+            const { error: errMsg } = await res.json().catch(() => ({}));
+            setError(errMsg ?? "Failed to link account. Please try again.");
+            setLoading(false);
+          }
+        },
+        onClose: () => {
+          setLoading(false);
+          onClose();
+        },
+      });
+      mono.setup();
+      mono.open();
+    } catch (err) {
+      console.error("Mono widget error:", err);
+      setError("Could not load Mono. Check your connection and try again.");
+      setLoading(false);
+    }
   };
 
   const selectedEntity = entities.find(e => e.id === entityId) ?? entities[0];
@@ -789,6 +844,12 @@ function ConnectModal({ onClose, entities }: { onClose: () => void; entities: En
                 </div>
               ))}
             </div>
+            {error && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, marginBottom: 4 }}>
+                <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: "#EF4444", lineHeight: 1.5 }}>{error}</p>
+              </div>
+            )}
             <Button variant="primary" size="lg" className="w-full" onClick={handleConnect} disabled={loading} style={{ height: 46, fontSize: 14, fontWeight: 700, borderRadius: 10 }}>
               {loading ? <><Loader2 size={15} className="animate-spin" /> Launching Mono Link…</> : <><Building2 size={15} /> Open Mono Link</>}
             </Button>
@@ -1374,13 +1435,17 @@ export default function DataSourcesPage() {
 
   const handleSync = async (accountId: string) => {
     setSyncingAccounts(s => new Set(s).add(accountId));
-    // Mono sync stub — re-fetch accounts from DB until Mono key is wired
-    await supabase
-      .from("linked_accounts")
-      .select("*")
-      .eq("business_id", activeBusiness!.business_id);
-    await new Promise(r => setTimeout(r, 800));
-    setSyncingAccounts(s => { const n = new Set(s); n.delete(accountId); return n; });
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      await fetch(`${supabaseUrl}/functions/v1/sync-mono-account`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body:    JSON.stringify({ account_id: accountId, business_id: activeBusiness!.business_id }),
+      });
+      await loadAll(); // Re-fetch to get updated last_synced_at and status
+    } finally {
+      setSyncingAccounts(s => { const n = new Set(s); n.delete(accountId); return n; });
+    }
   };
 
   const franchises = entities.filter(e => e.has_own_books);
@@ -1396,7 +1461,7 @@ export default function DataSourcesPage() {
 
   return (
     <>
-      {showConnect      && <ConnectModal      onClose={() => setShowConnect(false)}      entities={entities} />}
+      {showConnect      && <ConnectModal      onClose={() => setShowConnect(false)}      entities={entities} businessId={bid} authToken={authToken} onRefresh={loadAll} />}
       {showLedger       && <LedgerModal       onClose={() => setShowLedger(false)}       entities={entities} businessId={bid} onRefresh={loadAll} initialStep={showLedgerStep} />}
       {showPipelineLogs && <PipelineLogsModal onClose={() => setShowPipelineLogs(false)} log={pipelineLog} />}
 
