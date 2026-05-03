@@ -1453,12 +1453,19 @@ export default function DataSourcesPage() {
     setSyncingAccounts(s => new Set(s).add(accountId));
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      await fetch(`${supabaseUrl}/functions/v1/sync-mono-account`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body:    JSON.stringify({ account_id: accountId, business_id: activeBusiness!.business_id }),
-      });
-      await loadAll(); // Re-fetch to get updated last_synced_at and status
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` };
+      // Sync account data + fetch latest transactions in parallel
+      await Promise.all([
+        fetch(`${supabaseUrl}/functions/v1/sync-mono-account`, {
+          method: "POST", headers,
+          body: JSON.stringify({ account_id: accountId, business_id: activeBusiness!.business_id }),
+        }),
+        fetch(`${supabaseUrl}/functions/v1/fetch-mono-transactions`, {
+          method: "POST", headers,
+          body: JSON.stringify({ account_id: accountId, business_id: activeBusiness!.business_id }),
+        }),
+      ]);
+      await loadAll();
     } finally {
       setSyncingAccounts(s => { const n = new Set(s); n.delete(accountId); return n; });
     }
