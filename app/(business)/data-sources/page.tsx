@@ -736,9 +736,19 @@ function ConnectModal({
       const publicKey    = process.env.NEXT_PUBLIC_MONO_PUBLIC_KEY!;
       console.log("[Mono] Initialising widget with key:", publicKey?.slice(0, 12) + "…");
 
-      const mono = new (window as any).MonoConnect({
-        key:      publicKey,
-        onLoad:   () => console.log("[Mono] Widget loaded"),
+      // Mono requires a customer object with at minimum name + email
+      const { data: { session: monoSession } } = await supabase.auth.getSession();
+      const monoUser = monoSession?.user;
+      const customer = {
+        name:  monoUser?.user_metadata?.full_name ?? monoUser?.email?.split("@")[0] ?? "Customer",
+        email: monoUser?.email ?? "",
+      };
+      console.log("[Mono] Customer:", customer.email);
+
+      const mono = new (window as any).Connect({
+        key:  publicKey,
+        data: { customer },
+        onLoad: () => console.log("[Mono] Widget loaded"),
         onSuccess: async ({ code }: { code: string }) => {
           console.log("[Mono] Success — exchanging code");
           const res = await fetch(`${supabaseUrl}/functions/v1/link-mono-account`, {
