@@ -190,7 +190,7 @@ export default function ForFinancersPage() {
               </p>
               <div className="ff-hero-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
                 <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
-                  Start financing <ArrowRight size={15} aria-hidden="true" />
+                  Apply as an institution <ArrowRight size={15} aria-hidden="true" />
                 </Link>
                 <a href="#how-it-works" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#0A2540", fontWeight: 600, fontSize: 15, border: "1.5px solid #D1D5DB", padding: "12px 20px", borderRadius: 10 }}>
                   See how it works
@@ -268,16 +268,16 @@ export default function ForFinancersPage() {
           <SectionHeading
             id="who-heading"
             badge={<Badge><Landmark size={10} aria-hidden="true" /> Who can be a financer</Badge>}
-            title="Anyone can fund a business."
-            sub="You do not need to be a bank or a fund. If you have money you want to put to work, and you want to know exactly where it is going, Creditlinker is built for you."
+            title="Institutions first. Individuals coming soon."
+            sub="We are currently onboarding institutional capital providers — banks, microfinance institutions, equipment financiers, and trade suppliers. Individual financer access opens in phases. Join the waitlist to be notified."
             center
           />
           <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 40 }}>
             <ProviderCard
               icon={<Banknote size={20} aria-hidden="true" />}
               type="Individual financers"
-              desc="You start from as little as ₦50,000. You pick a business, see their verified financial numbers, choose how much to put in, and earn returns as they repay. You are not giving a gift. You are financing a real business with real data behind it."
-              examples={["From ₦50k per unit", "Pick your risk level", "Diversify across businesses", "12 to 34% returns by risk"]}
+              desc="Individual financer onboarding is not yet open. We are currently working with institutional capital providers first and will open individual access in phases. Join the waitlist and we will reach out when individual sign-ups open."
+              examples={["Coming soon", "Join the waitlist", "Institutional access open now"]}
             />
             <ProviderCard
               icon={<Landmark size={20} aria-hidden="true" />}
@@ -920,7 +920,7 @@ export default function ForFinancersPage() {
               </p>
               <div className="ff-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
                 <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "14px 28px", borderRadius: 10, fontWeight: 700, fontSize: 16, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
-                  Register as a financer <ArrowRight size={16} aria-hidden="true" />
+                  Apply as an institution <ArrowRight size={16} aria-hidden="true" />
                 </Link>
                 <Link href="/contact" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: 500, border: "1.5px solid rgba(255,255,255,0.14)", padding: "13px 22px", borderRadius: 10 }}>
                   Talk to the team
@@ -928,6 +928,11 @@ export default function ForFinancersPage() {
               </div>
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 24 }}>
                 Consent-gated access from day one · Full audit trail · No hidden fees
+              </p>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 10 }}>
+                Not an institution?{" "}
+                <Link href="/contact" style={{ color: "rgba(0,212,255,0.55)", textDecoration: "underline", textUnderlineOffset: 3 }}>Join the individual waitlist.</Link>
+                {" "}Individual financer access is coming soon.
               </p>
             </div>
           </div>

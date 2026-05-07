@@ -487,6 +487,83 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ══ PULSE CARD TEASER ══════════════════════════ */}
+      <section
+        aria-label="Pulse Card"
+        style={{ padding: "88px 32px", background: "#0A2540", position: "relative", overflow: "hidden" }}
+      >
+        <div aria-hidden style={{
+          pointerEvents: "none", position: "absolute", inset: 0,
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)",
+          backgroundSize: "48px 48px",
+        }} />
+        <div aria-hidden style={{ pointerEvents: "none", position: "absolute", top: "20%", right: "-5%", width: 560, height: 560, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)" }} />
+        <style>{`
+          .pulse-card-grid { display: grid; grid-template-columns: 1fr auto; gap: 64px; align-items: center; }
+          @media (max-width: 780px) {
+            .pulse-card-grid { grid-template-columns: 1fr !important; }
+            .pulse-card-visual { display: none !important; }
+          }
+        `}</style>
+        <div className="pulse-card-grid" style={{ position: "relative", maxWidth: 1200, margin: "0 auto" }}>
+          <div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 9999, marginBottom: 20, letterSpacing: "0.08em" }}>
+              ⚡ NEW — JUST LAUNCHED
+            </div>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: "clamp(26px,3.5vw,44px)", letterSpacing: "-0.04em", lineHeight: 1.08, marginBottom: 16 }}>
+              Introducing the{" "}
+              <span style={{ color: "#00D4FF" }}>Creditlinker Pulse Card</span>
+            </h2>
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, maxWidth: 480, marginBottom: 28 }}>
+              A business credit card with a limit that recalculates in real time based on your live financial identity. When your business performs, your limit moves with it — automatically.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+              {["Real-time dynamic limits", "Powered by your Creditlinker ID", "Business spend only"].map(tag => (
+                <span key={tag} style={{ fontSize: 12, fontWeight: 600, color: "rgba(0,212,255,0.8)", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", padding: "4px 12px", borderRadius: 9999 }}>{tag}</span>
+              ))}
+            </div>
+            <Link
+              href="/products"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}
+            >
+              Learn about the Pulse Card <ArrowRight size={15} />
+            </Link>
+          </div>
+
+          {/* mini card visual */}
+          <div className="pulse-card-visual" style={{ flexShrink: 0 }}>
+            <div style={{
+              width: 300, height: 190,
+              borderRadius: 16,
+              background: "linear-gradient(135deg, #0d2d4e 0%, #061524 60%, #0a1e35 100%)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.07)",
+              padding: "22px 24px",
+              display: "flex", flexDirection: "column", justifyContent: "space-between",
+              position: "relative", overflow: "hidden",
+            }}>
+              <div aria-hidden style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.18) 0%, transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <p style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 3 }}>Creditlinker</p>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "0.02em" }}>PULSE</p>
+                </div>
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,212,255,0.25)", border: "1px solid rgba(0,212,255,0.4)" }} />
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", marginLeft: -8 }} />
+                </div>
+              </div>
+              <div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.25)", color: "#00D4FF", fontSize: 8, fontWeight: 700, padding: "2px 7px", borderRadius: 9999, letterSpacing: "0.08em", marginBottom: 5 }}>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#00D4FF", display: "inline-block" }} /> LIVE LIMIT
+                </span>
+                <p style={{ fontSize: 24, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>₦2,400,000</p>
+              </div>
+              <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>ADUKE BAKERIES LTD</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

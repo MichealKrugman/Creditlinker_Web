@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Package, Banknote, FileText, TrendingUp, Handshake, ShieldCheck, ChevronRight, Layers, RefreshCw, Store, Clock, Share2, Wrench } from "lucide-react";
+import { ArrowRight, Package, Banknote, FileText, TrendingUp, Handshake, ShieldCheck, ChevronRight, Layers, RefreshCw, Store, Clock, Share2, Wrench, CreditCard, Zap, Activity } from "lucide-react";
 
 function GridBg({ light = false }: { light?: boolean }) {
   const c = light ? "rgba(10,37,64,0.035)" : "rgba(255,255,255,0.03)";
@@ -180,18 +180,106 @@ export default function ProductsPage() {
         <div style={{ position: "relative", maxWidth: 860, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(34px,5vw,58px)", letterSpacing: "-0.04em", color: "#0A2540", lineHeight: 1.08, marginBottom: 18 }}>
             14 ways to get funded.<br />
-            <span style={{ color: "#00D4FF" }}>All with protection built in.</span>
+            <span style={{ color: "#00D4FF" }}>Plus a card that moves with your business.</span>
           </h1>
           <p style={{ fontSize: 18, color: "#4B5563", lineHeight: 1.7, maxWidth: 580, margin: "0 auto 36px" }}>
-            Five categories of business financing, each structured around how the deal gets repaid and what backs it if it doesn't.
+            Five categories of business financing structured around how each deal gets repaid — and the Creditlinker Pulse Card, a business credit card with limits that adjust in real time as your business grows.
           </p>
           <div className="pt-hero-btns" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
-              Start financing <ArrowRight size={15} />
+              Get started <ArrowRight size={15} />
             </Link>
             <Link href="/for-financers" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#0A2540", fontWeight: 600, fontSize: 15, border: "1.5px solid #D1D5DB", padding: "12px 20px", borderRadius: 10 }}>
               For financers <ChevronRight size={14} />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── PULSE CARD ── */}
+      <section style={{ background: "#0A2540", padding: "72px 0", position: "relative", overflow: "hidden" }}>
+        <GridBg />
+        <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "30%", right: "-4%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.09) 0%, transparent 70%)" }} />
+        <div style={{ position: "relative", maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
+          {/* label */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 36 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 9999, letterSpacing: "0.08em" }}>
+              <Zap size={11} /> NEW PRODUCT
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 72, alignItems: "center" }}>
+            {/* left */}
+            <div>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,4vw,52px)", letterSpacing: "-0.04em", color: "white", lineHeight: 1.08, marginBottom: 20 }}>
+                Creditlinker<br />
+                <span style={{ color: "#00D4FF" }}>Pulse Card</span>
+              </h2>
+              <p style={{ fontSize: 17, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, marginBottom: 32, maxWidth: 480 }}>
+                A business credit card where your spending limit is not fixed at issuance and left to age. It recalculates in real time based on your live financial identity — your actual cashflow, revenue stability, and liquidity position. When your business performs better, your limit reflects that immediately.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 40 }}>
+                {[
+                  { icon: <Activity size={15} />, title: "Dynamic limits, not static ones", desc: "Your credit limit adjusts automatically as your Creditlinker financial identity updates. A strong month raises your ceiling. A rough patch lowers it before you overextend." },
+                  { icon: <Zap size={15} />, title: "Powered by your financial identity", desc: "The same six-dimensional score that connects you to capital providers also drives your Pulse Card limit. One profile, multiple products." },
+                  { icon: <CreditCard size={15} />, title: "Business spending, not personal", desc: "Designed for operational business spend — suppliers, services, inventory. Every transaction feeds back into your financial identity data." },
+                ].map((f) => (
+                  <div key={f.title} style={{ display: "flex", gap: 14 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#00D4FF", flexShrink: 0 }}>{f.icon}</div>
+                    <div>
+                      <p style={{ fontWeight: 700, fontSize: 14, color: "white", marginBottom: 4 }}>{f.title}</p>
+                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.72 }}>{f.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>
+                Get the Pulse Card <ArrowRight size={15} />
+              </Link>
+            </div>
+
+            {/* right — card visual */}
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <div style={{
+                width: 380, height: 240,
+                borderRadius: 20,
+                background: "linear-gradient(135deg, #0d2d4e 0%, #061524 60%, #0a1e35 100%)",
+                boxShadow: "0 48px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.08)",
+                padding: "28px 30px",
+                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                position: "relative", overflow: "hidden",
+              }}>
+                {/* glow */}
+                <div aria-hidden style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.18) 0%, transparent 70%)", pointerEvents: "none" }} />
+                {/* top row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 4 }}>Creditlinker</p>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "0.02em" }}>PULSE</p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,212,255,0.25)", border: "1px solid rgba(0,212,255,0.4)" }} />
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", marginLeft: -10 }} />
+                  </div>
+                </div>
+                {/* mid — live limit indicator */}
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.25)", color: "#00D4FF", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 9999, letterSpacing: "0.08em" }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#00D4FF", display: "inline-block", animation: "pulse-dot 2s ease-in-out infinite" }} />
+                      LIVE LIMIT
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 30, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>₦2,400,000</p>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 3 }}>Updated 4 mins ago · Score 742</p>
+                </div>
+                {/* bottom row */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>ADUKE BAKERIES LTD</p>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>BUSINESS</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
