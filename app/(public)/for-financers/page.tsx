@@ -157,6 +157,7 @@ export default function ForFinancersPage() {
           .ff-pad          { padding: 0 20px !important; }
           .ff-type-grid    { grid-template-columns: 1fr !important; }
           .ff-cta-btns     { flex-direction: column !important; align-items: stretch !important; }
+          .ff-cta-btns a   { text-align: center !important; justify-content: center !important; }
           .ff-match-strip  { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
           .ff-match-strip a { text-align: center !important; justify-content: center !important; }
           .ff-proof-strip  { gap: 16px !important; }
@@ -164,6 +165,7 @@ export default function ForFinancersPage() {
           .ff-hero-btns a  { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
           .ff-section-heading { margin-bottom: 28px !important; }
           .ff-section-heading p { display: none !important; }
+          .ff-cta-box      { padding: 36px 24px !important; }
         }
       `}</style>
 
@@ -269,7 +271,7 @@ export default function ForFinancersPage() {
             id="who-heading"
             badge={<Badge><Landmark size={10} aria-hidden="true" /> Who can be a financer</Badge>}
             title="Institutions first. Individuals coming soon."
-            sub="We are currently onboarding institutional capital providers — banks, microfinance institutions, equipment financiers, and trade suppliers. Individual financer access opens in phases. Join the waitlist to be notified."
+            sub="We are currently onboarding institutional capital providers: banks, microfinance institutions, equipment financiers, and trade suppliers. Individual financer access opens in phases. Join the waitlist to be notified."
             center
           />
           <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 40 }}>
@@ -309,13 +311,13 @@ export default function ForFinancersPage() {
             <ProviderCard
               icon={<Layers size={20} aria-hidden="true" />}
               type="Equipment financers"
-              desc="You fund the purchase of machines, vehicles, or equipment. The asset itself is the security — if repayment stops, the asset is recovered."
+              desc="You fund the purchase of machines, vehicles, or equipment. The asset itself is the security. If repayment stops, the asset is recovered."
               examples={["Equipment finance", "Asset leasing", "Hire purchase"]}
             />
             <ProviderCard
               icon={<TrendingUp size={20} aria-hidden="true" />}
               type="Revenue & invoice financers"
-              desc="You advance money against real invoices or verified future revenue. The business's customers — or their sales — are what pays you back."
+              desc="You advance money against real invoices or verified future revenue. The business's customers or their sales are what pays you back."
               examples={["Invoice advances", "Revenue share", "Receivables"]}
             />
             <ProviderCard
@@ -482,7 +484,7 @@ export default function ForFinancersPage() {
               </p>
               <div style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "14px 18px", display: "flex", gap: 12 }}>
                 <AlertCircle size={16} aria-hidden="true" style={{ color: "#EF4444", flexShrink: 0, marginTop: 2 }} />
-                <p style={{ fontSize: 13, color: "#991B1B", lineHeight: 1.65 }}>Creditlinker uses the language "partial loss protection" and "managed risk" — not "safe investment" or "guaranteed returns." You are putting capital into real businesses. There is real risk involved.</p>
+                <p style={{ fontSize: 13, color: "#991B1B", lineHeight: 1.65 }}>Creditlinker uses the language "partial loss protection" and "managed risk", not "safe investment" or "guaranteed returns." You are putting capital into real businesses. There is real risk involved.</p>
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -539,7 +541,7 @@ export default function ForFinancersPage() {
                 tag: "Revenue-backed",
                 risk: "Low Risk",
                 rc: "#10B981",
-                security: "Backed by the business's real customer invoices. When the customer pays their invoice, that money clears the deal. You are not waiting on the business \u2014 you are waiting on their customer.",
+                security: "Backed by the business's real customer invoices. When the customer pays their invoice, that money clears the deal. You are not waiting on the business. You are waiting on their customer.",
                 types: ["Invoice advances", "Receivables purchase", "Revenue advance"]
               },
             ].map((lt) => (
@@ -904,7 +906,7 @@ export default function ForFinancersPage() {
       {/* CTA */}
       <section aria-label="Call to action" className="ff-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
         <div className="ff-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
-          <div style={{ background: "#0A2540", borderRadius: 24, padding: "64px 64px", position: "relative", overflow: "hidden", textAlign: "center" }}>
+          <div className="ff-cta-box" style={{ background: "#0A2540", borderRadius: 24, padding: "64px 64px", position: "relative", overflow: "hidden", textAlign: "center" }}>
             <GridBg />
             <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", inset: 0, background: "radial-gradient(ellipse 700px 400px at 50% 50%, rgba(0,212,255,0.08) 0%, transparent 70%)" }} />
 

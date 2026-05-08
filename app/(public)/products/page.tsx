@@ -164,26 +164,37 @@ export default function ProductsPage() {
       <style>{`
         .pt-card-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .pt-card-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .pt-pulse-grid  { display: grid; grid-template-columns: 1fr 420px; gap: 72px; align-items: center; }
         @media (max-width: 900px) {
           .pt-card-grid-3 { grid-template-columns: 1fr 1fr !important; }
           .pt-card-grid-2 { grid-template-columns: 1fr 1fr !important; }
+          .pt-pulse-grid  { grid-template-columns: 1fr !important; gap: 40px !important; }
+          .pt-pulse-card  { display: none !important; }
         }
         @media (max-width: 560px) {
           .pt-card-grid-3, .pt-card-grid-2 { grid-template-columns: 1fr !important; }
-          .pt-hero-btns { flex-direction: column !important; }
+          .pt-hero-btns { flex-direction: column !important; align-items: stretch !important; }
+          .pt-hero-btns a { text-align: center !important; justify-content: center !important; width: 100% !important; box-sizing: border-box !important; }
+          .pt-hero-section  { padding: 48px 0 36px !important; }
+          .pt-hero-inner     { padding: 0 20px !important; }
+          .pt-pulse-section  { padding: 44px 0 !important; }
+          .pt-pulse-inner    { padding: 0 20px !important; }
+          .pt-cats-section   { padding: 44px 0 56px !important; }
+          .pt-cats-inner     { padding: 0 20px !important; gap: 40px !important; }
+          .pt-cta-section    { padding: 44px 20px !important; }
         }
       `}</style>
 
       {/* ── HERO ── */}
-      <section style={{ position: "relative", overflow: "hidden", background: "#fff", padding: "80px 0 64px" }}>
+      <section className="pt-hero-section" style={{ position: "relative", overflow: "hidden", background: "#fff", padding: "80px 0 64px" }}>
         <GridBg light />
-        <div style={{ position: "relative", maxWidth: 860, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
+        <div className="pt-hero-inner" style={{ position: "relative", maxWidth: 860, margin: "0 auto", padding: "0 32px", textAlign: "center" }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(34px,5vw,58px)", letterSpacing: "-0.04em", color: "#0A2540", lineHeight: 1.08, marginBottom: 18 }}>
             14 ways to get funded.<br />
             <span style={{ color: "#00D4FF" }}>Plus a card that moves with your business.</span>
           </h1>
           <p style={{ fontSize: 18, color: "#4B5563", lineHeight: 1.7, maxWidth: 580, margin: "0 auto 36px" }}>
-            Five categories of business financing structured around how each deal gets repaid — and the Creditlinker Pulse Card, a business credit card with limits that adjust in real time as your business grows.
+            Five categories of business financing structured around how each deal gets repaid, and the Creditlinker Pulse Card, a business credit card with limits that adjust in real time as your business grows.
           </p>
           <div className="pt-hero-btns" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
@@ -197,10 +208,10 @@ export default function ProductsPage() {
       </section>
 
       {/* ── PULSE CARD ── */}
-      <section style={{ background: "#0A2540", padding: "72px 0", position: "relative", overflow: "hidden" }}>
+      <section className="pt-pulse-section" style={{ background: "#0A2540", padding: "72px 0", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "30%", right: "-4%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.09) 0%, transparent 70%)" }} />
-        <div style={{ position: "relative", maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
+        <div className="pt-pulse-inner" style={{ position: "relative", maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
           {/* label */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 36 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 9999, letterSpacing: "0.08em" }}>
@@ -208,7 +219,7 @@ export default function ProductsPage() {
             </span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 72, alignItems: "center" }}>
+          <div className="pt-pulse-grid">
             {/* left */}
             <div>
               <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,4vw,52px)", letterSpacing: "-0.04em", color: "white", lineHeight: 1.08, marginBottom: 20 }}>
@@ -216,13 +227,13 @@ export default function ProductsPage() {
                 <span style={{ color: "#00D4FF" }}>Pulse Card</span>
               </h2>
               <p style={{ fontSize: 17, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, marginBottom: 32, maxWidth: 480 }}>
-                A business credit card where your spending limit is not fixed at issuance and left to age. It recalculates in real time based on your live financial identity — your actual cashflow, revenue stability, and liquidity position. When your business performs better, your limit reflects that immediately.
+                A business credit card where your spending limit is not fixed at issuance and left to age. It recalculates in real time based on your live financial identity: your actual cashflow, revenue stability, and liquidity position. When your business performs better, your limit reflects that immediately.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 40 }}>
                 {[
                   { icon: <Activity size={15} />, title: "Dynamic limits, not static ones", desc: "Your credit limit adjusts automatically as your Creditlinker financial identity updates. A strong month raises your ceiling. A rough patch lowers it before you overextend." },
                   { icon: <Zap size={15} />, title: "Powered by your financial identity", desc: "The same six-dimensional score that connects you to capital providers also drives your Pulse Card limit. One profile, multiple products." },
-                  { icon: <CreditCard size={15} />, title: "Business spending, not personal", desc: "Designed for operational business spend — suppliers, services, inventory. Every transaction feeds back into your financial identity data." },
+                  { icon: <CreditCard size={15} />, title: "Business spending, not personal", desc: "Designed for operational business spend: suppliers, services, inventory. Every transaction feeds back into your financial identity data." },
                 ].map((f) => (
                   <div key={f.title} style={{ display: "flex", gap: 14 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#00D4FF", flexShrink: 0 }}>{f.icon}</div>
@@ -239,7 +250,7 @@ export default function ProductsPage() {
             </div>
 
             {/* right — card visual */}
-            <div style={{ display: "flex", justifyContent: "center" }}>
+            <div className="pt-pulse-card" style={{ display: "flex", justifyContent: "center" }}>
               <div style={{
                 width: 380, height: 240,
                 borderRadius: 20,
@@ -285,8 +296,8 @@ export default function ProductsPage() {
       </section>
 
       {/* ── CATEGORIES ── */}
-      <section style={{ background: "#F9FAFB", padding: "64px 0 80px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 60 }}>
+      <section className="pt-cats-section" style={{ background: "#F9FAFB", padding: "64px 0 80px" }}>
+        <div className="pt-cats-inner" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 60 }}>
           {categories.map((cat) => (
             <div key={cat.id}>
               {/* category label */}
@@ -337,7 +348,7 @@ export default function ProductsPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section style={{ background: "#0A2540", padding: "64px 32px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+      <section className="pt-cta-section" style={{ background: "#0A2540", padding: "64px 32px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <GridBg />
         <div style={{ position: "relative", maxWidth: 600, margin: "0 auto" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,4vw,42px)", color: "white", letterSpacing: "-0.035em", lineHeight: 1.1, marginBottom: 14 }}>

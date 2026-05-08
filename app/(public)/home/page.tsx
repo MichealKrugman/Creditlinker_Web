@@ -172,6 +172,10 @@ export default function HomePage() {
           .home-cta-body { font-size: 15px !important; }
           .home-cta-btns { flex-direction: column !important; gap: 10px !important; }
           .home-cta-btns a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
+          /* Pulse card teaser section */
+          .home-pulse-section { padding: 44px 20px !important; }
+          .home-pulse-tags { gap: 6px !important; }
+          .home-pulse-cta { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
         }
       `}</style>
 
@@ -491,6 +495,7 @@ export default function HomePage() {
       {/* ══ PULSE CARD TEASER ══════════════════════════ */}
       <section
         aria-label="Pulse Card"
+        className="home-pulse-section"
         style={{ padding: "88px 32px", background: "#0A2540", position: "relative", overflow: "hidden" }}
       >
         <div aria-hidden style={{
@@ -509,22 +514,23 @@ export default function HomePage() {
         <div className="pulse-card-grid" style={{ position: "relative", maxWidth: 1200, margin: "0 auto" }}>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 9999, marginBottom: 20, letterSpacing: "0.08em" }}>
-              ⚡ NEW — JUST LAUNCHED
+              ⚡ NEW, JUST LAUNCHED
             </div>
             <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: "clamp(26px,3.5vw,44px)", letterSpacing: "-0.04em", lineHeight: 1.08, marginBottom: 16 }}>
               Introducing the{" "}
               <span style={{ color: "#00D4FF" }}>Creditlinker Pulse Card</span>
             </h2>
             <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, maxWidth: 480, marginBottom: 28 }}>
-              A business credit card with a limit that recalculates in real time based on your live financial identity. When your business performs, your limit moves with it — automatically.
+              A business credit card with a limit that recalculates in real time based on your live financial identity. When your business performs, your limit moves with it. Automatically.
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }} className="home-pulse-tags">
               {["Real-time dynamic limits", "Powered by your Creditlinker ID", "Business spend only"].map(tag => (
                 <span key={tag} style={{ fontSize: 12, fontWeight: 600, color: "rgba(0,212,255,0.8)", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", padding: "4px 12px", borderRadius: 9999 }}>{tag}</span>
               ))}
             </div>
             <Link
               href="/products"
+              className="home-pulse-cta"
               style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}
             >
               Learn about the Pulse Card <ArrowRight size={15} />
