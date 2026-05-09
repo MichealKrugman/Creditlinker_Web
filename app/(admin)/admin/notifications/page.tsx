@@ -16,7 +16,11 @@ async function callFn(name: string, body?: object, method: "POST" | "GET" = "POS
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
   const res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
     ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
   });
   if (!res.ok) {
@@ -85,7 +89,7 @@ export default function AdminNotificationsPage() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const data = await callFn("admin-get-notifications");
+      const data = await callFn("admin-get-notifications", undefined, "GET");
       setHistory(data.notifications ?? data.data ?? []);
     } catch (e) {
       console.error("[notifications] load history failed", e);
