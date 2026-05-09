@@ -1,36 +1,38 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Search, X, ChevronLeft, ChevronRight, SlidersHorizontal,
   Building2, ShieldCheck, AlertTriangle, CheckCircle2,
   Eye, Ban, RefreshCw, Download, TrendingUp,
-  MoreHorizontal, ExternalLink,
+  MoreHorizontal, ExternalLink, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { supabase } from "@/lib/supabase";
 
-// ─────────────────────────────────────────────────────────────
-//  MOCK DATA — replace with GET /admin/businesses (paginated)
-// ─────────────────────────────────────────────────────────────
-
-const BUSINESSES = [
-  { id: "biz_001", name: "Aduke Bakeries Ltd",       sector: "Food & Beverage",  status: "active",    score: 742, data_quality: 91, accounts: 2, months: 24, open_to_financing: true,  verification: "verified",   created: "2023-02-14" },
-  { id: "biz_002", name: "TechPay Solutions",         sector: "Fintech",          status: "active",    score: 681, data_quality: 84, accounts: 1, months: 18, open_to_financing: true,  verification: "pending",    created: "2023-05-08" },
-  { id: "biz_003", name: "Greenfield Farms Ltd",      sector: "Agriculture",      status: "active",    score: 598, data_quality: 76, accounts: 1, months: 12, open_to_financing: true,  verification: "pending",    created: "2023-09-21" },
-  { id: "biz_004", name: "Konga Fulfilment Co.",      sector: "Logistics",        status: "active",    score: 795, data_quality: 95, accounts: 3, months: 30, open_to_financing: false, verification: "verified",   created: "2022-11-03" },
-  { id: "biz_005", name: "SabiSabi Wholesale",        sector: "Retail",           status: "active",    score: 627, data_quality: 79, accounts: 2, months: 20, open_to_financing: true,  verification: "verified",   created: "2023-01-17" },
-  { id: "biz_006", name: "QuickBuild Contractors",    sector: "Construction",     status: "suspended", score: 412, data_quality: 58, accounts: 1, months: 8,  open_to_financing: false, verification: "rejected",   created: "2023-07-30" },
-  { id: "biz_007", name: "Amaka Tailoring Co.",       sector: "Fashion",          status: "incomplete",score: 0,   data_quality: 22, accounts: 0, months: 0,  open_to_financing: false, verification: "unverified", created: "2024-01-05" },
-  { id: "biz_008", name: "NovaChem Industries",       sector: "Manufacturing",    status: "active",    score: 714, data_quality: 88, accounts: 2, months: 22, open_to_financing: true,  verification: "verified",   created: "2022-08-19" },
-  { id: "biz_009", name: "Arise Digital Agency",      sector: "Tech Services",    status: "active",    score: 659, data_quality: 82, accounts: 1, months: 16, open_to_financing: true,  verification: "pending",    created: "2023-10-12" },
-  { id: "biz_010", name: "PrimeMed Pharmacy",         sector: "Healthcare",       status: "active",    score: 731, data_quality: 90, accounts: 2, months: 24, open_to_financing: false, verification: "verified",   created: "2022-06-07" },
-  { id: "biz_011", name: "Sunrise Poultry Farm",      sector: "Agriculture",      status: "active",    score: 576, data_quality: 71, accounts: 1, months: 14, open_to_financing: true,  verification: "verified",   created: "2023-04-25" },
-  { id: "biz_012", name: "Lagos Auto Spares",         sector: "Retail",           status: "suspended", score: 390, data_quality: 49, accounts: 1, months: 6,  open_to_financing: false, verification: "rejected",   created: "2023-11-14" },
-];
+async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const res = await fetch(method === "GET" ? url : url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
+    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 const PAGE_SIZE = 10;
 const STATUSES = ["All", "active", "suspended", "incomplete"];
@@ -144,35 +146,55 @@ export default function AdminBusinessesPage() {
   const user = getMockAdminUser();
   const canAct = canManage(user, "businesses");
 
-  const [search,   setSearch]   = useState("");
-  const [status,   setStatus]   = useState("All");
-  const [verif,    setVerif]    = useState("All");
-  const [page,     setPage]     = useState(1);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState("");
+  const [status,     setStatus]     = useState("All");
+  const [verif,      setVerif]      = useState("All");
+  const [page,       setPage]       = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-  const [modal, setModal] = useState<{
-    type: "suspend" | "unsuspend" | "verify";
-    bizId: string; bizName: string;
-  } | null>(null);
+  const [modal, setModal] = useState<{ type: "suspend" | "unsuspend" | "verify"; bizId: string; bizName: string } | null>(null);
+  const [actionError, setActionError] = useState("");
 
-  const filtered = useMemo(() => BUSINESSES.filter((b) => {
-    const matchSearch = !search || b.name.toLowerCase().includes(search.toLowerCase()) || b.sector.toLowerCase().includes(search.toLowerCase());
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await callFn("admin-get-businesses");
+      setBusinesses(data.businesses ?? data.data ?? []);
+    } catch (e) {
+      console.error("[businesses] load failed", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => businesses.filter((b) => {
+    const matchSearch = !search || (b.name ?? "").toLowerCase().includes(search.toLowerCase()) || (b.sector ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = status === "All" || b.status === status;
-    const matchVerif  = verif  === "All" || b.verification === verif;
+    const matchVerif  = verif  === "All" || (b.verification ?? b.kyc_status) === verif;
     return matchSearch && matchStatus && matchVerif;
-  }), [search, status, verif]);
+  }), [businesses, search, status, verif]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const hasFilters = search || status !== "All" || verif !== "All";
 
-  function handleAction(reason: string) {
+  async function handleAction(reason: string) {
     if (!modal) return;
-    // TODO: call relevant admin API
-    // suspend:   PATCH /admin/businesses/:id/suspend   { reason }
-    // unsuspend: PATCH /admin/businesses/:id/activate  { reason }
-    // verify:    POST  /admin/verifications/:id/approve { reason }
-    console.log("Action:", modal.type, modal.bizId, reason);
-    setModal(null);
+    setActionError("");
+    try {
+      if (modal.type === "suspend") {
+        await callFn("admin-suspend-business", { business_id: modal.bizId, reason }, "POST");
+      } else if (modal.type === "unsuspend") {
+        await callFn("admin-activate-business", { business_id: modal.bizId, reason }, "POST");
+      }
+      setModal(null);
+      await load();
+    } catch (e: any) {
+      setActionError(e.message ?? "Action failed");
+    }
   }
 
   return (
@@ -185,21 +207,26 @@ export default function AdminBusinessesPage() {
             Businesses
           </h2>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
-            {BUSINESSES.length.toLocaleString()} total · {BUSINESSES.filter(b => b.status === "active").length} active · {BUSINESSES.filter(b => b.verification === "pending").length} pending verification
+            {loading ? "Loading…" : `${businesses.length.toLocaleString()} total · ${businesses.filter(b => b.status === "active").length} active · ${businesses.filter(b => (b.verification ?? b.kyc_status) === "pending").length} pending verification`}
           </p>
         </div>
-        <Button variant="outline" size="sm" style={{ gap: 6 }}>
-          <Download size={13} /> Export
-        </Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </Button>
+          <Button variant="outline" size="sm" style={{ gap: 6 }}>
+            <Download size={13} /> Export
+          </Button>
+        </div>
       </div>
 
       {/* STATS ROW */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         {[
-          { label: "Active",     value: BUSINESSES.filter(b => b.status === "active").length,     color: "#10B981", bg: "#ECFDF5" },
-          { label: "Suspended",  value: BUSINESSES.filter(b => b.status === "suspended").length,  color: "#EF4444", bg: "#FEF2F2" },
-          { label: "Incomplete", value: BUSINESSES.filter(b => b.status === "incomplete").length, color: "#F59E0B", bg: "#FFFBEB" },
-          { label: "Pending KYB",value: BUSINESSES.filter(b => b.verification === "pending").length, color: "#6366F1", bg: "#EEF2FF" },
+          { label: "Active",     value: businesses.filter(b => b.status === "active").length,    color: "#10B981", bg: "#ECFDF5" },
+          { label: "Suspended",  value: businesses.filter(b => b.status === "suspended").length,  color: "#EF4444", bg: "#FEF2F2" },
+          { label: "Incomplete", value: businesses.filter(b => b.status === "incomplete").length, color: "#F59E0B", bg: "#FFFBEB" },
+          { label: "Pending KYB",value: businesses.filter(b => (b.verification ?? b.kyc_status) === "pending").length, color: "#6366F1", bg: "#EEF2FF" },
         ].map((s) => (
           <div key={s.label} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 18px" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: s.color, letterSpacing: "-0.03em", marginBottom: 2 }}>{s.value}</p>
@@ -266,9 +293,14 @@ export default function AdminBusinessesPage() {
           ))}
         </div>
 
-        {rows.length === 0 ? (
+        {rows.length === 0 && !loading ? (
           <div style={{ padding: "48px 20px", textAlign: "center" }}>
             <p style={{ fontSize: 14, color: "#6B7280" }}>No businesses match your filters.</p>
+          </div>
+        ) : loading ? (
+          <div style={{ padding: "48px 20px", textAlign: "center" }}>
+            <Loader2 size={20} style={{ color: "#9CA3AF", margin: "0 auto 8px" }} className="animate-spin" />
+            <p style={{ fontSize: 14, color: "#9CA3AF" }}>Loading businesses…</p>
           </div>
         ) : rows.map((b, i) => (
           <div
@@ -303,7 +335,7 @@ export default function AdminBusinessesPage() {
             <Badge variant={statusVariant(b.status)} style={{ textTransform: "capitalize", fontSize: 11 }}>{b.status}</Badge>
 
             {/* Verification */}
-            <Badge variant={verifVariant(b.verification)} style={{ textTransform: "capitalize", fontSize: 11 }}>{b.verification}</Badge>
+            <Badge variant={verifVariant(b.verification ?? b.kyc_status ?? "unverified")} style={{ textTransform: "capitalize", fontSize: 11 }}>{b.verification ?? b.kyc_status ?? "unverified"}</Badge>
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -379,9 +411,10 @@ export default function AdminBusinessesPage() {
           confirmLabel={modal.type === "suspend" ? "Suspend" : modal.type === "unsuspend" ? "Reactivate" : "Verify"}
           confirmDanger={modal.type === "suspend"}
           onConfirm={handleAction}
-          onClose={() => setModal(null)}
+          onClose={() => { setModal(null); setActionError(""); }}
         />
       )}
+      {actionError && <p style={{ fontSize: 13, color: "#EF4444", textAlign: "center" }}>{actionError}</p>}
     </div>
   );
 }

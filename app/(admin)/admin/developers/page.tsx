@@ -1,32 +1,41 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search, X, ChevronLeft, ChevronRight, SlidersHorizontal,
-  Code2, Key, Activity, Ban, RefreshCw, Copy,
-  Download, CheckCircle2, AlertTriangle, Eye, EyeOff,
+  Ban, RefreshCw, Download, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { supabase } from "@/lib/supabase";
+
+async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
+    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 // ─────────────────────────────────────────────────────────────
-//  MOCK DATA — replace with GET /admin/developers (paginated)
+//  HELPERS
 // ─────────────────────────────────────────────────────────────
 
-const DEVELOPERS = [
-  { id: "dev_001", name: "Paystack Engineering",       email: "api@paystack.com",       status: "active",    api_keys: 2, calls_30d: 148_200, last_active: "2 hours ago",  tier: "build",  integration: "Production" },
-  { id: "dev_002", name: "Kora Platform",              email: "dev@korapay.com",         status: "active",    api_keys: 1, calls_30d: 82_400,  last_active: "Today",        tier: "signal", integration: "Production" },
-  { id: "dev_003", name: "Mono Connect",               email: "eng@mono.co",             status: "active",    api_keys: 3, calls_30d: 320_000, last_active: "1 hour ago",   tier: "build",  integration: "Production" },
-  { id: "dev_004", name: "Okra Technologies",          email: "api@okra.ng",             status: "suspended", api_keys: 1, calls_30d: 0,       last_active: "14 days ago",  tier: "read",   integration: "Suspended" },
-  { id: "dev_005", name: "Bloc Fintech",               email: "dev@bloc.money",          status: "active",    api_keys: 2, calls_30d: 54_000,  last_active: "Yesterday",    tier: "read",   integration: "Production" },
-  { id: "dev_006", name: "Solo Dev (John Okafor)",     email: "john.okafor@gmail.com",   status: "active",    api_keys: 1, calls_30d: 1_200,   last_active: "3 days ago",   tier: "read",   integration: "Sandbox" },
-  { id: "dev_007", name: "CredTech Solutions",         email: "api@credtech.ng",         status: "pending",   api_keys: 0, calls_30d: 0,       last_active: "Never",        tier: "read",   integration: "Pending" },
-  { id: "dev_008", name: "Zazu Financial",             email: "engineers@zazupay.com",   status: "active",    api_keys: 2, calls_30d: 28_700,  last_active: "Today",        tier: "signal", integration: "Production" },
-];
-
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 const STATUSES = ["All", "active", "suspended", "pending"];
 const TIERS = ["All", "read", "signal", "build"];
 
@@ -47,6 +56,10 @@ function statusVariant(s: string): "success" | "secondary" | "destructive" {
   if (s === "suspended") return "destructive";
   return "secondary";
 }
+
+// ─────────────────────────────────────────────────────────────
+//  CONFIRM MODAL
+// ─────────────────────────────────────────────────────────────
 
 function ConfirmModal({ title, description, confirmLabel, confirmDanger, onConfirm, onClose }: {
   title: string; description: string; confirmLabel: string; confirmDanger?: boolean;
@@ -75,27 +88,61 @@ function ConfirmModal({ title, description, confirmLabel, confirmDanger, onConfi
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+//  PAGE
+// ─────────────────────────────────────────────────────────────
+
 export default function AdminDevelopersPage() {
   const user = getMockAdminUser();
   const canAct = canManage(user, "developers");
 
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("All");
-  const [tier,   setTier]   = useState("All");
-  const [page,   setPage]   = useState(1);
+  const [developers,  setDevelopers]  = useState<any[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [actionError, setActionError] = useState("");
+  const [search,      setSearch]      = useState("");
+  const [status,      setStatus]      = useState("All");
+  const [tier,        setTier]        = useState("All");
+  const [page,        setPage]        = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [modal, setModal] = useState<{ type: "suspend" | "unsuspend"; id: string; name: string } | null>(null);
 
-  const filtered = useMemo(() => DEVELOPERS.filter((d) => {
-    const matchSearch = !search || d.name.toLowerCase().includes(search.toLowerCase()) || d.email.toLowerCase().includes(search.toLowerCase());
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await callFn("admin-get-developers");
+      setDevelopers(data.developers ?? data.data ?? []);
+    } catch (e) {
+      console.error("[developers] load failed", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => developers.filter((d: any) => {
+    const matchSearch = !search || (d.name ?? "").toLowerCase().includes(search.toLowerCase()) || (d.email ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = status === "All" || d.status === status;
     const matchTier   = tier   === "All" || d.tier   === tier;
     return matchSearch && matchStatus && matchTier;
-  }), [search, status, tier]);
+  }), [developers, search, status, tier]);
 
   const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const totalCalls30d = DEVELOPERS.reduce((s, d) => s + d.calls_30d, 0);
+  const totalCalls30d = developers.reduce((s: number, d: any) => s + (d.calls_30d ?? d.api_calls_30d ?? 0), 0);
+
+  async function handleAction(reason: string) {
+    if (!modal) return;
+    setActionError("");
+    try {
+      const fnMap = { suspend: "admin-suspend-developer", unsuspend: "admin-activate-developer" };
+      await callFn(fnMap[modal.type], { developer_id: modal.id, reason }, "POST");
+      setModal(null);
+      await load();
+    } catch (e: any) {
+      setActionError(e.message ?? "Action failed");
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -105,19 +152,24 @@ export default function AdminDevelopersPage() {
         <div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Developers</h2>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
-            {DEVELOPERS.length} registered · {fmtCalls(totalCalls30d)} API calls (30 days)
+            {loading ? "Loading…" : `${developers.length} registered · ${fmtCalls(totalCalls30d)} API calls (30 days)`}
           </p>
         </div>
-        <Button variant="outline" size="sm" style={{ gap: 6 }}><Download size={13} /> Export</Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </Button>
+          <Button variant="outline" size="sm" style={{ gap: 6 }}><Download size={13} /> Export</Button>
+        </div>
       </div>
 
       {/* STATS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         {[
-          { label: "Active",       value: DEVELOPERS.filter(d => d.status === "active").length,   color: "#10B981" },
-          { label: "Build Tier",   value: DEVELOPERS.filter(d => d.tier === "build").length,      color: "#6366F1" },
-          { label: "Signal Tier",  value: DEVELOPERS.filter(d => d.tier === "signal").length,     color: "#0891B2" },
-          { label: "30d API Calls",value: fmtCalls(totalCalls30d),                                color: "#0A2540" },
+          { label: "Active",        value: loading ? "—" : developers.filter((d: any) => d.status === "active").length,  color: "#10B981" },
+          { label: "Build Tier",    value: loading ? "—" : developers.filter((d: any) => d.tier === "build").length,     color: "#6366F1" },
+          { label: "Signal Tier",   value: loading ? "—" : developers.filter((d: any) => d.tier === "signal").length,    color: "#0891B2" },
+          { label: "30d API Calls", value: loading ? "—" : fmtCalls(totalCalls30d),                                       color: "#0A2540" },
         ].map((s) => (
           <div key={s.label} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 18px" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: s.color, letterSpacing: "-0.03em", marginBottom: 2 }}>{s.value}</p>
@@ -163,9 +215,15 @@ export default function AdminDevelopersPage() {
           ))}
         </div>
         {rows.length === 0 ? (
-          <div style={{ padding: "48px 20px", textAlign: "center" }}><p style={{ fontSize: 14, color: "#6B7280" }}>No developers match.</p></div>
-        ) : rows.map((d, i) => {
-          const tc = tierColor(d.tier);
+          <div style={{ padding: "48px 20px", textAlign: "center" }}>
+            {loading
+              ? <><Loader2 size={20} style={{ color: "#9CA3AF", margin: "0 auto 8px" }} className="animate-spin" /><p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading developers…</p></>
+              : <p style={{ fontSize: 14, color: "#6B7280" }}>No developers match.</p>}
+          </div>
+        ) : rows.map((d: any, i: number) => {
+          const tc = tierColor(d.tier ?? "read");
+          const calls = d.calls_30d ?? d.api_calls_30d ?? 0;
+          const keys  = d.api_keys ?? d.api_key_count ?? 0;
           return (
             <div key={d.id}
               style={{ display: "grid", gridTemplateColumns: "2fr 1.4fr 80px 90px 100px 80px 90px", padding: "14px 20px", borderBottom: i < rows.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", transition: "background 0.1s" }}
@@ -174,21 +232,23 @@ export default function AdminDevelopersPage() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0A2540", flexShrink: 0 }}>
-                  {d.name.slice(0, 2).toUpperCase()}
+                  {(d.name ?? d.email ?? "??").slice(0, 2).toUpperCase()}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 1 }}>{d.name}</p>
-                  <Badge variant={statusVariant(d.status)} style={{ fontSize: 10, textTransform: "capitalize" }}>{d.status}</Badge>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 1 }}>{d.name ?? d.email}</p>
+                  <Badge variant={statusVariant(d.status ?? "pending")} style={{ fontSize: 10, textTransform: "capitalize" }}>{d.status ?? "pending"}</Badge>
                 </div>
               </div>
-              <p style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.email}</p>
-              <p style={{ fontSize: 13, color: "#374151" }}>{d.api_keys}</p>
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmtCalls(d.calls_30d)}</p>
-              <p style={{ fontSize: 12, color: "#6B7280" }}>{d.last_active}</p>
-              <span style={{ display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: tc.color, background: tc.bg, padding: "3px 8px", borderRadius: 9999, textTransform: "capitalize" }}>{d.tier}</span>
+              <p style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.email ?? "—"}</p>
+              <p style={{ fontSize: 13, color: "#374151" }}>{keys}</p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{fmtCalls(calls)}</p>
+              <p style={{ fontSize: 12, color: "#6B7280" }}>
+                {d.last_active ?? (d.last_sign_in_at ? new Date(d.last_sign_in_at).toLocaleDateString() : "Never")}
+              </p>
+              <span style={{ display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: tc.color, background: tc.bg, padding: "3px 8px", borderRadius: 9999, textTransform: "capitalize" }}>{d.tier ?? "read"}</span>
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                {canAct && d.status === "active" && (
-                  <button onClick={() => setModal({ type: "suspend", id: d.id, name: d.name })}
+                {canAct && (d.status ?? "active") === "active" && (
+                  <button onClick={() => setModal({ type: "suspend", id: d.id, name: d.name ?? d.email })}
                     style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280" }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#EF4444"; (e.currentTarget as HTMLElement).style.color = "#EF4444"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}>
@@ -196,7 +256,7 @@ export default function AdminDevelopersPage() {
                   </button>
                 )}
                 {canAct && d.status === "suspended" && (
-                  <button onClick={() => setModal({ type: "unsuspend", id: d.id, name: d.name })}
+                  <button onClick={() => setModal({ type: "unsuspend", id: d.id, name: d.name ?? d.email })}
                     style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280" }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#10B981"; (e.currentTarget as HTMLElement).style.color = "#10B981"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}>
@@ -214,11 +274,13 @@ export default function AdminDevelopersPage() {
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}</p>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: page === 1 ? "not-allowed" : "pointer", color: page === 1 ? "#D1D5DB" : "#374151" }}><ChevronLeft size={15} /></button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (<button key={p} onClick={() => setPage(p)} style={{ width: 34, height: 34, borderRadius: 8, border: "1.5px solid", borderColor: page === p ? "#0A2540" : "#E5E7EB", background: page === p ? "#0A2540" : "white", color: page === p ? "white" : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{p}</button>))}
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (<button key={p} onClick={() => setPage(p)} style={{ width: 34, height: 34, borderRadius: 8, border: "1.5px solid", borderColor: page === p ? "#0A2540" : "#E5E7EB", background: page === p ? "#0A2540" : "white", color: page === p ? "white" : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{p}</button>))}
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: page === totalPages ? "not-allowed" : "pointer", color: page === totalPages ? "#D1D5DB" : "#374151" }}><ChevronRight size={15} /></button>
           </div>
         </div>
       )}
+
+      {actionError && <p style={{ fontSize: 13, color: "#EF4444" }}>{actionError}</p>}
 
       {modal && (
         <ConfirmModal
@@ -226,8 +288,8 @@ export default function AdminDevelopersPage() {
           description={modal.type === "suspend" ? "This will revoke all API keys and halt integration access. Partner consents will be preserved but all API calls will return 401." : "Restore API access for this developer. Their existing keys will be reactivated."}
           confirmLabel={modal.type === "suspend" ? "Suspend" : "Reactivate"}
           confirmDanger={modal.type === "suspend"}
-          onConfirm={(r) => { console.log(modal.type, modal.id, r); setModal(null); }}
-          onClose={() => setModal(null)}
+          onConfirm={handleAction}
+          onClose={() => { setModal(null); setActionError(""); }}
         />
       )}
     </div>

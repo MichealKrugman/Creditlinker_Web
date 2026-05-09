@@ -9,8 +9,9 @@ import {
 } from 'lucide-react';
 import {
   AdminUser, PermissionModule,
-  canView, isSuperAdmin, describeScope, getMockAdminUser,
+  canView, isSuperAdmin, describeScope,
 } from '@/lib/admin-rbac';
+import { useAdminUser } from '@/lib/admin-user-context';
 
 // ─────────────────────────────────────────────────────────────
 //  NAV CONFIG
@@ -166,9 +167,10 @@ function RoleBadge({ user }: { user: AdminUser }) {
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { adminUser } = useAdminUser();
+  const user = adminUser;
 
-  // TODO: replace with real session hook
-  const user = getMockAdminUser();
+  if (!user) return null;
 
   // Filter nav items based on permission — absent module = invisible
   const visibleNav = NAV_ITEMS.filter(

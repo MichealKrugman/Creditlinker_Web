@@ -136,7 +136,7 @@ export function parseAdminFromToken(token: string): AdminUser | null {
 }
 
 /** Runtime type-guard: is a raw string a valid PermissionString? */
-function isValidPermission(p: string): p is PermissionString {
+export function isValidPermission(p: string): p is PermissionString {
   const MODULES: PermissionModule[] = [
     'businesses', 'financers', 'developers', 'financial_data',
     'verifications', 'reports', 'system', 'audit_logs',
@@ -154,7 +154,8 @@ function isValidPermission(p: string): p is PermissionString {
 // ─────────────────────────────────────────────────────────────
 
 /** Is this user a super_admin? They bypass all permission checks. */
-export function isSuperAdmin(user: AdminUser): boolean {
+export function isSuperAdmin(user: AdminUser | null | undefined): boolean {
+  if (!user) return false;
   return user.role === 'super_admin';
 }
 
@@ -163,7 +164,8 @@ export function isSuperAdmin(user: AdminUser): boolean {
  * super_admin → always true
  * admin       → true if they hold :view OR :manage for the module
  */
-export function canView(user: AdminUser, module: PermissionModule): boolean {
+export function canView(user: AdminUser | null | undefined, module: PermissionModule): boolean {
+  if (!user) return false;
   if (user.role === 'super_admin') return true;
   // settings module: enforce super_admin-only policy
   if (module === 'settings' && SETTINGS_SUPER_ADMIN_ONLY) return false;
@@ -177,7 +179,8 @@ export function canView(user: AdminUser, module: PermissionModule): boolean {
  * super_admin → always true
  * admin       → true only if they hold :manage for the module
  */
-export function canManage(user: AdminUser, module: PermissionModule): boolean {
+export function canManage(user: AdminUser | null | undefined, module: PermissionModule): boolean {
+  if (!user) return false;
   if (user.role === 'super_admin') return true;
   if (module === 'settings' && SETTINGS_SUPER_ADMIN_ONLY) return false;
   return user.permissions.some((p) => p === `${module}:manage`);

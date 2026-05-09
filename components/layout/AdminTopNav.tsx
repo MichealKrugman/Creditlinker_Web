@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import {
   AdminUser, PermissionModule,
-  canView, isSuperAdmin, getMockAdminUser,
+  canView, isSuperAdmin,
   MODULE_LABELS, accessLevelLabel,
 } from '@/lib/admin-rbac';
+import { useAdminUser } from '@/lib/admin-user-context';
 
 // ─────────────────────────────────────────────────────────────
 //  ROUTE → PAGE TITLE MAP
@@ -183,9 +184,8 @@ function ScopeIndicator({ user }: { user: AdminUser }) {
 export function AdminTopNav() {
   const pathname = usePathname();
   const router = useRouter();
-
-  // TODO: replace with real session hook
-  const user = getMockAdminUser();
+  const { adminUser } = useAdminUser();
+  const user = adminUser;
 
   // Derive page title — match most-specific route prefix
   const title = Object.entries(ROUTE_TITLES)
@@ -200,17 +200,6 @@ export function AdminTopNav() {
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Filter search links by permission
-  const permittedLinks = ALL_SEARCH_LINKS.filter(
-    (l) => !l.module || canView(user, l.module)
-  );
-
-  const filtered = query.trim()
-    ? permittedLinks.filter((l) =>
-        l.label.toLowerCase().includes(query.toLowerCase())
-      )
-    : permittedLinks;
 
   useEffect(() => {
     if (searchOpen) setTimeout(() => inputRef.current?.focus(), 50);
@@ -239,6 +228,19 @@ export function AdminTopNav() {
     setMenuOpen(false);
     setSearchOpen(false);
   }, [pathname]);
+
+  if (!user) return null;
+
+  // Filter search links by permission
+  const permittedLinks = ALL_SEARCH_LINKS.filter(
+    (l) => !l.module || canView(user, l.module)
+  );
+
+  const filtered = query.trim()
+    ? permittedLinks.filter((l) =>
+        l.label.toLowerCase().includes(query.toLowerCase())
+      )
+    : permittedLinks;
 
   const initials = user.name
     .split(' ')
@@ -520,8 +522,10 @@ export function AdminTopNav() {
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#FEF2F2')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-                  onClick={() => {
-                    // TODO: Keycloak logout → clear session → redirect /admin/login
+                  onClick={async () => {
+                    const { supabase } = await import('@/lib/supabase');
+                    await supabase.auth.signOut();
+                    router.push('/login');
                   }}
                 >
                   <LogOut size={13} />

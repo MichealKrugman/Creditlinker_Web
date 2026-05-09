@@ -9,15 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMockAdminUser } from "@/lib/admin-rbac";
-import { createClient } from "@supabase/supabase-js";
-
-// ─────────────────────────────────────────────────────────────
-//  SUPABASE CLIENT (service role — reads platform_events)
-// ─────────────────────────────────────────────────────────────
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
 //  TYPES

@@ -1,80 +1,38 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Building2, Landmark, ShieldCheck, Activity,
   TrendingUp, TrendingDown, ArrowUpRight, AlertTriangle,
   Clock, CheckCircle2, XCircle, RefreshCw,
   ChevronRight, Zap, Database, ScrollText,
-  Users, BarChart2, Circle,
+  Users, BarChart2, Circle, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   getMockAdminUser, canView, canManage, isSuperAdmin,
 } from "@/lib/admin-rbac";
+import { supabase } from "@/lib/supabase";
+import { useAdminUser } from "@/lib/admin-user-context";
 
-// ─────────────────────────────────────────────────────────────
-//  MOCK DATA
-//  Replace each section with real API calls:
-//    GET /admin/observability/business/:id
-//    GET /admin/audit?limit=8
-//    GET /admin/events?limit=10
-// ─────────────────────────────────────────────────────────────
+const FUNCTIONS_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace("/rest/v1", "") + "/functions/v1";
 
-const PLATFORM_METRICS = {
-  total_businesses:        1_842,
-  businesses_delta:        "+34 this week",
-  businesses_trend:        "up" as const,
-  active_financers:        28,
-  financers_delta:         "+2 this week",
-  financers_trend:         "up" as const,
-  pipeline_runs_today:     317,
-  pipeline_runs_delta:     "+12% vs yesterday",
-  pipeline_runs_trend:     "up" as const,
-  verification_queue:      14,
-  verification_delta:      "6 urgent",
-  verification_trend:      "warn" as const,
-  active_consents:         562,
-  active_financing:        89,
-  disputes_open:           7,
-  data_quality_avg:        87.4,
-};
-
-const PIPELINE_HEALTH = [
-  { label: "Ingestion",      status: "healthy",  latency: "142ms",  success_rate: 99.1 },
-  { label: "Normalisation",  status: "healthy",  latency: "388ms",  success_rate: 98.7 },
-  { label: "Feature Gen",    status: "healthy",  latency: "621ms",  success_rate: 99.3 },
-  { label: "Scoring",        status: "degraded", latency: "1.84s",  success_rate: 96.2 },
-  { label: "Risk Detection", status: "healthy",  latency: "204ms",  success_rate: 99.8 },
-  { label: "Snapshot",       status: "healthy",  latency: "91ms",   success_rate: 100  },
-];
-
-const RECENT_AUDIT = [
-  { actor: "Tunde Adeyemi",   action: "Verified business",        target: "Aduke Bakeries Ltd",     time: "3m ago",   severity: "info" },
-  { actor: "Chisom Eze",      action: "Suspended financer",       target: "QuickCash Capital",       time: "18m ago",  severity: "warn" },
-  { actor: "System",          action: "Pipeline run completed",   target: "biz_0041",               time: "22m ago",  severity: "info" },
-  { actor: "Tunde Adeyemi",   action: "Resolved dispute",         target: "DISP-2024-0091",         time: "1h ago",   severity: "info" },
-  { actor: "System",          action: "Risk flag raised",         target: "biz_0099 · Anomaly",     time: "1h ago",   severity: "error" },
-  { actor: "Fatima Bello",    action: "Approved financer",        target: "Lapo Microfinance",      time: "2h ago",   severity: "info" },
-  { actor: "System",          action: "Pipeline run failed",      target: "biz_0118 · Stage 3",     time: "3h ago",   severity: "error" },
-  { actor: "Chisom Eze",      action: "Viewed financial profile", target: "Konga Fulfilment Co.",   time: "3h ago",   severity: "info" },
-];
-
-const VERIFICATION_QUEUE = [
-  { name: "Greenfield Farms Ltd",   type: "CAC + Bank",     submitted: "Today, 08:14",   priority: "high" },
-  { name: "TechPay Solutions",      type: "Identity",        submitted: "Today, 09:30",   priority: "high" },
-  { name: "Amaka Tailoring Co.",    type: "Bank Statement",  submitted: "Yesterday",       priority: "normal" },
-  { name: "SabiSabi Wholesale",     type: "Full KYB",        submitted: "Yesterday",       priority: "normal" },
-];
-
-const RECENT_PIPELINE_RUNS = [
-  { business: "Aduke Bakeries Ltd",   status: "success",  duration: "4.2s",  score: 742, time: "2m ago" },
-  { business: "TechPay Solutions",    status: "success",  duration: "3.8s",  score: 681, time: "8m ago" },
-  { business: "biz_0118",             status: "failed",   duration: "1.1s",  score: null, time: "1h ago" },
-  { business: "Konga Fulfilment Co.", status: "success",  duration: "5.1s",  score: 795, time: "1h ago" },
-  { business: "SabiSabi Wholesale",   status: "running",  duration: "—",     score: null, time: "Now" },
-];
+async function callFn(name: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const res = await fetch(`${FUNCTIONS_URL}/${name}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
+  });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
+}
 
 // ─────────────────────────────────────────────────────────────
 //  PRIMITIVE COMPONENTS
@@ -185,20 +143,34 @@ function MetricCard({
 // ─────────────────────────────────────────────────────────────
 
 function PipelineHealthCard() {
+  const [stages,  setStages]  = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    callFn("admin-get-pipeline-health")
+      .then(d => setStages(d.stages ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const degraded = stages.filter(s => s.status === "degraded").length;
+
   return (
     <Card>
       <CardHeader
         title="Pipeline Health"
         action={
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 4,
-              fontSize: 10, fontWeight: 700, color: "#F59E0B",
-              background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.2)",
-              padding: "2px 8px", borderRadius: 9999,
-            }}>
-              <AlertTriangle size={8} /> 1 degraded
-            </span>
+            {!loading && degraded > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                fontSize: 10, fontWeight: 700, color: "#F59E0B",
+                background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.2)",
+                padding: "2px 8px", borderRadius: 9999,
+              }}>
+                <AlertTriangle size={8} /> {degraded} degraded
+              </span>
+            )}
             <Link href="/admin/financial-data" style={{
               fontSize: 12, fontWeight: 600, color: "#0A2540",
               textDecoration: "none", display: "flex", alignItems: "center", gap: 3,
@@ -209,51 +181,44 @@ function PipelineHealthCard() {
         }
       />
       <div style={{ padding: "14px 0 8px" }}>
-        {PIPELINE_HEALTH.map((stage, i) => (
-          <div key={i} style={{
-            display: "flex", alignItems: "center", gap: 14,
-            padding: "9px 22px",
-            borderBottom: i < PIPELINE_HEALTH.length - 1 ? "1px solid #F3F4F6" : "none",
-          }}>
-            {/* Status dot */}
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-              background: stage.status === "healthy" ? "#10B981"
-                : stage.status === "degraded" ? "#F59E0B"
-                : "#EF4444",
-            }} />
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#374151" }}>
-              {stage.label}
-            </span>
-            <span style={{ fontSize: 12, color: "#9CA3AF", minWidth: 48, textAlign: "right" }}>
-              {stage.latency}
-            </span>
-            <div style={{ width: 80 }}>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 3 }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 700,
-                  color: stage.success_rate >= 99 ? "#10B981"
-                    : stage.success_rate >= 97 ? "#F59E0B"
-                    : "#EF4444",
-                }}>
-                  {stage.success_rate}%
-                </span>
-              </div>
+        {loading ? (
+          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 8 }}>
+            <Loader2 size={14} style={{ color: "#9CA3AF" }} className="animate-spin" />
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</span>
+          </div>
+        ) : stages.length === 0 ? (
+          <div style={{ padding: "20px 22px" }}>
+            <p style={{ fontSize: 13, color: "#9CA3AF" }}>No pipeline data. Enable logging to track health.</p>
+          </div>
+        ) : stages.map((stage: any, i: number) => {
+          const latencyStr = stage.avg_latency_ms != null
+            ? stage.avg_latency_ms >= 1000 ? `${(stage.avg_latency_ms / 1000).toFixed(2)}s` : `${stage.avg_latency_ms}ms`
+            : "—";
+          const sr = stage.success_rate ?? 100;
+          return (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "9px 22px",
+              borderBottom: i < stages.length - 1 ? "1px solid #F3F4F6" : "none",
+            }}>
               <div style={{
-                height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden",
-              }}>
-                <div style={{
-                  height: "100%",
-                  width: `${stage.success_rate}%`,
-                  background: stage.success_rate >= 99 ? "#10B981"
-                    : stage.success_rate >= 97 ? "#F59E0B"
-                    : "#EF4444",
-                  borderRadius: 9999,
-                }} />
+                width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                background: stage.status === "healthy" ? "#10B981"
+                  : stage.status === "degraded" ? "#F59E0B" : "#EF4444",
+              }} />
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#374151" }}>{stage.name}</span>
+              <span style={{ fontSize: 12, color: "#9CA3AF", minWidth: 48, textAlign: "right" as const }}>{latencyStr}</span>
+              <div style={{ width: 80 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: sr >= 99 ? "#10B981" : sr >= 97 ? "#F59E0B" : "#EF4444" }}>{sr}%</span>
+                </div>
+                <div style={{ height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${sr}%`, background: sr >= 99 ? "#10B981" : sr >= 97 ? "#F59E0B" : "#EF4444", borderRadius: 9999 }} />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );
@@ -264,48 +229,53 @@ function PipelineHealthCard() {
 // ─────────────────────────────────────────────────────────────
 
 function AuditStrip() {
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    callFn("admin-get-platform-metrics")
+      .then(d => setEntries((d.recent_audit ?? []).slice(0, 8)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <Card>
       <CardHeader title="Recent Audit Activity" action={<ViewAllLink href="/admin/audit-logs" />} />
       <div style={{ padding: "10px 0 8px" }}>
-        {RECENT_AUDIT.map((entry, i) => (
+        {loading ? (
+          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 8 }}>
+            <Loader2 size={14} style={{ color: "#9CA3AF" }} className="animate-spin" />
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</span>
+          </div>
+        ) : entries.length === 0 ? (
+          <div style={{ padding: "20px 22px" }}><p style={{ fontSize: 13, color: "#9CA3AF" }}>No recent audit events.</p></div>
+        ) : entries.map((entry: any, i: number) => (
           <div key={i} style={{
             display: "flex", alignItems: "flex-start", gap: 12,
             padding: "9px 22px",
-            borderBottom: i < RECENT_AUDIT.length - 1 ? "1px solid #F3F4F6" : "none",
+            borderBottom: i < entries.length - 1 ? "1px solid #F3F4F6" : "none",
           }}>
-            {/* Severity icon */}
             <div style={{
               width: 28, height: 28, borderRadius: 7, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: entry.severity === "error" ? "#FEF2F2"
-                : entry.severity === "warn" ? "#FFFBEB"
-                : "#F0FDFF",
-              color: entry.severity === "error" ? "#EF4444"
-                : entry.severity === "warn" ? "#F59E0B"
-                : "#0891B2",
+              background: entry.severity === "error" ? "#FEF2F2" : entry.severity === "warn" ? "#FFFBEB" : "#F0FDFF",
+              color: entry.severity === "error" ? "#EF4444" : entry.severity === "warn" ? "#F59E0B" : "#0891B2",
               marginTop: 1,
             }}>
-              {entry.severity === "error" ? <XCircle size={13} />
-                : entry.severity === "warn" ? <AlertTriangle size={13} />
-                : <CheckCircle2 size={13} />}
+              {entry.severity === "error" ? <XCircle size={13} /> : entry.severity === "warn" ? <AlertTriangle size={13} /> : <CheckCircle2 size={13} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#0A2540" }}>
-                  {entry.actor}
-                </span>
-                <span style={{ fontSize: 12, color: "#6B7280" }}>{entry.action}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#0A2540" }}>{entry.actor ?? entry.actor_email ?? "System"}</span>
+                <span style={{ fontSize: 12, color: "#6B7280" }}>{entry.action ?? entry.event_type}</span>
               </div>
-              <p style={{
-                fontSize: 11, color: "#9CA3AF", marginTop: 1,
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>
-                {entry.target}
+              <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+                {entry.target ?? entry.resource_id ?? ""}
               </p>
             </div>
             <span style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0, marginTop: 2 }}>
-              {entry.time}
+              {entry.time ?? (entry.created_at ? new Date(entry.created_at).toLocaleTimeString() : "")}
             </span>
           </div>
         ))}
@@ -319,49 +289,46 @@ function AuditStrip() {
 // ─────────────────────────────────────────────────────────────
 
 function VerificationQueueCard() {
+  const [queue,   setQueue]   = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    callFn("admin-get-verification-queue")
+      .then(d => setQueue((d.queue ?? d.data ?? []).slice(0, 4)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <Card>
-      <CardHeader
-        title="Verification Queue"
-        action={<ViewAllLink href="/admin/verifications" />}
-      />
+      <CardHeader title="Verification Queue" action={<ViewAllLink href="/admin/verifications" />} />
       <div style={{ padding: "10px 0 8px" }}>
-        {VERIFICATION_QUEUE.map((item, i) => (
-          <div key={i} style={{
+        {loading ? (
+          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 8 }}>
+            <Loader2 size={14} style={{ color: "#9CA3AF" }} className="animate-spin" />
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</span>
+          </div>
+        ) : queue.length === 0 ? (
+          <div style={{ padding: "20px 22px" }}><p style={{ fontSize: 13, color: "#9CA3AF" }}>No pending verifications.</p></div>
+        ) : queue.map((item: any, i: number) => (
+          <div key={item.id ?? i} style={{
             display: "flex", alignItems: "center", gap: 12,
             padding: "10px 22px",
-            borderBottom: i < VERIFICATION_QUEUE.length - 1 ? "1px solid #F3F4F6" : "none",
+            borderBottom: i < queue.length - 1 ? "1px solid #F3F4F6" : "none",
           }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-              background: "#F3F4F6",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 800, color: "#0A2540",
-            }}>
-              {item.name.slice(0, 2).toUpperCase()}
+            <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0A2540" }}>
+              {(item.name ?? item.business_name ?? "??").slice(0, 2).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{
-                fontSize: 13, fontWeight: 600, color: "#0A2540",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                marginBottom: 2,
-              }}>
-                {item.name}
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
+                {item.name ?? item.business_name}
               </p>
               <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-                {item.type} · {item.submitted}
+                {item.type ?? item.verification_type} · {item.submitted ?? (item.created_at ? new Date(item.created_at).toLocaleDateString() : "")}
               </p>
             </div>
-            {item.priority === "high" && (
-              <span style={{
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                color: "#EF4444", background: "#FEF2F2",
-                border: "1px solid rgba(239,68,68,0.2)",
-                padding: "2px 7px", borderRadius: 9999, textTransform: "uppercase",
-                flexShrink: 0,
-              }}>
-                Urgent
-              </span>
+            {(item.priority === "high" || item.urgency === "high") && (
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: "#EF4444", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", padding: "2px 7px", borderRadius: 9999, textTransform: "uppercase" as const, flexShrink: 0 }}>Urgent</span>
             )}
           </div>
         ))}
@@ -369,7 +336,7 @@ function VerificationQueueCard() {
       <div style={{ padding: "12px 22px", borderTop: "1px solid #F3F4F6" }}>
         <Link href="/admin/verifications">
           <Button variant="primary" size="sm" style={{ width: "100%" }}>
-            <ShieldCheck size={13} /> Review queue ({PLATFORM_METRICS.verification_queue})
+            <ShieldCheck size={13} /> Review queue ({queue.length})
           </Button>
         </Link>
       </div>
@@ -382,62 +349,54 @@ function VerificationQueueCard() {
 // ─────────────────────────────────────────────────────────────
 
 function PipelineRunsCard() {
+  const [runs,    setRuns]    = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    callFn("get-pipeline-logs")
+      .then(d => setRuns((d.runs ?? d.data ?? d.logs ?? []).slice(0, 5)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <Card>
-      <CardHeader
-        title="Recent Pipeline Runs"
-        action={<ViewAllLink href="/admin/financial-data" />}
-      />
+      <CardHeader title="Recent Pipeline Runs" action={<ViewAllLink href="/admin/financial-data" />} />
       <div style={{ padding: "10px 0 8px" }}>
-        {RECENT_PIPELINE_RUNS.map((run, i) => (
-          <div key={i} style={{
+        {loading ? (
+          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 8 }}>
+            <Loader2 size={14} style={{ color: "#9CA3AF" }} className="animate-spin" />
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</span>
+          </div>
+        ) : runs.length === 0 ? (
+          <div style={{ padding: "20px 22px" }}><p style={{ fontSize: 13, color: "#9CA3AF" }}>No pipeline runs yet.</p></div>
+        ) : runs.map((run: any, i: number) => (
+          <div key={run.id ?? i} style={{
             display: "flex", alignItems: "center", gap: 12,
             padding: "9px 22px",
-            borderBottom: i < RECENT_PIPELINE_RUNS.length - 1 ? "1px solid #F3F4F6" : "none",
+            borderBottom: i < runs.length - 1 ? "1px solid #F3F4F6" : "none",
           }}>
-            {/* Status icon */}
             <div style={{
               width: 28, height: 28, borderRadius: 7, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: run.status === "success" ? "#ECFDF5"
-                : run.status === "failed" ? "#FEF2F2"
-                : "#F0FDFF",
-              color: run.status === "success" ? "#10B981"
-                : run.status === "failed" ? "#EF4444"
-                : "#0891B2",
+              background: run.status === "success" ? "#ECFDF5" : run.status === "failed" ? "#FEF2F2" : "#F0FDFF",
+              color: run.status === "success" ? "#10B981" : run.status === "failed" ? "#EF4444" : "#0891B2",
             }}>
-              {run.status === "success" ? <CheckCircle2 size={13} />
-                : run.status === "failed" ? <XCircle size={13} />
-                : <RefreshCw size={13} style={{ animation: "spin 1.2s linear infinite" }} />}
+              {run.status === "success" ? <CheckCircle2 size={13} /> : run.status === "failed" ? <XCircle size={13} /> : <RefreshCw size={13} style={{ animation: "spin 1.2s linear infinite" }} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{
-                fontSize: 13, fontWeight: 600, color: "#0A2540",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                marginBottom: 2,
-              }}>
-                {run.business}
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
+                {run.business ?? run.business_name ?? run.business_id ?? "—"}
               </p>
               <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-                {run.duration} · {run.time}
+                {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : "—"} · {run.created_at ? new Date(run.created_at).toLocaleTimeString() : ""}
               </p>
             </div>
             {run.score != null && (
-              <span style={{
-                fontSize: 13, fontWeight: 800, color: "#0A2540",
-                fontFamily: "var(--font-display)",
-              }}>
-                {run.score}
-              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)" }}>{run.score}</span>
             )}
             {run.status === "failed" && (
-              <span style={{
-                fontSize: 10, fontWeight: 700, color: "#EF4444",
-                background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)",
-                padding: "2px 7px", borderRadius: 9999, flexShrink: 0,
-              }}>
-                Failed
-              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#EF4444", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", padding: "2px 7px", borderRadius: 9999, flexShrink: 0 }}>Failed</span>
             )}
           </div>
         ))}
@@ -450,61 +409,25 @@ function PipelineRunsCard() {
 //  SECONDARY STATS ROW
 // ─────────────────────────────────────────────────────────────
 
-function SecondaryStats() {
+function SecondaryStats({ metrics }: { metrics: any }) {
+  const activeConsents  = metrics?.active_consents  ?? 0;
+  const activeFinancing = metrics?.active_financing  ?? 0;
+  const disputesOpen   = metrics?.disputes_open     ?? 0;
+
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: 14,
-    }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
       {[
-        {
-          label: "Active Consents",
-          value: PLATFORM_METRICS.active_consents,
-          icon: <ShieldCheck size={14} />,
-          color: "#10B981",
-          bg: "#ECFDF5",
-          href: "/admin/businesses",
-        },
-        {
-          label: "Active Financing",
-          value: PLATFORM_METRICS.active_financing,
-          icon: <Landmark size={14} />,
-          color: "#0891B2",
-          bg: "#F0FDFF",
-          href: "/admin/financers",
-        },
-        {
-          label: "Open Disputes",
-          value: PLATFORM_METRICS.disputes_open,
-          icon: <AlertTriangle size={14} />,
-          color: PLATFORM_METRICS.disputes_open > 5 ? "#EF4444" : "#F59E0B",
-          bg: PLATFORM_METRICS.disputes_open > 5 ? "#FEF2F2" : "#FFFBEB",
-          href: "/admin/disputes",
-        },
+        { label: "Active Consents",  value: activeConsents,  icon: <ShieldCheck size={14} />, color: "#10B981", bg: "#ECFDF5", href: "/admin/businesses" },
+        { label: "Active Financing", value: activeFinancing, icon: <Landmark size={14} />,   color: "#0891B2", bg: "#F0FDFF", href: "/admin/financers" },
+        { label: "Open Disputes",    value: disputesOpen,    icon: <AlertTriangle size={14} />, color: disputesOpen > 5 ? "#EF4444" : "#F59E0B", bg: disputesOpen > 5 ? "#FEF2F2" : "#FFFBEB", href: "/admin/disputes" },
       ].map((stat, i) => (
         <Link key={i} href={stat.href} style={{ textDecoration: "none" }}>
-          <Card style={{
-            padding: "16px 18px",
-            display: "flex", alignItems: "center", gap: 14,
-            cursor: "pointer", transition: "box-shadow 0.12s",
-          }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-              background: stat.bg,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: stat.color,
-            }}>
+          <Card style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "box-shadow 0.12s" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: stat.bg, display: "flex", alignItems: "center", justifyContent: "center", color: stat.color }}>
               {stat.icon}
             </div>
             <div>
-              <p style={{
-                fontFamily: "var(--font-display)", fontWeight: 800,
-                fontSize: 22, color: "#0A2540", letterSpacing: "-0.04em",
-                lineHeight: 1, marginBottom: 3,
-              }}>
-                {stat.value}
-              </p>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 3 }}>{stat.value}</p>
               <p style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{stat.label}</p>
             </div>
           </Card>
@@ -524,6 +447,19 @@ export default function AdminDashboard() {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
+  const [metrics, setMetrics] = useState<any>(null);
+
+  useEffect(() => {
+    callFn("admin-get-platform-metrics").then(d => setMetrics(d)).catch(() => {});
+  }, []);
+
+  const m = metrics ?? {};
+  const pipelineRunsToday = m.pipeline_runs_today ?? 0;
+  const dataQualityAvg   = m.data_quality_avg    ?? 0;
+  const disputesOpen     = m.disputes_open        ?? 0;
+  const verificationQueue = m.verification_queue  ?? 0;
+  const verificationUrgent = m.verification_urgent ?? 0;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -541,13 +477,13 @@ export default function AdminDashboard() {
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Badge variant="success">Platform Online</Badge>
-            <span style={{ fontSize: 13, color: "#6B7280" }}>
-              {PLATFORM_METRICS.pipeline_runs_today} pipeline runs today
-            </span>
-            <span style={{ color: "#E5E7EB" }}>·</span>
-            <span style={{ fontSize: 13, color: "#6B7280" }}>
-              Avg data quality {PLATFORM_METRICS.data_quality_avg}%
-            </span>
+          <span style={{ fontSize: 13, color: "#6B7280" }}>
+            {pipelineRunsToday} pipeline runs today
+          </span>
+          <span style={{ color: "#E5E7EB" }}>·</span>
+          <span style={{ fontSize: 13, color: "#6B7280" }}>
+            Avg data quality {dataQualityAvg}%
+          </span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -577,9 +513,9 @@ export default function AdminDashboard() {
         {canView(user, "businesses") && (
           <MetricCard
             label="Total Businesses"
-            value={PLATFORM_METRICS.total_businesses.toLocaleString()}
-            delta={PLATFORM_METRICS.businesses_delta}
-            trend={PLATFORM_METRICS.businesses_trend}
+            value={(m.total_businesses ?? 0).toLocaleString()}
+            delta={m.businesses_delta ?? ""}
+            trend={m.businesses_trend ?? "neutral"}
             icon={<Building2 size={16} />}
             href="/admin/businesses"
             accent
@@ -588,9 +524,9 @@ export default function AdminDashboard() {
         {canView(user, "financers") && (
           <MetricCard
             label="Active Financers"
-            value={PLATFORM_METRICS.active_financers}
-            delta={PLATFORM_METRICS.financers_delta}
-            trend={PLATFORM_METRICS.financers_trend}
+            value={m.active_financers ?? 0}
+            delta={m.financers_delta ?? ""}
+            trend={m.financers_trend ?? "neutral"}
             icon={<Landmark size={16} />}
             href="/admin/financers"
           />
@@ -598,9 +534,9 @@ export default function AdminDashboard() {
         {canView(user, "financial_data") && (
           <MetricCard
             label="Pipeline Runs Today"
-            value={PLATFORM_METRICS.pipeline_runs_today}
-            delta={PLATFORM_METRICS.pipeline_runs_delta}
-            trend={PLATFORM_METRICS.pipeline_runs_trend}
+            value={pipelineRunsToday}
+            delta={m.pipeline_runs_delta ?? ""}
+            trend={m.pipeline_runs_trend ?? "neutral"}
             icon={<Zap size={16} />}
             href="/admin/financial-data"
           />
@@ -608,9 +544,9 @@ export default function AdminDashboard() {
         {canView(user, "verifications") && (
           <MetricCard
             label="Verification Queue"
-            value={PLATFORM_METRICS.verification_queue}
-            delta={PLATFORM_METRICS.verification_delta}
-            trend={PLATFORM_METRICS.verification_trend}
+            value={verificationQueue}
+            delta={verificationUrgent > 0 ? `${verificationUrgent} urgent` : "Up to date"}
+            trend={verificationUrgent > 0 ? "warn" : "neutral"}
             icon={<ShieldCheck size={16} />}
             href="/admin/verifications"
           />
@@ -618,7 +554,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── SECONDARY STATS ── */}
-      <SecondaryStats />
+      <SecondaryStats metrics={m} />
 
       {/* ── MAIN GRID ── */}
       <div style={{
@@ -639,7 +575,7 @@ export default function AdminDashboard() {
           {canView(user, "financial_data") && <PipelineRunsCard />}
 
           {/* Disputes alert — visible if there are open disputes */}
-          {canView(user, "verifications") && PLATFORM_METRICS.disputes_open > 0 && (
+          {canView(user, "verifications") && disputesOpen > 0 && (
             <div style={{
               background: "#FEF2F2",
               border: "1px solid rgba(239,68,68,0.2)",
@@ -650,7 +586,7 @@ export default function AdminDashboard() {
               <AlertTriangle size={15} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: "#991B1B", marginBottom: 3 }}>
-                  {PLATFORM_METRICS.disputes_open} open disputes
+                  {disputesOpen} open disputes
                 </p>
                 <p style={{ fontSize: 12, color: "#B91C1C", lineHeight: 1.5, marginBottom: 10 }}>
                   Active financing disputes require admin review to proceed.
