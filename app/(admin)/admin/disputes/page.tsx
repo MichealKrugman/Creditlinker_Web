@@ -16,7 +16,11 @@ async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
   const res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
     ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
   });
   if (!res.ok) {
