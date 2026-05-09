@@ -82,7 +82,7 @@ function ReviewModal({
           <div>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Submitted Documents</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {item.documents.map((doc) => (
+              {item.documents.map((doc: string) => (
                 <div key={doc} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #F3F4F6" }}>
                   <FileText size={14} style={{ color: "#6B7280", flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: "#374151", flex: 1 }}>{doc}</span>
