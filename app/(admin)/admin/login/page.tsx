@@ -211,7 +211,7 @@ export default function AdminLoginPage() {
                 type="email"
                 autoFocus
                 autoComplete="email"
-                placeholder="admin@creditlinker.ng"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={inputBase}
