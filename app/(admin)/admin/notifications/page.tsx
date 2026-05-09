@@ -1,58 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Bell, Send, X, AlertTriangle, Info, CheckCircle2,
-  Megaphone, Building2, Landmark, Code2, Users,
+  Megaphone, Building2, Landmark, Code2, Users, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { supabase } from "@/lib/supabase";
+
+async function callFn(name: string, body?: object, method: "POST" | "GET" = "POST") {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 // ─────────────────────────────────────────────────────────────
-//  MOCK DATA — replace with GET /admin/notifications
+//  CONSTANTS
 // ─────────────────────────────────────────────────────────────
-
-const SENT_NOTIFICATIONS = [
-  {
-    id: "notif_012", title: "Scheduled Maintenance — Jan 15",
-    body: "Creditlinker platform will be unavailable for scheduled maintenance on Jan 15 from 02:00–04:00 WAT.",
-    audience: "all", type: "maintenance",
-    sent_at: "Jan 10, 2025 · 10:30",
-    sent_by: "Tunde Adeyemi",
-    reach: 1842,
-  },
-  {
-    id: "notif_011", title: "New Feature: Financial Analysis Dashboard",
-    body: "We've launched a new Financial Analysis page that gives you deeper insights into your revenue patterns and cash flow.",
-    audience: "businesses", type: "feature",
-    sent_at: "Dec 22, 2024 · 09:00",
-    sent_by: "Tunde Adeyemi",
-    reach: 1842,
-  },
-  {
-    id: "notif_010", title: "Scoring Engine Update",
-    body: "We've updated the dimensional scoring algorithm. Scores have been recalculated. Please review your updated financial identity.",
-    audience: "businesses", type: "system",
-    sent_at: "Dec 15, 2024 · 08:00",
-    sent_by: "System",
-    reach: 1842,
-  },
-  {
-    id: "notif_009", title: "New Capital Categories Available",
-    body: "Revenue-based financing and trade finance options are now live on the platform.",
-    audience: "financers", type: "feature",
-    sent_at: "Dec 10, 2024 · 11:00",
-    sent_by: "Tunde Adeyemi",
-    reach: 28,
-  },
-];
 
 const AUDIENCE_OPTIONS = [
-  { value: "all",        label: "All users",      icon: <Users size={14} />,    desc: "Businesses, financers, and developers" },
-  { value: "businesses", label: "Businesses",     icon: <Building2 size={14} />, desc: "All business account holders" },
-  { value: "financers",  label: "Financers",      icon: <Landmark size={14} />, desc: "All financer institutions" },
-  { value: "developers", label: "Developers",     icon: <Code2 size={14} />,    desc: "All developer accounts" },
+  { value: "all",        label: "All users",   icon: <Users size={14} />,     desc: "Businesses, financers, and developers" },
+  { value: "businesses", label: "Businesses",  icon: <Building2 size={14} />, desc: "All business account holders" },
+  { value: "financers",  label: "Financers",   icon: <Landmark size={14} />,  desc: "All financer institutions" },
+  { value: "developers", label: "Developers",  icon: <Code2 size={14} />,     desc: "All developer accounts" },
 ];
 
 const NOTIFICATION_TYPES = [
@@ -93,21 +75,44 @@ export default function AdminNotificationsPage() {
   const [body,     setBody]     = useState("");
   const [audience, setAudience] = useState("all");
   const [type,     setType]     = useState("info");
+  const [sending,  setSending]  = useState(false);
   const [sent,     setSent]     = useState(false);
-  const [preview,  setPreview]  = useState(false);
+  const [sendError, setSendError] = useState("");
 
-  function handleSend() {
+  const [history,        setHistory]        = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const data = await callFn("admin-get-notifications");
+      setHistory(data.notifications ?? data.data ?? []);
+    } catch (e) {
+      console.error("[notifications] load history failed", e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  const estimatedReach = audience === "all" ? "All users" : audience === "businesses" ? "Businesses only" : audience === "financers" ? "Financers only" : "Developers only";
+
+  async function handleSend() {
     if (!title.trim() || !body.trim()) return;
-    // TODO: POST /admin/notifications/broadcast { title, body, audience, type }
-    console.log("Sending notification:", { title, body, audience, type });
-    setSent(true);
-    setTimeout(() => {
-      setSent(false);
+    setSending(true); setSendError("");
+    try {
+      await callFn("admin-broadcast-notification", { title, body, audience, type });
+      setSent(true);
       setTitle(""); setBody(""); setAudience("all"); setType("info");
-    }, 3000);
+      await loadHistory();
+      setTimeout(() => setSent(false), 4000);
+    } catch (e: any) {
+      setSendError(e.message ?? "Failed to send notification");
+    } finally {
+      setSending(false);
+    }
   }
-
-  const estimatedReach = audience === "all" ? 1842 + 28 + 8 : audience === "businesses" ? 1842 : audience === "financers" ? 28 : 8;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -137,7 +142,7 @@ export default function AdminNotificationsPage() {
             <div style={{ padding: "40px 22px", textAlign: "center" }}>
               <CheckCircle2 size={32} style={{ color: "#10B981", margin: "0 auto 12px", display: "block" }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: "#0A2540", marginBottom: 4 }}>Notification sent!</p>
-              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Delivered to ~{estimatedReach.toLocaleString()} users.</p>
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Delivered to {estimatedReach}.</p>
             </div>
           ) : (
             <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -190,11 +195,14 @@ export default function AdminNotificationsPage() {
                 </div>
               </div>
 
+              {sendError && <p style={{ fontSize: 12, color: "#EF4444" }}>{sendError}</p>}
+
               {/* Reach estimate + send */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4, borderTop: "1px solid #F3F4F6" }}>
-                <p style={{ fontSize: 12, color: "#9CA3AF" }}>Estimated reach: <strong style={{ color: "#0A2540" }}>{estimatedReach.toLocaleString()} users</strong></p>
-                <Button variant="primary" size="sm" disabled={!title.trim() || !body.trim()} onClick={handleSend} style={{ gap: 6 }}>
-                  <Send size={13} /> Send Notification
+                <p style={{ fontSize: 12, color: "#9CA3AF" }}>Audience: <strong style={{ color: "#0A2540" }}>{estimatedReach}</strong></p>
+                <Button variant="primary" size="sm" disabled={!title.trim() || !body.trim() || sending} onClick={handleSend} style={{ gap: 6 }}>
+                  {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                  {sending ? "Sending…" : "Send Notification"}
                 </Button>
               </div>
             </div>
@@ -207,16 +215,31 @@ export default function AdminNotificationsPage() {
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Sent History</p>
           </div>
           <div>
-            {SENT_NOTIFICATIONS.map((n, i) => (
-              <div key={n.id} style={{ padding: "14px 22px", borderBottom: i < SENT_NOTIFICATIONS.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+            {historyLoading ? (
+              <div style={{ padding: "32px 22px", textAlign: "center" }}>
+                <Loader2 size={16} style={{ color: "#9CA3AF", margin: "0 auto 8px" }} className="animate-spin" />
+                <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</p>
+              </div>
+            ) : history.length === 0 ? (
+              <div style={{ padding: "32px 22px", textAlign: "center" }}>
+                <Bell size={20} style={{ color: "#D1D5DB", margin: "0 auto 8px", display: "block" }} />
+                <p style={{ fontSize: 13, color: "#9CA3AF" }}>No notifications sent yet.</p>
+              </div>
+            ) : history.map((n: any, i: number) => (
+              <div key={n.id} style={{ padding: "14px 22px", borderBottom: i < history.length - 1 ? "1px solid #F9FAFB" : "none" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", lineHeight: 1.4, flex: 1 }}>{n.title}</p>
-                  {typeChip(n.type)}
+                  {typeChip(n.type ?? n.notification_type ?? "info")}
                 </div>
-                <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.5, marginBottom: 6 }}>{n.body.slice(0, 80)}…</p>
+                <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.5, marginBottom: 6 }}>
+                  {(n.body ?? n.message ?? "").slice(0, 80)}{(n.body ?? n.message ?? "").length > 80 ? "…" : ""}
+                </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {audienceChip(n.audience)}
-                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>~{n.reach.toLocaleString()} users · {n.sent_at}</span>
+                  {audienceChip(n.audience ?? "all")}
+                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>
+                    {n.reach ? `~${n.reach.toLocaleString()} users · ` : ""}
+                    {n.sent_at ?? (n.created_at ? new Date(n.created_at).toLocaleDateString() : "")}
+                  </span>
                 </div>
               </div>
             ))}
