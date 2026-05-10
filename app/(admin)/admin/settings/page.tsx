@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Settings, Shield, Users, Lock, AlertTriangle,
   Save, Plus, Trash2, CheckCircle2, Globe,
-  Database, Activity, RefreshCw, Loader2,
+  Database, Activity, RefreshCw, Loader2, Info,
 } from "lucide-react";
 import { Badge }   from "@/components/ui/badge";
 import { Button }  from "@/components/ui/button";
 import { Input }   from "@/components/ui/input";
 import {
   getMockAdminUser, isSuperAdmin,
-  MODULE_LABELS, PermissionModule, AccessLevel, PermissionString,
+  ROLE_LABELS, ROLE_DESCRIPTIONS, AdminRole,
 } from "@/lib/admin-rbac";
 import { supabase } from "@/lib/supabase";
 
@@ -19,9 +19,13 @@ async function callFn(name: string, body?: object, method: "POST" | "GET" = "POS
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
   const url   = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
-  const res   = await fetch(method === "GET" ? `${url}` : url, {
+  const res   = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
     ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
   });
   if (!res.ok) {
@@ -35,20 +39,26 @@ async function callFn(name: string, body?: object, method: "POST" | "GET" = "POS
 //  TYPES
 // ─────────────────────────────────────────────────────────────
 type AdminRecord = {
-  id: string; email: string; role: string;
-  is_deactivated: boolean; last_sign_in: string | null; created_at: string;
+  id:             string;
+  email:          string;
+  name:           string;
+  admin_role:     AdminRole;
+  permissions:    string[];
+  is_deactivated: boolean;
+  last_sign_in:   string | null;
+  created_at:     string;
 };
 
 type PlatformSettings = {
-  platform_name:              string;
-  api_base_url:               string;
-  support_email:              string;
-  maintenance_mode:           boolean;
-  session_timeout_minutes:    number;
-  mfa_required:               boolean;
-  max_login_attempts:         number;
-  platform_logging_enabled:   boolean;
-  audit_log_retention_days:   number;
+  platform_name:            string;
+  api_base_url:             string;
+  support_email:            string;
+  maintenance_mode:         boolean;
+  session_timeout_minutes:  number;
+  mfa_required:             boolean;
+  max_login_attempts:       number;
+  platform_logging_enabled: boolean;
+  audit_log_retention_days: number;
 };
 
 const DEFAULTS: PlatformSettings = {
@@ -63,10 +73,13 @@ const DEFAULTS: PlatformSettings = {
   audit_log_retention_days: 30,
 };
 
-const ALL_MODULES: PermissionModule[] = [
-  "businesses","financers","developers","financial_data",
-  "verifications","reports","system","audit_logs","notifications","settings",
-];
+// Role display config
+const ROLE_COLORS: Record<AdminRole, { bg: string; color: string; border: string }> = {
+  super_admin:      { bg: "rgba(0,212,255,0.08)",   color: "#0891B2", border: "rgba(0,212,255,0.25)" },
+  operations_admin: { bg: "rgba(245,158,11,0.08)",  color: "#D97706", border: "rgba(245,158,11,0.25)" },
+  risk_admin:       { bg: "rgba(139,92,246,0.08)",  color: "#7C3AED", border: "rgba(139,92,246,0.25)" },
+  viewer:           { bg: "#F3F4F6",                color: "#6B7280", border: "#E5E7EB" },
+};
 
 // ─────────────────────────────────────────────────────────────
 //  ACCESS DENIED
@@ -86,49 +99,42 @@ function AccessDenied() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  TOGGLE COMPONENT
+//  TOGGLE
 // ─────────────────────────────────────────────────────────────
 function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <div
-      onClick={() => !disabled && onChange(!value)}
-      style={{
-        width:44, height:24, borderRadius:12, flexShrink:0,
-        background: value ? "#10B981" : "#D1D5DB",
-        position:"relative", cursor: disabled ? "not-allowed" : "pointer",
-        transition:"background 0.2s", opacity: disabled ? 0.5 : 1,
-      }}>
-      <div style={{
-        position:"absolute", top:3,
-        left: value ? "calc(100% - 19px)" : 3,
-        width:18, height:18, borderRadius:"50%", background:"white",
-        boxShadow:"0 1px 3px rgba(0,0,0,0.2)",
-        transition:"left 0.15s",
-      }} />
+    <div onClick={() => !disabled && onChange(!value)}
+      style={{ width:44, height:24, borderRadius:12, flexShrink:0, background: value ? "#10B981" : "#D1D5DB", position:"relative", cursor: disabled ? "not-allowed" : "pointer", transition:"background 0.2s", opacity: disabled ? 0.5 : 1 }}>
+      <div style={{ position:"absolute", top:3, left: value ? "calc(100% - 19px)" : 3, width:18, height:18, borderRadius:"50%", background:"white", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.15s" }} />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-//  NEW ADMIN MODAL
+//  INVITE ADMIN MODAL
 // ─────────────────────────────────────────────────────────────
-function NewAdminModal({ onClose, onSave }: { onClose: () => void; onSave: (email: string, role: string) => Promise<void> }) {
-  const [email,   setEmail]   = useState("");
-  const [role,    setRole]    = useState<"admin" | "super_admin">("admin");
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-  const [perms,   setPerms]   = useState<Record<PermissionModule, AccessLevel | "none">>(() =>
-    Object.fromEntries(ALL_MODULES.map(m => [m, "none"])) as Record<PermissionModule, AccessLevel | "none">
-  );
+const INVITABLE_ROLES: AdminRole[] = ["operations_admin", "risk_admin", "viewer"];
+
+function InviteAdminModal({
+  onClose, onSave,
+}: {
+  onClose: () => void;
+  onSave:  (email: string, name: string, admin_role: AdminRole) => Promise<void>;
+}) {
+  const [email,      setEmail]      = useState("");
+  const [name,       setName]       = useState("");
+  const [adminRole,  setAdminRole]  = useState<AdminRole>("operations_admin");
+  const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState("");
 
   async function handleCreate() {
     if (!email.trim()) return;
     setSaving(true); setError("");
     try {
-      await onSave(email.trim(), role);
+      await onSave(email.trim(), name.trim(), adminRole);
       onClose();
     } catch (e: any) {
-      setError(e.message ?? "Failed to create admin");
+      setError(e.message ?? "Failed to send invitation");
     } finally {
       setSaving(false);
     }
@@ -137,69 +143,122 @@ function NewAdminModal({ onClose, onSave }: { onClose: () => void; onSave: (emai
   return (
     <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,37,64,0.45)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background:"white", borderRadius:16, boxShadow:"0 24px 80px rgba(0,0,0,0.18)", width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto" }}>
+      <div style={{ background:"white", borderRadius:16, boxShadow:"0 24px 80px rgba(0,0,0,0.18)", width:"100%", maxWidth:520, maxHeight:"90vh", overflowY:"auto" }}>
+
         <div style={{ padding:"22px 24px 16px", borderBottom:"1px solid #F3F4F6" }}>
-          <h3 style={{ fontFamily:"var(--font-display)", fontWeight:800, fontSize:17, color:"#0A2540", marginBottom:4 }}>Add Admin Account</h3>
-          <p style={{ fontSize:13, color:"#9CA3AF" }}>An invite link will be sent to the email address.</p>
+          <h3 style={{ fontFamily:"var(--font-display)", fontWeight:800, fontSize:17, color:"#0A2540", marginBottom:4 }}>Invite Admin</h3>
+          <p style={{ fontSize:13, color:"#9CA3AF" }}>An invitation email will be sent. They must accept to activate their account.</p>
         </div>
+
         <div style={{ padding:24, display:"flex", flexDirection:"column", gap:18 }}>
 
+          {/* Name */}
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>Work Email *</label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@creditlinker.ng" type="email" style={{ height:38, fontSize:13, maxWidth:380 }} />
+            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>Full Name</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" style={{ height:38, fontSize:13 }} />
           </div>
 
+          {/* Email */}
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:8 }}>Role</label>
-            <div style={{ display:"flex", gap:10 }}>
-              {(["admin","super_admin"] as const).map((r) => (
-                <button key={r} onClick={() => setRole(r)}
-                  style={{ flex:1, padding:"10px 14px", border:"1.5px solid", borderColor: role===r ? "#0A2540" : "#E5E7EB", borderRadius:10, background: role===r ? "#F9FAFB" : "white", cursor:"pointer", textAlign:"left" as const }}>
-                  <p style={{ fontSize:13, fontWeight:700, color:"#0A2540", marginBottom:2 }}>{r === "super_admin" ? "Super Admin" : "Admin"}</p>
-                  <p style={{ fontSize:11, color:"#9CA3AF" }}>{r === "super_admin" ? "Full platform access" : "Scoped access — configure below"}</p>
-                </button>
+            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>Work Email *</label>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@creditlinker.ng" type="email" style={{ height:38, fontSize:13 }} />
+          </div>
+
+          {/* Role selector */}
+          <div>
+            <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:8 }}>Role *</label>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {INVITABLE_ROLES.map((r) => {
+                const c = ROLE_COLORS[r];
+                const selected = adminRole === r;
+                return (
+                  <button key={r} onClick={() => setAdminRole(r)}
+                    style={{ padding:"12px 16px", border:`1.5px solid ${selected ? "#0A2540" : "#E5E7EB"}`, borderRadius:10, background: selected ? "#F9FAFB" : "white", cursor:"pointer", textAlign:"left" as const, display:"flex", alignItems:"flex-start", gap:12 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                        <span style={{ fontSize:13, fontWeight:700, color:"#0A2540" }}>{ROLE_LABELS[r]}</span>
+                        <span style={{ fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:9999, background:c.bg, color:c.color, border:`1px solid ${c.border}` }}>
+                          {r === "viewer" ? "Read only" : r === "risk_admin" ? "Finance" : "Operations"}
+                        </span>
+                      </div>
+                      <p style={{ fontSize:12, color:"#6B7280", lineHeight:1.5 }}>{ROLE_DESCRIPTIONS[r]}</p>
+                    </div>
+                    <div style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${selected ? "#0A2540" : "#D1D5DB"}`, background: selected ? "#0A2540" : "white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+                      {selected && <div style={{ width:8, height:8, borderRadius:"50%", background:"white" }} />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Permissions preview */}
+          <div style={{ background:"#F9FAFB", borderRadius:10, padding:"12px 14px" }}>
+            <p style={{ fontSize:11, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Access granted</p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {(adminRole === "operations_admin" ? [
+                "Businesses (manage)", "Financers (manage)", "Developers (manage)",
+                "Verifications (manage)", "Notifications (manage)",
+                "Financial Data (view)", "Reports (view)", "Audit Logs (view)",
+              ] : adminRole === "risk_admin" ? [
+                "Businesses (view)", "Financers (view)",
+                "Financial Data (manage)", "Reports (manage)",
+                "Verifications (view)", "Audit Logs (view)",
+              ] : [
+                "Businesses (view)", "Financers (view)", "Developers (view)",
+                "Financial Data (view)", "Verifications (view)",
+                "Reports (view)", "Audit Logs (view)", "Notifications (view)",
+              ]).map((p) => (
+                <span key={p} style={{ fontSize:11, padding:"3px 9px", background:"white", border:"1px solid #E5E7EB", borderRadius:9999, color:"#374151" }}>{p}</span>
               ))}
             </div>
           </div>
 
-          {role === "admin" && (
-            <div>
-              <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:8 }}>Permission Scope</label>
-              <div style={{ border:"1px solid #E5E7EB", borderRadius:10, overflow:"hidden" }}>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 80px 80px", padding:"8px 14px", background:"#FAFAFA", borderBottom:"1px solid #F3F4F6" }}>
-                  {["Module","None","View","Manage"].map(h => (
-                    <p key={h} style={{ fontSize:11, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.06em", textAlign: h !== "Module" ? "center" as const : "left" as const }}>{h}</p>
-                  ))}
-                </div>
-                {ALL_MODULES.map((mod, i) => {
-                  const locked = mod === "settings";
-                  return (
-                    <div key={mod} style={{ display:"grid", gridTemplateColumns:"1fr 80px 80px 80px", padding:"10px 14px", borderBottom: i < ALL_MODULES.length - 1 ? "1px solid #F9FAFB" : "none", alignItems:"center", opacity: locked ? 0.4 : 1 }}>
-                      <p style={{ fontSize:13, color:"#374151", fontWeight:500 }}>{MODULE_LABELS[mod]}</p>
-                      {(["none","view","manage"] as const).map((level) => (
-                        <div key={level} style={{ display:"flex", justifyContent:"center" }}>
-                          <input type="radio" name={mod} value={level} checked={perms[mod] === level} disabled={locked}
-                            onChange={() => !locked && setPerms(p => ({ ...p, [mod]: level }))}
-                            style={{ cursor: locked ? "not-allowed" : "pointer", accentColor:"#0A2540" }} />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Info note */}
+          <div style={{ background:"#F0FDFF", border:"1px solid rgba(0,212,255,0.2)", borderRadius:10, padding:"10px 14px", display:"flex", gap:8, alignItems:"flex-start" }}>
+            <Info size={13} style={{ color:"#0891B2", flexShrink:0, marginTop:1 }} />
+            <p style={{ fontSize:12, color:"#0E7490", lineHeight:1.5 }}>
+              Super Admin accounts must be created manually via Supabase Auth. This form is for operational access only.
+            </p>
+          </div>
 
           {error && <p style={{ fontSize:12, color:"#EF4444" }}>{error}</p>}
 
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end", paddingTop:4, borderTop:"1px solid #F3F4F6" }}>
             <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button variant="primary" size="sm" disabled={!email.trim() || saving} onClick={handleCreate} style={{ gap:6 }}>
-              {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Create Admin
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              {saving ? "Sending…" : "Send Invite"}
             </Button>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SAVE BAR
+// ─────────────────────────────────────────────────────────────
+function SaveBar({
+  onSave, saving, saved, error, dirty,
+  saveLabel = "Save Changes",
+  saveVariant = "primary" as "primary" | "outline",
+  saveStyle = {} as React.CSSProperties,
+}: {
+  onSave: () => void; saving: boolean; saved: boolean;
+  error: string; dirty: boolean;
+  saveLabel?: string; saveVariant?: "primary" | "outline"; saveStyle?: React.CSSProperties;
+}) {
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+      <Button variant={saveVariant} size="sm" style={{ gap:6, ...saveStyle }} onClick={onSave} disabled={saving}>
+        {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+        {saving ? "Saving…" : saveLabel}
+      </Button>
+      {saved && <span style={{ fontSize:12, color:"#10B981", display:"flex", alignItems:"center", gap:5 }}><CheckCircle2 size={13} /> Saved</span>}
+      {error && <span style={{ fontSize:12, color:"#EF4444" }}>{error}</span>}
+      {dirty && !saved && !saving && <span style={{ fontSize:12, color:"#9CA3AF" }}>Unsaved changes</span>}
     </div>
   );
 }
@@ -212,35 +271,26 @@ export default function AdminSettingsPage() {
   if (!isSuperAdmin(user)) return <AccessDenied />;
 
   const [activeTab,    setActiveTab]    = useState<"admins"|"platform"|"security"|"logging">("admins");
-  const [showNewAdmin, setShowNewAdmin] = useState(false);
+  const [showInvite,   setShowInvite]   = useState(false);
   const [saved,        setSaved]        = useState(false);
   const [saving,       setSaving]       = useState(false);
   const [saveError,    setSaveError]    = useState("");
+  const [dirty,        setDirty]        = useState(false);
 
-  // ── Admins tab state ─────────────────────────────────────────
   const [admins,        setAdmins]        = useState<AdminRecord[]>([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
-
-  // ── Settings state (shared across platform/security/logging) ─
-  const [settings,        setSettings]        = useState<PlatformSettings>(DEFAULTS);
+  const [settings,      setSettings]      = useState<PlatformSettings>(DEFAULTS);
   const [settingsLoading, setSettingsLoading] = useState(false);
-  // Track unsaved dirty state per tab
-  const [dirty, setDirty] = useState(false);
 
-  // ── Load admins ──────────────────────────────────────────────
   const loadAdmins = useCallback(async () => {
     setAdminsLoading(true);
     try {
       const data = await callFn("get-admin-users", undefined, "GET");
       setAdmins(data.users ?? []);
-    } catch (e) {
-      console.error("[settings] load admins failed", e);
-    } finally {
-      setAdminsLoading(false);
-    }
+    } catch (e) { console.error("[settings] load admins failed", e); }
+    finally { setAdminsLoading(false); }
   }, []);
 
-  // ── Load settings ────────────────────────────────────────────
   const loadSettings = useCallback(async () => {
     setSettingsLoading(true);
     try {
@@ -257,56 +307,35 @@ export default function AdminSettingsPage() {
         platform_logging_enabled: s.platform_logging_enabled !== false && s.platform_logging_enabled !== "false",
         audit_log_retention_days: Number(s.audit_log_retention_days) || DEFAULTS.audit_log_retention_days,
       });
-    } catch (e) {
-      console.error("[settings] load settings failed", e);
-    } finally {
-      setSettingsLoading(false);
-    }
+    } catch (e) { console.error("[settings] load settings failed", e); }
+    finally { setSettingsLoading(false); }
   }, []);
 
   useEffect(() => { loadAdmins(); loadSettings(); }, [loadAdmins, loadSettings]);
 
-  // ── Save settings ────────────────────────────────────────────
   async function handleSave(keys: (keyof PlatformSettings)[]) {
     setSaving(true); setSaveError(""); setSaved(false);
     try {
-      const payload = Object.fromEntries(keys.map(k => [k, settings[k]]));
-      // Map to the key names the function expects
-      const mapped: Record<string, unknown> = {};
-      if ("platform_name"            in payload) mapped["platform_name"]            = payload["platform_name"];
-      if ("api_base_url"             in payload) mapped["api_base_url"]             = payload["api_base_url"];
-      if ("support_email"            in payload) mapped["support_email"]            = payload["support_email"];
-      if ("maintenance_mode"         in payload) mapped["maintenance_mode"]         = payload["maintenance_mode"];
-      if ("session_timeout_minutes"  in payload) mapped["session_timeout_minutes"]  = payload["session_timeout_minutes"];
-      if ("mfa_required"             in payload) mapped["mfa_required"]             = payload["mfa_required"];
-      if ("max_login_attempts"       in payload) mapped["max_login_attempts"]       = payload["max_login_attempts"];
-      if ("platform_logging_enabled" in payload) mapped["platform_logging_enabled"] = payload["platform_logging_enabled"];
-      if ("audit_log_retention_days" in payload) mapped["audit_log_retention_days"] = payload["audit_log_retention_days"];
-
-      await callFn("admin-save-settings", { settings: mapped });
-      setSaved(true);
-      setDirty(false);
+      const payload: Record<string, unknown> = {};
+      keys.forEach(k => { payload[k] = settings[k]; });
+      await callFn("admin-save-settings", { settings: payload });
+      setSaved(true); setDirty(false);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
       setSaveError(e.message ?? "Failed to save");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
-  // ── Deactivate admin ─────────────────────────────────────────
   async function handleDeactivate(userId: string) {
+    if (!confirm("Deactivate this admin? They will immediately lose access.")) return;
     try {
       await callFn("deactivate-admin-user", { user_id: userId });
       await loadAdmins();
-    } catch (e: any) {
-      alert(e.message ?? "Failed to deactivate admin");
-    }
+    } catch (e: any) { alert(e.message ?? "Failed to deactivate"); }
   }
 
-  // ── Invite admin ─────────────────────────────────────────────
-  async function handleInviteAdmin(email: string, role: string) {
-    await callFn("invite-admin-user", { email, role });
+  async function handleInvite(email: string, name: string, admin_role: AdminRole) {
+    await callFn("invite-admin-user", { email, name, admin_role });
     await loadAdmins();
   }
 
@@ -322,7 +351,6 @@ export default function AdminSettingsPage() {
     { id:"logging",  label:"Logging",         icon:<Activity size={13} /> },
   ] as const;
 
-  // ─────────────────────────────────────────────────────────────
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
 
@@ -356,10 +384,22 @@ export default function AdminSettingsPage() {
               <Button variant="outline" size="sm" style={{ gap:6 }} onClick={loadAdmins} disabled={adminsLoading}>
                 <RefreshCw size={13} className={adminsLoading ? "animate-spin" : ""} />
               </Button>
-              <Button variant="primary" size="sm" style={{ gap:6 }} onClick={() => setShowNewAdmin(true)}>
-                <Plus size={13} /> Add Admin
+              <Button variant="primary" size="sm" style={{ gap:6 }} onClick={() => setShowInvite(true)}>
+                <Plus size={13} /> Invite Admin
               </Button>
             </div>
+          </div>
+
+          {/* Role legend */}
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" as const }}>
+            {(Object.keys(ROLE_LABELS) as AdminRole[]).map((r) => {
+              const c = ROLE_COLORS[r];
+              return (
+                <span key={r} style={{ fontSize:11, padding:"3px 10px", borderRadius:9999, background:c.bg, color:c.color, border:`1px solid ${c.border}`, fontWeight:600 }}>
+                  {ROLE_LABELS[r]}
+                </span>
+              );
+            })}
           </div>
 
           <div style={{ background:"white", border:"1px solid #E5E7EB", borderRadius:14, overflow:"hidden" }}>
@@ -370,40 +410,51 @@ export default function AdminSettingsPage() {
               </div>
             ) : admins.length === 0 ? (
               <div style={{ padding:"48px 22px", textAlign:"center" }}>
+                <Users size={22} style={{ color:"#D1D5DB", margin:"0 auto 8px", display:"block" }} />
                 <p style={{ fontSize:14, color:"#6B7280" }}>No admin accounts found.</p>
               </div>
-            ) : admins.map((admin, i) => (
-              <div key={admin.id} style={{ padding:"16px 22px", borderBottom: i < admins.length - 1 ? "1px solid #F9FAFB" : "none", opacity: admin.is_deactivated ? 0.5 : 1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-                  <div style={{ width:36, height:36, borderRadius:9, background: admin.role==="owner" ? "linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,212,255,0.3))" : "linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.3))", border:`1px solid ${admin.role==="owner" ? "rgba(0,212,255,0.3)" : "rgba(245,158,11,0.3)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color: admin.role==="owner" ? "#00D4FF" : "#F59E0B", flexShrink:0 }}>
-                    {(admin.email ?? "??").slice(0,2).toUpperCase()}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                      <p style={{ fontSize:13, fontWeight:700, color:"#0A2540" }}>{admin.email}</p>
-                      <span style={{ fontSize:9, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", padding:"2px 7px", borderRadius:9999, color: admin.role==="owner" ? "#00D4FF" : "#F59E0B", background: admin.role==="owner" ? "rgba(0,212,255,0.08)" : "rgba(245,158,11,0.08)", border:`1px solid ${admin.role==="owner" ? "rgba(0,212,255,0.2)" : "rgba(245,158,11,0.2)"}` }}>
-                        {admin.role}
-                      </span>
-                      {admin.is_deactivated && (
-                        <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:9999, color:"#EF4444", background:"#FEF2F2", border:"1px solid rgba(239,68,68,0.2)" }}>Suspended</span>
-                      )}
+            ) : admins.map((admin, i) => {
+              const roleColor = ROLE_COLORS[admin.admin_role] ?? ROLE_COLORS.viewer;
+              const initials  = (admin.name || admin.email).slice(0, 2).toUpperCase();
+              return (
+                <div key={admin.id} style={{ padding:"16px 22px", borderBottom: i < admins.length - 1 ? "1px solid #F9FAFB" : "none", opacity: admin.is_deactivated ? 0.5 : 1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                    {/* Avatar */}
+                    <div style={{ width:38, height:38, borderRadius:9, background: roleColor.bg, border:`1px solid ${roleColor.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:roleColor.color, flexShrink:0 }}>
+                      {initials}
                     </div>
-                    <p style={{ fontSize:12, color:"#9CA3AF" }}>
-                      Last active: {admin.last_sign_in ? new Date(admin.last_sign_in).toLocaleDateString() : "Never"}
-                    </p>
+
+                    {/* Info */}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3, flexWrap:"wrap" as const }}>
+                        <p style={{ fontSize:13, fontWeight:700, color:"#0A2540" }}>{admin.name || admin.email}</p>
+                        <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", padding:"2px 7px", borderRadius:9999, background:roleColor.bg, color:roleColor.color, border:`1px solid ${roleColor.border}` }}>
+                          {ROLE_LABELS[admin.admin_role] ?? admin.admin_role}
+                        </span>
+                        {admin.is_deactivated && (
+                          <span style={{ fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:9999, color:"#EF4444", background:"#FEF2F2", border:"1px solid rgba(239,68,68,0.2)" }}>Suspended</span>
+                        )}
+                      </div>
+                      <p style={{ fontSize:12, color:"#9CA3AF" }}>
+                        {admin.name ? admin.email + " · " : ""}
+                        Last active: {admin.last_sign_in ? new Date(admin.last_sign_in).toLocaleDateString() : "Never"}
+                      </p>
+                    </div>
+
+                    {/* Deactivate */}
+                    {!admin.is_deactivated && (
+                      <button onClick={() => handleDeactivate(admin.id)}
+                        style={{ width:30, height:30, borderRadius:6, border:"1px solid #E5E7EB", background:"white", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#9CA3AF", flexShrink:0 }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor="#EF4444"; (e.currentTarget as HTMLElement).style.color="#EF4444"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor="#E5E7EB"; (e.currentTarget as HTMLElement).style.color="#9CA3AF"; }}
+                        title="Deactivate admin">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
-                  {!admin.is_deactivated && (
-                    <button onClick={() => handleDeactivate(admin.id)}
-                      style={{ width:28, height:28, borderRadius:6, border:"1px solid #E5E7EB", background:"white", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#9CA3AF", flexShrink:0 }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor="#EF4444"; (e.currentTarget as HTMLElement).style.color="#EF4444"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor="#E5E7EB"; (e.currentTarget as HTMLElement).style.color="#9CA3AF"; }}
-                      title="Deactivate admin">
-                      <Trash2 size={12} />
-                    </button>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -412,9 +463,7 @@ export default function AdminSettingsPage() {
       {activeTab === "platform" && (
         <div style={{ background:"white", border:"1px solid #E5E7EB", borderRadius:14, padding:22, display:"flex", flexDirection:"column", gap:20 }}>
           {settingsLoading ? (
-            <div style={{ padding:"32px 0", textAlign:"center" }}>
-              <Loader2 size={18} style={{ color:"#9CA3AF", margin:"0 auto 8px" }} className="animate-spin" />
-            </div>
+            <div style={{ padding:"32px 0", textAlign:"center" }}><Loader2 size={18} style={{ color:"#9CA3AF", margin:"0 auto 8px" }} className="animate-spin" /></div>
           ) : (
             <>
               {[
@@ -424,13 +473,10 @@ export default function AdminSettingsPage() {
               ].map((field) => (
                 <div key={field.key}>
                   <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:4 }}>{field.label}</label>
-                  <Input value={settings[field.key] as string}
-                    onChange={(e) => set(field.key, e.target.value as any)}
-                    type={field.type} style={{ height:40, fontSize:13, maxWidth:400 }} />
+                  <Input value={settings[field.key] as string} onChange={(e) => set(field.key, e.target.value as any)} type={field.type} style={{ height:40, fontSize:13, maxWidth:400 }} />
                   <p style={{ fontSize:11, color:"#9CA3AF", marginTop:4 }}>{field.help}</p>
                 </div>
               ))}
-
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingTop:8, borderTop:"1px solid #F3F4F6" }}>
                 <div>
                   <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Maintenance Mode</p>
@@ -438,19 +484,8 @@ export default function AdminSettingsPage() {
                 </div>
                 <Toggle value={settings.maintenance_mode} onChange={(v) => set("maintenance_mode", v)} />
               </div>
-
-              <div style={{ background:"#F0FDFF", border:"1px solid rgba(0,212,255,0.2)", borderRadius:10, padding:"14px 16px", display:"flex", gap:10, alignItems:"flex-start" }}>
-                <Database size={14} style={{ color:"#0891B2", flexShrink:0, marginTop:1 }} />
-                <div>
-                  <p style={{ fontSize:13, fontWeight:700, color:"#0E7490", marginBottom:3 }}>Data is never deleted</p>
-                  <p style={{ fontSize:12, color:"#0891B2", lineHeight:1.6 }}>
-                    Financial identity data, transaction history, pipeline outputs, and audit records are retained permanently.
-                  </p>
-                </div>
-              </div>
             </>
           )}
-
           <SaveBar onSave={() => handleSave(["platform_name","api_base_url","support_email","maintenance_mode"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
         </div>
       )}
@@ -460,55 +495,39 @@ export default function AdminSettingsPage() {
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
           <div style={{ background:"white", border:"1px solid #E5E7EB", borderRadius:14, padding:22 }}>
             {settingsLoading ? (
-              <div style={{ padding:"32px 0", textAlign:"center" }}>
-                <Loader2 size={18} style={{ color:"#9CA3AF", margin:"0 auto 8px" }} className="animate-spin" />
-              </div>
+              <div style={{ padding:"32px 0", textAlign:"center" }}><Loader2 size={18} style={{ color:"#9CA3AF", margin:"0 auto 8px" }} className="animate-spin" /></div>
             ) : (
-              <>
-                <p style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"#0A2540", marginBottom:16 }}>Session & Access Policy</p>
-                <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+                <p style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"#0A2540" }}>Session & Access Policy</p>
+                {[
+                  { label:"Admin Session Timeout (minutes)", key:"session_timeout_minutes" as const, help:"Admins are logged out after this period of inactivity." },
+                  { label:"Max Login Attempts",              key:"max_login_attempts"       as const, help:"Account is locked after this many failed attempts." },
+                ].map((f) => (
+                  <div key={f.key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
                     <div>
-                      <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Admin Session Timeout (minutes)</p>
-                      <p style={{ fontSize:12, color:"#9CA3AF" }}>Admins are logged out after this period of inactivity.</p>
+                      <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>{f.label}</p>
+                      <p style={{ fontSize:12, color:"#9CA3AF" }}>{f.help}</p>
                     </div>
-                    <Input value={String(settings.session_timeout_minutes)}
-                      onChange={(e) => set("session_timeout_minutes", parseInt(e.target.value) || 30)}
-                      type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
+                    <Input value={String(settings[f.key])} onChange={(e) => set(f.key, parseInt(e.target.value) || 0)} type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
                   </div>
-
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
-                    <div>
-                      <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Max Login Attempts</p>
-                      <p style={{ fontSize:12, color:"#9CA3AF" }}>Account is locked after this many failed attempts.</p>
-                    </div>
-                    <Input value={String(settings.max_login_attempts)}
-                      onChange={(e) => set("max_login_attempts", parseInt(e.target.value) || 5)}
-                      type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
+                ))}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+                  <div>
+                    <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Require MFA for Admins</p>
+                    <p style={{ fontSize:12, color:"#9CA3AF" }}>All admin accounts must use multi-factor authentication.</p>
                   </div>
-
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
-                    <div>
-                      <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Require MFA for Admins</p>
-                      <p style={{ fontSize:12, color:"#9CA3AF" }}>All admin accounts must use multi-factor authentication.</p>
-                    </div>
-                    <Toggle value={settings.mfa_required} onChange={(v) => set("mfa_required", v)} />
-                  </div>
+                  <Toggle value={settings.mfa_required} onChange={(v) => set("mfa_required", v)} />
                 </div>
-              </>
+              </div>
             )}
-
             <div style={{ marginTop:20, paddingTop:16, borderTop:"1px solid #F3F4F6" }}>
               <SaveBar onSave={() => handleSave(["session_timeout_minutes","max_login_attempts","mfa_required"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
             </div>
           </div>
-
           <div style={{ background:"#FEF2F2", border:"1px solid rgba(239,68,68,0.15)", borderRadius:12, padding:"16px 18px", display:"flex", gap:10 }}>
             <AlertTriangle size={15} style={{ color:"#EF4444", flexShrink:0, marginTop:1 }} />
             <div>
-              <p style={{ fontSize:13, fontWeight:700, color:"#991B1B", marginBottom:2 }}>Danger Zone</p>
-              <p style={{ fontSize:12, color:"#B91C1C", lineHeight:1.5, marginBottom:10 }}>These actions are irreversible.</p>
+              <p style={{ fontSize:13, fontWeight:700, color:"#991B1B", marginBottom:6 }}>Danger Zone</p>
               <Button variant="outline" size="sm" style={{ color:"#EF4444", borderColor:"rgba(239,68,68,0.3)", gap:6 }}>
                 <Database size={13} /> Purge Sandbox Data
               </Button>
@@ -520,8 +539,6 @@ export default function AdminSettingsPage() {
       {/* ── LOGGING TAB ────────────────────────────────────────── */}
       {activeTab === "logging" && (
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-
-          {/* Master toggle card */}
           <div style={{ background:"white", border:`1.5px solid ${settings.platform_logging_enabled ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.2)"}`, borderRadius:14, padding:22, display:"flex", flexDirection:"column", gap:18 }}>
             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16 }}>
               <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
@@ -530,121 +547,47 @@ export default function AdminSettingsPage() {
                 </div>
                 <div>
                   <p style={{ fontSize:15, fontWeight:700, color:"#0A2540", marginBottom:4 }}>Platform Event Logging</p>
-                  <p style={{ fontSize:13, color:"#6B7280", lineHeight:1.6, maxWidth:480 }}>
-                    When enabled, every action across the platform is recorded to the <code style={{ background:"#F3F4F6", padding:"1px 5px", borderRadius:4, fontSize:12 }}>platform_events</code> table
-                    — covering cards, scoring, portal, SDK, mobile apps, and system jobs.
-                    Turn this off to conserve Supabase storage on the free plan.
+                  <p style={{ fontSize:13, color:"#6B7280", lineHeight:1.6, maxWidth:440 }}>
+                    Records every action across cards, scoring, portal, SDK, mobile apps and system jobs.
                   </p>
                 </div>
               </div>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0 }}>
-                <Toggle
-                  value={settings.platform_logging_enabled}
-                  onChange={(v) => {
-                    set("platform_logging_enabled", v);
-                  }}
-                  disabled={settingsLoading}
-                />
+                <Toggle value={settings.platform_logging_enabled} onChange={(v) => set("platform_logging_enabled", v)} disabled={settingsLoading} />
                 <span style={{ fontSize:11, fontWeight:700, color: settings.platform_logging_enabled ? "#10B981" : "#EF4444" }}>
-                  {settings.platform_logging_enabled ? "LOGGING ON" : "LOGGING OFF"}
+                  {settings.platform_logging_enabled ? "ON" : "OFF"}
                 </span>
               </div>
             </div>
-
-            {/* Status banner */}
             {!settings.platform_logging_enabled && (
               <div style={{ background:"#FEF9C3", border:"1px solid rgba(234,179,8,0.3)", borderRadius:10, padding:"12px 14px", display:"flex", gap:10, alignItems:"center" }}>
                 <AlertTriangle size={14} style={{ color:"#CA8A04", flexShrink:0 }} />
-                <p style={{ fontSize:12, color:"#854D0E" }}>
-                  <strong>Logging is off.</strong> New platform events are not being recorded.
-                  The audit log page will stop receiving new data until logging is turned back on.
-                </p>
+                <p style={{ fontSize:12, color:"#854D0E" }}><strong>Logging is off.</strong> New platform events are not being recorded.</p>
               </div>
             )}
-
-            <SaveBar
-              onSave={() => handleSave(["platform_logging_enabled"])}
-              saving={saving} saved={saved} error={saveError} dirty={dirty}
+            <SaveBar onSave={() => handleSave(["platform_logging_enabled"])} saving={saving} saved={saved} error={saveError} dirty={dirty}
               saveLabel={settings.platform_logging_enabled ? "Enable Logging" : "Disable Logging"}
               saveVariant={settings.platform_logging_enabled ? "primary" : "outline"}
-              saveStyle={!settings.platform_logging_enabled ? { color:"#EF4444", borderColor:"rgba(239,68,68,0.3)" } : {}}
-            />
+              saveStyle={!settings.platform_logging_enabled ? { color:"#EF4444", borderColor:"rgba(239,68,68,0.3)" } : {}} />
           </div>
 
-          {/* Retention window */}
-          <div style={{ background:"white", border:"1px solid #E5E7EB", borderRadius:14, padding:22, display:"flex", flexDirection:"column", gap:16 }}>
-            <p style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"#0A2540" }}>Retention Window</p>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+          <div style={{ background:"white", border:"1px solid #E5E7EB", borderRadius:14, padding:22 }}>
+            <p style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"#0A2540", marginBottom:16 }}>Retention Window</p>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, marginBottom:16 }}>
               <div>
                 <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Delete events older than (days)</p>
-                <p style={{ fontSize:12, color:"#9CA3AF" }}>
-                  A nightly cron job purges <code style={{ background:"#F3F4F6", padding:"1px 4px", borderRadius:4, fontSize:11 }}>platform_events</code> rows older than this.
-                  Set to 0 to retain forever (not recommended on the free plan).
-                </p>
+                <p style={{ fontSize:12, color:"#9CA3AF" }}>Set to 0 to retain forever.</p>
               </div>
-              <Input
-                value={String(settings.audit_log_retention_days)}
-                onChange={(e) => set("audit_log_retention_days", parseInt(e.target.value) || 30)}
-                type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }}
-              />
+              <Input value={String(settings.audit_log_retention_days)} onChange={(e) => set("audit_log_retention_days", parseInt(e.target.value) || 30)} type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
             </div>
-            <div style={{ paddingTop:8, borderTop:"1px solid #F3F4F6" }}>
-              <SaveBar onSave={() => handleSave(["audit_log_retention_days"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
-            </div>
-          </div>
-
-          {/* Info card */}
-          <div style={{ background:"#F0F9FF", border:"1px solid rgba(56,189,248,0.25)", borderRadius:12, padding:"14px 16px", display:"flex", gap:10 }}>
-            <Activity size={14} style={{ color:"#0284C7", flexShrink:0, marginTop:2 }} />
-            <div>
-              <p style={{ fontSize:13, fontWeight:700, color:"#0369A1", marginBottom:4 }}>What gets logged</p>
-              <p style={{ fontSize:12, color:"#0284C7", lineHeight:1.7 }}>
-                Cards (transactions, rules, freeze/unfreeze) · Scoring (pipeline runs, score updates, KYC) ·
-                Portal (logins, settings changes, admin actions) · SDK (API calls, key events) ·
-                Mobile (app logins, key screens) · System (cron jobs, scheduled tasks)
-              </p>
-            </div>
+            <SaveBar onSave={() => handleSave(["audit_log_retention_days"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
           </div>
         </div>
       )}
 
-      {showNewAdmin && (
-        <NewAdminModal
-          onClose={() => setShowNewAdmin(false)}
-          onSave={handleInviteAdmin}
-        />
+      {showInvite && (
+        <InviteAdminModal onClose={() => setShowInvite(false)} onSave={handleInvite} />
       )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-//  SAVE BAR — shared across tabs
-// ─────────────────────────────────────────────────────────────
-function SaveBar({
-  onSave, saving, saved, error, dirty,
-  saveLabel = "Save Changes",
-  saveVariant = "primary",
-  saveStyle = {},
-}: {
-  onSave: () => void;
-  saving: boolean;
-  saved:  boolean;
-  error:  string;
-  dirty:  boolean;
-  saveLabel?:   string;
-  saveVariant?: "primary" | "outline";
-  saveStyle?:   React.CSSProperties;
-}) {
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-      <Button variant={saveVariant} size="sm" style={{ gap:6, ...saveStyle }} onClick={onSave} disabled={saving}>
-        {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-        {saving ? "Saving…" : saveLabel}
-      </Button>
-      {saved  && <span style={{ fontSize:12, color:"#10B981", display:"flex", alignItems:"center", gap:5 }}><CheckCircle2 size={13} /> Saved</span>}
-      {error  && <span style={{ fontSize:12, color:"#EF4444" }}>{error}</span>}
-      {dirty && !saved && !saving && <span style={{ fontSize:12, color:"#9CA3AF" }}>Unsaved changes</span>}
     </div>
   );
 }

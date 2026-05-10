@@ -44,7 +44,11 @@
 //  TYPES
 // ─────────────────────────────────────────────────────────────
 
-export type AdminRole = 'super_admin' | 'admin';
+export type AdminRole =
+  | 'super_admin'       // Full access — platform owner
+  | 'operations_admin'  // Day-to-day ops: verifications, businesses, disputes
+  | 'risk_admin'        // Financial oversight: reports, financial data, disputes
+  | 'viewer';           // Read-only across the entire portal
 
 /**
  * Every functional section of the admin portal maps to one module.
@@ -90,6 +94,65 @@ export interface AdminUser {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  ROLE PRESETS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Predefined permission sets for each role tier.
+ * Written to app_metadata.permissions when an admin is invited.
+ * super_admin permissions are ignored — full access is implied.
+ */
+export const ROLE_PRESETS: Record<AdminRole, PermissionString[]> = {
+  super_admin: [],
+  operations_admin: [
+    'businesses:manage',
+    'financers:manage',
+    'developers:manage',
+    'verifications:manage',
+    'notifications:manage',
+    'financial_data:view',
+    'reports:view',
+    'audit_logs:view',
+  ],
+  risk_admin: [
+    'businesses:view',
+    'financers:view',
+    'financial_data:manage',
+    'reports:manage',
+    'verifications:view',
+    'audit_logs:view',
+  ],
+  viewer: [
+    'businesses:view',
+    'financers:view',
+    'developers:view',
+    'financial_data:view',
+    'verifications:view',
+    'reports:view',
+    'audit_logs:view',
+    'notifications:view',
+  ],
+};
+
+export const ROLE_LABELS: Record<AdminRole, string> = {
+  super_admin:       'Super Admin',
+  operations_admin:  'Operations Admin',
+  risk_admin:        'Risk Admin',
+  viewer:            'Viewer',
+};
+
+export const ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
+  super_admin:      'Full platform access. Can manage admins and platform config.',
+  operations_admin: 'Manages businesses, financers, verifications, disputes and notifications.',
+  risk_admin:       'Financial oversight — reports, pipeline data, disputes. Read-only on accounts.',
+  viewer:           'Read-only access to all modules. Cannot take any actions.',
+};
+
+export function getRoleLabel(role: AdminRole): string {
+  return ROLE_LABELS[role] ?? role;
+}
+
+// ─────────────────────────────────────────────────────────────
 //  JWT PARSING
 // ─────────────────────────────────────────────────────────────
 
@@ -106,6 +169,14 @@ export interface AdminUser {
  * Returns null when the token carries no admin role.
  * The caller is responsible for redirecting non-admins.
  */
+/**
+ * Parse a Supabase access_token JWT into an AdminUser.
+ *
+ * Supabase stores role in app_metadata.role and the RBAC tier
+ * in app_metadata.admin_role. Permissions are in app_metadata.permissions.
+ *
+ * Returns null when the token carries no admin role.
+ */
 export function parseAdminFromToken(token: string): AdminUser | null {
   try {
     const [, payload] = token.split('.');
@@ -113,21 +184,24 @@ export function parseAdminFromToken(token: string): AdminUser | null {
       atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
     );
 
-    const realmRoles: string[] = decoded?.realm_access?.roles ?? [];
-    const superAdmin = realmRoles.includes('super_admin');
-    const regularAdmin = realmRoles.includes('admin');
+    // Supabase stores app_metadata in the JWT directly
+    const appMeta = decoded?.app_metadata ?? {};
+    const baseRole = appMeta?.role;
 
-    if (!superAdmin && !regularAdmin) return null;
+    // Only process admin users
+    if (baseRole !== 'admin') return null;
 
-    const raw: string[] = decoded?.admin_permissions ?? [];
+    // The RBAC tier is stored separately from the base role
+    const adminRole = (appMeta?.admin_role ?? 'viewer') as AdminRole;
+    const raw: string[] = appMeta?.permissions ?? ROLE_PRESETS[adminRole] ?? [];
     const valid = raw.filter(isValidPermission) as PermissionString[];
 
     return {
       id:               decoded.sub ?? '',
-      name:             decoded.name ?? decoded.preferred_username ?? 'Admin',
+      name:             decoded.user_metadata?.name ?? decoded.email ?? 'Admin',
       email:            decoded.email ?? '',
-      role:             superAdmin ? 'super_admin' : 'admin',
-      permissions:      superAdmin ? [] : valid,
+      role:             adminRole,
+      permissions:      adminRole === 'super_admin' ? [] : valid,
       sessionStartedAt: new Date((decoded.iat ?? 0) * 1000).toISOString(),
     };
   } catch {
@@ -267,13 +341,43 @@ export const SETTINGS_SUPER_ADMIN_ONLY = true;
  *   2. Or call Keycloak /userinfo with the access_token cookie
  *      and pass the result through parseAdminFromToken()
  */
+/**
+ * useAdminUser — React hook that resolves the logged-in admin
+ * from the live Supabase session. Returns null while loading.
+ *
+ * Use this in all admin pages instead of getMockAdminUser().
+ */
+export function useAdminUser(): AdminUser | null {
+  if (typeof window === 'undefined') return null;
+  // Resolved synchronously from sessionStorage on first render;
+  // the useEffect in AdminLayout keeps it fresh.
+  try {
+    const key = Object.keys(sessionStorage).find(k => k.includes('auth-token'));
+    if (!key) return null;
+    const session = JSON.parse(sessionStorage.getItem(key) ?? '{}');
+    const token = session?.access_token;
+    if (!token) return null;
+    return parseAdminFromToken(token);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * getMockAdminUser — kept for backwards compatibility during transition.
+ * New code should use useAdminUser() instead.
+ */
 export function getMockAdminUser(): AdminUser {
+  if (typeof window !== 'undefined') {
+    const live = useAdminUser();
+    if (live) return live;
+  }
   return {
     id:               'usr_admin_001',
     name:             'Tunde Adeyemi',
     email:            'tunde@creditlinker.ng',
     role:             'super_admin',
-    permissions:      [],    // ignored for super_admin
+    permissions:      [],
     sessionStartedAt: new Date().toISOString(),
   };
 }
