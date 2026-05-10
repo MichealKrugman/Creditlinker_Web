@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   Search, X, ChevronLeft, ChevronRight, SlidersHorizontal,
-  Ban, RefreshCw, Download, ShieldCheck, Loader2,
+  Ban, RefreshCw, Download, ShieldCheck, Loader2, Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -261,6 +262,14 @@ export default function AdminFinancersPage() {
             </p>
 
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+              <Link href={`/admin/financers/${f.id}`}>
+                <button style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280", transition: "all 0.12s" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+                  title="View profile">
+                  <Eye size={12} />
+                </button>
+              </Link>
               {canAct && (f.approval_status ?? f.approval) === "pending" && (
                 <button onClick={() => setModal({ type: "approve", id: f.id, name: f.name })}
                   style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(16,185,129,0.3)", background: "#ECFDF5", color: "#10B981", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
