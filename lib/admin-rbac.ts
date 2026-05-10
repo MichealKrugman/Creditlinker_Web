@@ -372,10 +372,11 @@ export function getMockAdminUser(): AdminUser {
     const live = useAdminUser();
     if (live) return live;
   }
+  // Generic fallback — never exposes real user data
   return {
-    id:               'usr_admin_001',
-    name:             'Tunde Adeyemi',
-    email:            'tunde@creditlinker.ng',
+    id:               'dev_admin_fallback',
+    name:             'Admin User',
+    email:            'admin@platform.internal',
     role:             'super_admin',
     permissions:      [],
     sessionStartedAt: new Date().toISOString(),
@@ -383,14 +384,15 @@ export function getMockAdminUser(): AdminUser {
 }
 
 /**
- * Example scoped admin for testing restricted views.
- * Swap the return value in getMockAdminUser() to use this.
+ * Example scoped admin for testing restricted views in development.
+ * Swap the return value in getMockAdminUser() to activate.
+ * Never use real names or emails here.
  */
 export const EXAMPLE_SCOPED_ADMIN: AdminUser = {
-  id:               'usr_admin_002',
-  name:             'Chisom Eze',
-  email:            'chisom@creditlinker.ng',
-  role:             'admin',
+  id:               'dev_admin_scoped',
+  name:             'Scoped Admin',
+  email:            'scoped@platform.internal',
+  role:             'operations_admin',
   permissions:      [
     'businesses:manage',
     'verifications:manage',
