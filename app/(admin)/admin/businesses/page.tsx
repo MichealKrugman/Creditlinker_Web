@@ -304,7 +304,7 @@ export default function AdminBusinessesPage() {
           </div>
         ) : rows.map((b, i) => (
           <div
-            key={b.id}
+            key={b.business_id}
             style={{ display: "grid", gridTemplateColumns: "2.5fr 1.2fr 80px 90px 90px 100px 100px", padding: "14px 20px", borderBottom: i < rows.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", transition: "background 0.1s" }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFAFA")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -316,7 +316,7 @@ export default function AdminBusinessesPage() {
               </div>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 1 }}>{b.name}</p>
-                <p style={{ fontSize: 11, color: "#9CA3AF" }}>{b.id} · {b.months}mo data</p>
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>{b.months}mo data</p>
               </div>
             </div>
 
@@ -339,7 +339,7 @@ export default function AdminBusinessesPage() {
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-              <Link href={`/admin/businesses/${b.id}`}>
+              <Link href={`/admin/businesses/${b.business_id}`}>
                 <button style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280", transition: "all 0.12s" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
@@ -350,7 +350,7 @@ export default function AdminBusinessesPage() {
               </Link>
               {canAct && b.status === "active" && (
                 <button
-                  onClick={() => setModal({ type: "suspend", bizId: b.id, bizName: b.name })}
+                  onClick={() => setModal({ type: "suspend", bizId: b.business_id, bizName: b.name })}
                   style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280", transition: "all 0.12s" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#EF4444"; (e.currentTarget as HTMLElement).style.color = "#EF4444"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
@@ -361,7 +361,7 @@ export default function AdminBusinessesPage() {
               )}
               {canAct && b.status === "suspended" && (
                 <button
-                  onClick={() => setModal({ type: "unsuspend", bizId: b.id, bizName: b.name })}
+                  onClick={() => setModal({ type: "unsuspend", bizId: b.business_id, bizName: b.name })}
                   style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280", transition: "all 0.12s" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#10B981"; (e.currentTarget as HTMLElement).style.color = "#10B981"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
