@@ -40,24 +40,98 @@ async function callFn(name: string, body?: object, method: "GET" | "POST" = "GET
   return res.json();
 }
 
-async function callFnWithParams(name: string, params: Record<string, string>) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const url   = new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization:  `Bearer ${token}`,
-      apikey:         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+async function loadBusinessDetail(id: string) {
+  const [
+    bizR, scoresR, runsR, accountsR, consentsR, financingR, disputesR, walletR,
+  ] = await Promise.allSettled([
+    supabase.from("businesses").select("*").eq("business_id", id).single(),
+    supabase.from("creditlinker_scores")
+      .select("composite_score, data_quality_score, computed_at")
+      .eq("business_id", id).order("computed_at", { ascending: false }).limit(12),
+    supabase.from("pipeline_runs")
+      .select("pipeline_run_id, status, stage_reached, started_at, completed_at, duration_ms, errors, warnings, sync_reason")
+      .eq("business_id", id).order("started_at", { ascending: false }).limit(10),
+    supabase.from("linked_accounts").select("*").eq("business_id", id).order("created_at", { ascending: false }),
+    supabase.from("consent_records")
+      .select("consent_id, institution_id, is_active, granted_at, expires_at, institutions(name)")
+      .eq("business_id", id).order("granted_at", { ascending: false }),
+    supabase.from("financing_records")
+      .select("financing_record_id, institution_id, status, terms, disbursed_at, created_at, institutions(name)")
+      .eq("business_id", id).order("created_at", { ascending: false }).limit(20),
+    supabase.from("dispute_records")
+      .select("dispute_id, institution_id, reason, resolution, opened_at, resolved_at, initiated_by, institutions(name)")
+      .eq("business_id", id).order("opened_at", { ascending: false }),
+    supabase.from("wallets").select("*").eq("business_id", id).maybeSingle(),
+  ]);
+
+  const biz      = bizR.status      === "fulfilled" ? bizR.value.data      : null;
+  const scores   = scoresR.status   === "fulfilled" ? (scoresR.value.data   ?? []) : [];
+  const runs     = runsR.status     === "fulfilled" ? (runsR.value.data     ?? []) : [];
+  const accounts = accountsR.status === "fulfilled" ? (accountsR.value.data ?? []) : [];
+  const consents = consentsR.status === "fulfilled" ? (consentsR.value.data ?? []) : [];
+  const financing= financingR.status=== "fulfilled" ? (financingR.value.data?? []) : [];
+  const disputes = disputesR.status === "fulfilled" ? (disputesR.value.data ?? []) : [];
+  const wallet   = walletR.status   === "fulfilled" ? walletR.value.data   : null;
+
+  if (!biz) throw new Error("Business not found");
+
+  let months = 0;
+  if (biz.data_coverage_start && biz.data_coverage_end) {
+    const s = new Date(biz.data_coverage_start);
+    const e = new Date(biz.data_coverage_end);
+    months  = Math.max(0, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24 * 30)));
   }
-  return res.json();
+
+  const latestScore = (scores as any[])[0] ?? null;
+
+  return {
+    business: {
+      ...biz,
+      months_of_data: months,
+    },
+    score: {
+      current:     latestScore?.composite_score   ?? null,
+      data_quality:latestScore?.data_quality_score?? null,
+      computed_at: latestScore?.computed_at       ?? null,
+      history: (scores as any[]).map((s: any) => ({ score: s.composite_score, data_quality: s.data_quality_score, computed_at: s.computed_at })),
+    },
+    pipeline: {
+      runs: (runs as any[]).map((r: any) => ({
+        id: r.pipeline_run_id, status: r.status, stage_reached: r.stage_reached,
+        sync_reason: r.sync_reason, started_at: r.started_at, completed_at: r.completed_at,
+        duration_ms: r.duration_ms,
+        error_count:   Array.isArray(r.errors)   ? r.errors.length   : 0,
+        warning_count: Array.isArray(r.warnings) ? r.warnings.length : 0,
+      })),
+    },
+    accounts: (accounts as any[]).map((a: any) => ({
+      id: a.id ?? a.account_id, provider: a.provider ?? a.institution ?? "—",
+      account_name: a.account_name ?? a.name ?? "—",
+      account_type: a.account_type ?? "—", status: a.status ?? "active",
+      linked_at: a.created_at,
+    })),
+    consents: (consents as any[]).map((co: any) => ({
+      id: co.consent_id, institution: (co.institutions as any)?.name ?? co.institution_id,
+      institution_id: co.institution_id, is_active: co.is_active,
+      granted_at: co.granted_at, expires_at: co.expires_at,
+    })),
+    financing: (financing as any[]).map((f: any) => ({
+      id: f.financing_record_id, institution: (f.institutions as any)?.name ?? f.institution_id,
+      status: f.status, principal: (f.terms as any)?.principal ?? (f.terms as any)?.amount ?? 0,
+      terms: f.terms, disbursed_at: f.disbursed_at, created_at: f.created_at,
+    })),
+    disputes: (disputes as any[]).map((d: any) => ({
+      id: d.dispute_id, institution: (d.institutions as any)?.name ?? d.institution_id,
+      reason: d.reason, resolution: d.resolution, initiated_by: d.initiated_by,
+      opened_at: d.opened_at, resolved_at: d.resolved_at,
+    })),
+    wallet: wallet ? {
+      balance: (wallet as any).balance ?? (wallet as any).available_balance ?? 0,
+      currency: (wallet as any).currency ?? "NGN",
+      status: (wallet as any).status ?? "active",
+      updated_at: (wallet as any).updated_at ?? null,
+    } : null,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -168,12 +242,22 @@ function FieldEditor({ businessId, field, currentValue, onSaved, onClose }: {
     if (!reason.trim()) return;
     setLoading(true); setError("");
     try {
-      await callFn("admin-update-business-field", {
-        business_id: businessId,
-        field: field.key,
-        value: field.type === "boolean" ? Boolean(value) : value,
-        reason,
-      }, "POST");
+      const previousValue = currentValue;
+      const newValue = field.type === "boolean" ? Boolean(value) : value;
+      const { error: updateErr } = await supabase
+        .from("businesses")
+        .update({ [field.key]: newValue })
+        .eq("business_id", businessId);
+      if (updateErr) throw new Error(updateErr.message);
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase.from("audit_logs").insert({
+        actor_id:    session?.user?.id ?? "admin",
+        actor_type:  "admin",
+        action:      "admin.business_field_updated",
+        target_type: "business",
+        target_id:   businessId,
+        metadata:    { field: field.key, previous_value: previousValue, new_value: newValue, reason },
+      });
       onSaved();
       onClose();
     } catch (e: any) {
@@ -292,7 +376,7 @@ export default function BusinessDetailPage() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const d = await callFnWithParams("admin-get-business-detail", { id });
+      const d = await loadBusinessDetail(id);
       setData(d);
     } catch (e: any) {
       setError(e.message ?? "Failed to load business");
