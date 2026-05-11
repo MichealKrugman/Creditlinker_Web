@@ -146,6 +146,24 @@ export default function AdminBusinessesPage() {
   const user = getMockAdminUser();
   const canAct = canManage(user, "businesses");
 
+  function handleExport() {
+    if (!businesses.length) return;
+    const rows = filtered.length ? filtered : businesses;
+    const csv = [
+      ["business_id", "name", "sector", "score", "accounts", "months", "status", "verification"].join(","),
+      ...rows.map((b) => [
+        b.business_id, `"${(b.name ?? "").replace(/"/g, '""')}"`,
+        `"${(b.sector ?? "").replace(/"/g, '""')}"`,
+        b.score ?? 0, b.accounts ?? 0, b.months ?? 0,
+        b.status ?? "", b.verification ?? b.kyc_status ?? "",
+      ].join(",")),
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `businesses-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [search,     setSearch]     = useState("");
@@ -214,7 +232,7 @@ export default function AdminBusinessesPage() {
           <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </Button>
-          <Button variant="outline" size="sm" style={{ gap: 6 }}>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport} disabled={loading}>
             <Download size={13} /> Export
           </Button>
         </div>

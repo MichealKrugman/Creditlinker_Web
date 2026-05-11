@@ -74,6 +74,37 @@ export default function AdminReportsPage() {
   const [data,    setData]    = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  function handleExport() {
+    if (!data) return;
+    const kpiRows = (data.kpi_deltas ?? []).map((k: any) =>
+      [k.label, k.value, k.delta, k.period].join(",")
+    );
+    const sectorRows = (data.sector_breakdown ?? []).map((s: any) =>
+      [`"${s.sector}"`, s.count].join(",")
+    );
+    const csv = [
+      "=== KPI Summary ===",
+      ["label", "value", "delta", "period"].join(","),
+      ...kpiRows,
+      "",
+      "=== Sector Breakdown ===",
+      ["sector", "count"].join(","),
+      ...sectorRows,
+      "",
+      "=== Financing Summary ===",
+      ["metric", "value"].join(","),
+      `total_disbursed_ngn,${data.financing_summary?.total_disbursed_ngn ?? 0}`,
+      `active_count,${data.financing_summary?.active_count ?? 0}`,
+      `avg_ticket_ngn,${data.financing_summary?.avg_ticket_ngn ?? 0}`,
+      `settlement_rate_pct,${data.financing_summary?.settlement_rate_pct ?? 0}`,
+      `dispute_rate_pct,${data.financing_summary?.dispute_rate_pct ?? 0}`,
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `creditlinker-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -107,7 +138,7 @@ export default function AdminReportsPage() {
           <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </Button>
-          <Button variant="outline" size="sm" style={{ gap: 6 }}><Download size={13} /> Export Report</Button>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport} disabled={loading}><Download size={13} /> Export Report</Button>
         </div>
       </div>
 

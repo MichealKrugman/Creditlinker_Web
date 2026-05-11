@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   AlertTriangle, CheckCircle2, XCircle,
-  Building2, Landmark, Loader2, RefreshCw,
+  Building2, Landmark, Loader2, RefreshCw, Download,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,6 +142,29 @@ export default function AdminDisputesPage() {
   const [actionError, setActionError] = useState("");
   const [selected,    setSelected]    = useState<any | null>(null);
 
+  function handleExport() {
+    if (!disputes.length) return;
+    const csv = [
+      ["id", "business", "financer", "reason", "severity", "initiated_by", "amount_ngn", "opened_at", "resolution", "resolution_notes"].join(","),
+      ...disputes.map((d: any) => [
+        d.id,
+        `"${(d.business ?? d.business_name ?? "").replace(/"/g, '""')}"`,
+        `"${(d.financer ?? d.institution_name ?? "").replace(/"/g, '""')}"`,
+        `"${(d.reason ?? d.description ?? "").replace(/"/g, '""')}"`,
+        d.severity ?? "medium",
+        d.initiated_by ?? d.initiator ?? "",
+        d.amount_ngn ?? d.amount ?? 0,
+        d.opened_at ?? d.created_at ?? "",
+        d.resolution ?? d.status ?? "",
+        `"${(d.resolution_notes ?? "").replace(/"/g, '""')}"`,
+      ].join(",")),
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `disputes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -174,9 +197,14 @@ export default function AdminDisputesPage() {
             {!loading && <span style={{ fontSize: 13, color: "#9CA3AF" }}>{resolved.length} resolved all time</span>}
           </div>
         </div>
-        <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-        </Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </Button>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport} disabled={loading}>
+            <Download size={13} /> Export
+          </Button>
+        </div>
       </div>
 
       {/* STATS */}
