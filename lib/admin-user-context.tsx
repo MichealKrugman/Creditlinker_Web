@@ -22,16 +22,15 @@ function buildAdminUser(session: any): AdminUser | null {
 
   // admin_role is the RBAC tier written by invite-admin-user.
   // Default to super_admin when no tier is set (existing accounts).
-  const validRoles = ["super_admin", "operations_admin", "risk_admin", "viewer"];
-  const adminRole  = validRoles.includes(user.app_metadata?.admin_role)
-    ? user.app_metadata.admin_role
-    : "super_admin";
+  const VALID_ROLES: AdminRole[] = ["super_admin", "operations_admin", "risk_admin", "viewer"];
+  const rawRole = user.app_metadata?.admin_role;
+  const adminRole: AdminRole = VALID_ROLES.includes(rawRole) ? rawRole : "super_admin";
 
   return {
     id:               user.id,
     name:             user.user_metadata?.full_name ?? user.email ?? "Admin",
     email:            user.email ?? "",
-    role:             adminRole as AdminRole,
+    role:             adminRole,
     permissions,
     sessionStartedAt: session.created_at ?? new Date().toISOString(),
   };
