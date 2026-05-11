@@ -51,15 +51,17 @@ async function loadBusinessDetail(id: string) {
     supabase.from("pipeline_runs")
       .select("pipeline_run_id, status, stage_reached, started_at, completed_at, duration_ms, errors, warnings, sync_reason")
       .eq("business_id", id).order("started_at", { ascending: false }).limit(10),
-    supabase.from("linked_accounts").select("*").eq("business_id", id).order("created_at", { ascending: false }),
+    supabase.from("linked_accounts")
+      .select("account_id, bank_name, account_number_masked, account_type, currency, is_primary, source, last_synced_at")
+      .eq("business_id", id).order("last_synced_at", { ascending: false }),
     supabase.from("consent_records")
-      .select("consent_id, institution_id, is_active, granted_at, expires_at, institutions(name)")
+      .select("consent_id, institution_id, is_active, granted_at, expires_at")
       .eq("business_id", id).order("granted_at", { ascending: false }),
     supabase.from("financing_records")
-      .select("financing_record_id, institution_id, status, terms, disbursed_at, created_at, institutions(name)")
-      .eq("business_id", id).order("created_at", { ascending: false }).limit(20),
+      .select("financing_id, institution_id, status, terms, granted_at, capital_category")
+      .eq("business_id", id).order("granted_at", { ascending: false }).limit(20),
     supabase.from("dispute_records")
-      .select("dispute_id, institution_id, reason, resolution, opened_at, resolved_at, initiated_by, institutions(name)")
+      .select("dispute_id, institution_id, reason, resolution, opened_at, resolved_at, initiated_by")
       .eq("business_id", id).order("opened_at", { ascending: false }),
     supabase.from("wallets").select("*").eq("business_id", id).maybeSingle(),
   ]);
@@ -74,6 +76,22 @@ async function loadBusinessDetail(id: string) {
   const wallet   = walletR.status   === "fulfilled" ? walletR.value.data   : null;
 
   if (!biz) throw new Error("Business not found");
+
+  // Fetch institution names for any institution_ids we collected
+  const institutionIds = [
+    ...consents.map((c: any) => c.institution_id),
+    ...financing.map((f: any) => f.institution_id),
+    ...disputes.map((d: any) => d.institution_id),
+  ].filter(Boolean);
+  const uniqueIds = [...new Set(institutionIds)] as string[];
+  let institutionMap: Record<string, string> = {};
+  if (uniqueIds.length > 0) {
+    const { data: insts } = await supabase
+      .from("institutions")
+      .select("institution_id, name")
+      .in("institution_id", uniqueIds);
+    (insts ?? []).forEach((i: any) => { institutionMap[i.institution_id] = i.name; });
+  }
 
   let months = 0;
   if (biz.data_coverage_start && biz.data_coverage_end) {
@@ -105,30 +123,48 @@ async function loadBusinessDetail(id: string) {
       })),
     },
     accounts: (accounts as any[]).map((a: any) => ({
-      id: a.id ?? a.account_id, provider: a.provider ?? a.institution ?? "—",
-      account_name: a.account_name ?? a.name ?? "—",
-      account_type: a.account_type ?? "—", status: a.status ?? "active",
-      linked_at: a.created_at,
+      id:           a.account_id,
+      provider:     a.bank_name ?? "—",
+      account_name: a.bank_name ?? "—",
+      account_number: a.account_number_masked ?? "—",
+      account_type: a.account_type ?? "—",
+      currency:     a.currency ?? "NGN",
+      is_primary:   a.is_primary ?? false,
+      source:       a.source ?? "—",
+      status:       "active",
+      linked_at:    a.last_synced_at,
     })),
     consents: (consents as any[]).map((co: any) => ({
-      id: co.consent_id, institution: (co.institutions as any)?.name ?? co.institution_id,
-      institution_id: co.institution_id, is_active: co.is_active,
-      granted_at: co.granted_at, expires_at: co.expires_at,
+      id:             co.consent_id,
+      institution:    institutionMap[co.institution_id] ?? co.institution_id,
+      institution_id: co.institution_id,
+      is_active:      co.is_active,
+      granted_at:     co.granted_at,
+      expires_at:     co.expires_at,
     })),
     financing: (financing as any[]).map((f: any) => ({
-      id: f.financing_record_id, institution: (f.institutions as any)?.name ?? f.institution_id,
-      status: f.status, principal: (f.terms as any)?.principal ?? (f.terms as any)?.amount ?? 0,
-      terms: f.terms, disbursed_at: f.disbursed_at, created_at: f.created_at,
+      id:          f.financing_id,
+      institution: institutionMap[f.institution_id] ?? f.institution_id,
+      status:      f.status,
+      principal:   (f.terms as any)?.principal ?? (f.terms as any)?.financing_amount ?? (f.terms as any)?.amount ?? 0,
+      category:    f.capital_category ?? "—",
+      terms:       f.terms,
+      disbursed_at:f.granted_at,
+      created_at:  f.granted_at,
     })),
     disputes: (disputes as any[]).map((d: any) => ({
-      id: d.dispute_id, institution: (d.institutions as any)?.name ?? d.institution_id,
-      reason: d.reason, resolution: d.resolution, initiated_by: d.initiated_by,
-      opened_at: d.opened_at, resolved_at: d.resolved_at,
+      id:           d.dispute_id,
+      institution:  institutionMap[d.institution_id] ?? d.institution_id,
+      reason:       d.reason,
+      resolution:   d.resolution,
+      initiated_by: d.initiated_by,
+      opened_at:    d.opened_at,
+      resolved_at:  d.resolved_at,
     })),
     wallet: wallet ? {
-      balance: (wallet as any).balance ?? (wallet as any).available_balance ?? 0,
-      currency: (wallet as any).currency ?? "NGN",
-      status: (wallet as any).status ?? "active",
+      balance:    (wallet as any).balance ?? (wallet as any).available_balance ?? 0,
+      currency:   (wallet as any).currency ?? "NGN",
+      status:     (wallet as any).status ?? "active",
       updated_at: (wallet as any).updated_at ?? null,
     } : null,
   };
