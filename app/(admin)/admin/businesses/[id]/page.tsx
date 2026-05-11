@@ -9,7 +9,7 @@ import {
   Ban, Play, Edit2, Save, X, Wallet,
   Link as LinkIcon, FileText, TrendingUp,
   Clock, Activity, ChevronRight, Info,
-  DollarSign, Scale, BarChart3,
+  DollarSign, Scale, BarChart3, BookOpen,
 } from "lucide-react";
 import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,9 +41,7 @@ async function callFn(name: string, body?: object, method: "GET" | "POST" = "GET
 }
 
 async function loadBusinessDetail(id: string) {
-  const [
-    bizR, scoresR, runsR, accountsR, consentsR, financingR, disputesR, walletR,
-  ] = await Promise.allSettled([
+  const [bizR, scoresR, runsR, accountsR, consentsR, financingR, disputesR, walletR, ledgerR] = await Promise.allSettled([
     supabase.from("businesses").select("*").eq("business_id", id).single(),
     supabase.from("creditlinker_scores")
       .select("composite_score, data_quality_score, computed_at")
@@ -64,6 +62,9 @@ async function loadBusinessDetail(id: string) {
       .select("dispute_id, institution_id, reason, resolution, opened_at, resolved_at, initiated_by")
       .eq("business_id", id).order("opened_at", { ascending: false }),
     supabase.from("wallets").select("*").eq("business_id", id).maybeSingle(),
+    supabase.from("ledger_entries")
+      .select("entry_id, type, amount, currency, description, balance_after, created_at, reference_id")
+      .eq("business_id", id).order("created_at", { ascending: false }).limit(100),
   ]);
 
   const biz      = bizR.status      === "fulfilled" ? bizR.value.data      : null;
@@ -74,6 +75,7 @@ async function loadBusinessDetail(id: string) {
   const financing= financingR.status=== "fulfilled" ? (financingR.value.data?? []) : [];
   const disputes = disputesR.status === "fulfilled" ? (disputesR.value.data ?? []) : [];
   const wallet   = walletR.status   === "fulfilled" ? walletR.value.data   : null;
+  const ledger   = ledgerR.status   === "fulfilled" ? (ledgerR.value.data   ?? []) : [];
 
   if (!biz) throw new Error("Business not found");
 
@@ -167,6 +169,16 @@ async function loadBusinessDetail(id: string) {
       status:     (wallet as any).status ?? "active",
       updated_at: (wallet as any).updated_at ?? null,
     } : null,
+    ledger: (ledger as any[]).map((e: any) => ({
+      id:          e.entry_id,
+      type:        e.type,
+      amount:      e.amount,
+      currency:    e.currency ?? "NGN",
+      description: e.description,
+      balance_after: e.balance_after,
+      created_at:  e.created_at,
+      reference_id:e.reference_id,
+    })),
   };
 }
 
@@ -402,7 +414,7 @@ export default function BusinessDetailPage() {
   const [data,    setData]    = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
-  const [tab,     setTab]     = useState<"overview"|"financial"|"pipeline"|"accounts"|"actions">("overview");
+  const [tab,     setTab]     = useState<"overview"|"financial"|"pipeline"|"accounts"|"ledger"|"actions">("overview");
 
   const [confirm, setConfirm] = useState<{ type: string; title: string; description: string; label: string; danger?: boolean } | null>(null);
   const [editField, setEditField] = useState<FieldDef | null>(null);
@@ -465,6 +477,7 @@ export default function BusinessDetailPage() {
     { id:"financial", label:"Financial" },
     { id:"pipeline",  label:"Pipeline"  },
     { id:"accounts",  label:"Accounts"  },
+    { id:"ledger",    label:"Ledger"    },
     { id:"actions",   label:"Actions",  highlight: canAct },
   ] as const;
 
@@ -762,6 +775,66 @@ export default function BusinessDetailPage() {
             ))}
           </Card>
         </div>
+      )}
+
+      {/* ── LEDGER TAB ───────────────────────────────────────── */}
+      {tab === "ledger" && (
+        <Card title="Wallet Ledger" icon={<BookOpen size={15} />}
+          action={
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              {data.wallet && (
+                <div style={{ display:"flex", gap:16 }}>
+                  <span style={{ fontSize:12, color:"#6B7280" }}>Balance: <strong style={{ color:"#0A2540" }}>{fmtNGN(data.wallet.balance)}</strong></span>
+                  <span style={{ fontSize:12, color:data.wallet.status==="active" ? "#10B981" : "#EF4444", fontWeight:600, textTransform:"capitalize" }}>{data.wallet.status}</span>
+                </div>
+              )}
+            </div>
+          }>
+          {data.ledger.length === 0 ? (
+            <p style={{ fontSize:13, color:"#9CA3AF" }}>No ledger entries found.</p>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom:"1px solid #F3F4F6" }}>
+                    {["Date","Type","Description","Amount","Balance After"].map(h => (
+                      <th key={h} style={{ padding:"8px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.ledger.map((e: any, i: number) => {
+                    const isCredit = e.amount > 0;
+                    return (
+                      <tr key={e.id ?? i} style={{ borderBottom:"1px solid #F9FAFB" }}
+                        onMouseEnter={(el) => (el.currentTarget.style.background="#FAFAFA")}
+                        onMouseLeave={(el) => (el.currentTarget.style.background="transparent")}>
+                        <td style={{ padding:"10px 12px", fontSize:12, color:"#6B7280", whiteSpace:"nowrap" }}>{fmt(e.created_at)}</td>
+                        <td style={{ padding:"10px 12px" }}>
+                          <span style={{ fontSize:11, fontWeight:700, textTransform:"capitalize", padding:"2px 8px", borderRadius:9999,
+                            background: isCredit ? "#ECFDF5" : "#FEF2F2",
+                            color:      isCredit ? "#059669"  : "#DC2626" }}>
+                            {e.type ?? (isCredit ? "credit" : "debit")}
+                          </span>
+                        </td>
+                        <td style={{ padding:"10px 12px", fontSize:13, color:"#374151", maxWidth:260, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {e.description ?? e.reference_id ?? "—"}
+                        </td>
+                        <td style={{ padding:"10px 12px", fontFamily:"var(--font-display)", fontWeight:800, fontSize:14,
+                          color: isCredit ? "#059669" : "#DC2626" }}>
+                          {isCredit ? "+" : ""}{fmtNGN(Math.abs(e.amount))}
+                        </td>
+                        <td style={{ padding:"10px 12px", fontSize:13, color:"#374151" }}>
+                          {e.balance_after != null ? fmtNGN(e.balance_after) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* ── ACTIONS TAB ───────────────────────────────────────── */}

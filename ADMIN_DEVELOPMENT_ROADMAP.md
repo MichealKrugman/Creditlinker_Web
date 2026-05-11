@@ -116,11 +116,12 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - Actions: suspend/activate developer
 - Eye link added to developers list page
 
-#### 2D. Wallet & ledger view (on business detail page)
-- Already has wallet balance on business detail — extend to show ledger entries
-- Add "Ledger" tab to business detail page
-- Query `ledger_entries` where `business_id = ?`, ordered by date
-- Show: date, type, amount, description, running balance
+#### 2D. Wallet & ledger view (on business detail page) ✅
+- Added "Ledger" tab to business detail page
+- Queries `ledger_entries` where `business_id = ?`, ordered by date desc, limit 100
+- Shows: date, type (credit/debit badge), description, amount (signed, color-coded), running balance after
+- Wallet balance + status shown in card header
+- Migration `20260511000001_admin_read_policies_ext.sql` adds RLS for `ledger_entries`
 
 #### 2E. Financer onboarding approval workflow
 - Currently institutions exist with no approval columns in DB
