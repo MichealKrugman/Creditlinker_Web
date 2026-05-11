@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   Search, X, ChevronLeft, ChevronRight, SlidersHorizontal,
-  Ban, RefreshCw, Download, Loader2,
+  Ban, RefreshCw, Download, Loader2, Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
+async function callFn(name: string, body?: object, method: "POST" | "GET" = "POST") {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
@@ -30,6 +31,88 @@ async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET
   }
   return res.json();
 }
+
+// ─────────────────────────────────────────────────────────────
+//  DIRECT QUERY — replaces admin-get-developers edge function
+// ─────────────────────────────────────────────────────────────
+async function loadDevelopers() {
+  // Developers = businesses where the owner has SDK API keys.
+  // We query sdk_api_keys to find all owner_ids, then join businesses.
+  const [keysR, bizR, eventsR] = await Promise.allSettled([
+    supabase
+      .from("sdk_api_keys")
+      .select("key_id, owner_id, tier, status, last_used_at, created_at"),
+    supabase
+      .from("businesses")
+      .select("business_id, name, sector, profile_status, kyc_status, tier, owner_id, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("platform_events")
+      .select("actor_id, created_at")
+      .eq("surface", "sdk")
+      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+  ]);
+
+  const allKeys  = keysR.status   === "fulfilled" ? (keysR.value.data   ?? []) : [];
+  const allBiz   = bizR.status    === "fulfilled" ? (bizR.value.data    ?? []) : [];
+  const events   = eventsR.status === "fulfilled" ? (eventsR.value.data ?? []) : [];
+
+  // Build lookup structures
+  const keysByOwner: Record<string, any[]> = {};
+  for (const k of allKeys) {
+    if (!keysByOwner[k.owner_id]) keysByOwner[k.owner_id] = [];
+    keysByOwner[k.owner_id].push(k);
+  }
+
+  const callsByActor: Record<string, number> = {};
+  for (const ev of events) {
+    callsByActor[ev.actor_id] = (callsByActor[ev.actor_id] ?? 0) + 1;
+  }
+
+  // Any owner who has SDK keys is a developer
+  const developerOwnerIds = [...new Set(allKeys.map((k: any) => k.owner_id))];
+
+  // If there are no SDK keys at all, fall back to all businesses as developers
+  // so the page isn't empty in early-stage environments
+  const sourceOwnerIds = developerOwnerIds.length > 0
+    ? developerOwnerIds
+    : allBiz.map((b: any) => b.owner_id);
+
+  const developerBizMap: Record<string, any> = {};
+  for (const b of allBiz) {
+    developerBizMap[b.owner_id] = b;
+  }
+
+  return sourceOwnerIds.map((ownerId: string) => {
+    const biz  = developerBizMap[ownerId];
+    const keys = keysByOwner[ownerId] ?? [];
+    const activeKeys = keys.filter((k: any) => k.status === "active");
+    const primaryTier = activeKeys[0]?.tier ?? keys[0]?.tier ?? "read";
+    // Derive status: if the business is suspended or all keys revoked → suspended
+    const allRevoked = keys.length > 0 && keys.every((k: any) => k.status !== "active");
+    const bizSuspended = biz?.profile_status === "suspended";
+    const status = (allRevoked || bizSuspended) ? "suspended" : "active";
+    const lastUsed = keys
+      .map((k: any) => k.last_used_at)
+      .filter(Boolean)
+      .sort()
+      .at(-1) ?? null;
+
+    return {
+      id:         ownerId,
+      name:       biz?.name ?? ownerId.slice(0, 8),
+      email:      "",            // not available client-side from auth.users
+      status,
+      tier:       primaryTier,
+      api_keys:   keys.length,
+      calls_30d:  callsByActor[ownerId] ?? 0,
+      last_active:lastUsed,
+      created_at: biz?.created_at ?? null,
+      business_id:biz?.business_id ?? null,
+    };
+  });
+}
+
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS
@@ -109,8 +192,8 @@ export default function AdminDevelopersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callFn("admin-get-developers");
-      setDevelopers(data.developers ?? data.data ?? []);
+      const devs = await loadDevelopers();
+      setDevelopers(devs);
     } catch (e) {
       console.error("[developers] load failed", e);
     } finally {
@@ -247,6 +330,12 @@ export default function AdminDevelopersPage() {
               </p>
               <span style={{ display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: tc.color, background: tc.bg, padding: "3px 8px", borderRadius: 9999, textTransform: "capitalize" }}>{d.tier ?? "read"}</span>
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                <Link href={`/admin/developers/${d.id}`}
+                  style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280", textDecoration: "none" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}>
+                  <Eye size={12} />
+                </Link>
                 {canAct && (d.status ?? "active") === "active" && (
                   <button onClick={() => setModal({ type: "suspend", id: d.id, name: d.name ?? d.email })}
                     style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280" }}

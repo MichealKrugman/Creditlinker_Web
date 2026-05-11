@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   AlertTriangle, CheckCircle2, XCircle,
-  Building2, Landmark, Loader2, RefreshCw, Download,
+  Building2, Landmark, Loader2, RefreshCw, Download, Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -249,11 +250,19 @@ export default function AdminDisputesPage() {
                       Opened {d.opened_at ?? (d.created_at ? new Date(d.created_at).toLocaleDateString() : "—")} · {fmtNgn(d.amount_ngn ?? d.amount ?? 0)}
                     </p>
                   </div>
-                  {canAct && (
-                    <Button variant="primary" size="sm" onClick={() => setSelected(d)} style={{ flexShrink: 0 }}>
-                      Resolve
-                    </Button>
-                  )}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <Link href={`/admin/disputes/${d.id}`}
+                      style={{ width: 30, height: 30, borderRadius: 6, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7280", textDecoration: "none" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0A2540"; (e.currentTarget as HTMLElement).style.color = "#0A2540"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}>
+                      <Eye size={13} />
+                    </Link>
+                    {canAct && (
+                      <Button variant="primary" size="sm" onClick={() => setSelected(d)} style={{ flexShrink: 0 }}>
+                        Resolve
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -286,7 +295,8 @@ export default function AdminDisputesPage() {
           <p style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 12 }}>Resolved</p>
           <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
             {resolved.map((d: any, i: number) => (
-              <div key={d.id} style={{ padding: "14px 22px", borderBottom: i < resolved.length - 1 ? "1px solid #F9FAFB" : "none", display: "flex", alignItems: "center", gap: 14 }}>
+              <div key={d.id} style={{ padding: "14px 22px", borderBottom: i < resolved.length - 1 ? "1px solid #F9FAFB" : "none", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}
+                onClick={() => window.location.href = `/admin/disputes/${d.id}`}>
                 <CheckCircle2 size={16} style={{ color: "#10B981", flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>

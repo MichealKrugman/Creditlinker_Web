@@ -85,6 +85,9 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - [x] Financial data page wired to `admin-get-pipeline-health`
 - [x] Notifications history load fixed (GET method)
 - [x] CI `continue-on-error` on deploy step (free plan 402 bulk update)
+- [x] Business detail page switched from edge function to direct Supabase queries (CORS/function slot fix)
+- [x] RLS admin read/write bypass policies added for all business detail tables (migration `20260511000000_admin_read_policies.sql`)
+- [x] `linked_accounts`, `financing_records`, `consent_records`, `dispute_records` column names corrected; FK joins replaced with institution lookup
 
 ---
 
@@ -92,27 +95,26 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 
 ### Phase 2 — Business & financer management
 
-#### 2A. Export on all pages (HIGH PRIORITY)
-- Pages with non-functional Export buttons: `businesses`, `financers`, `disputes`, `audit-logs`, `reports`
-- Implement CSV export client-side (build from already-loaded data, no new edge function needed)
-- Pattern: collect visible rows → convert to CSV string → trigger browser download
-- File: each page's existing Export button `onClick` handler
+#### 2A. Export on all pages ✅
+- [x] `businesses` — CSV export from filtered rows
+- [x] `financers` — CSV export from filtered rows
+- [x] `disputes` — Export button added + CSV export
+- [x] `audit-logs` — already implemented
+- [x] `reports` — CSV export of KPIs, sector breakdown, financing summary
 
-#### 2B. Dispute detail & timeline
+#### 2B. Dispute detail & timeline ✅
 - Route: `/admin/disputes/[id]`
-- New edge function: `admin-get-dispute-detail` — GET `?id=<dispute_id>`
-  - Returns: full dispute record, business profile, financer profile, timeline of events from `platform_events` where `target_id = dispute_id`
+- Direct Supabase queries (no edge function needed — admin RLS policies in place)
 - Page tabs: Overview | Timeline | Resolution
-- Actions: resolve dispute (calls existing `resolve-dispute` function), flag for review
-- Add Eye link on disputes list page
+- Actions: resolve dispute (calls existing `resolve-dispute` function)
+- Eye link added to disputes list page (open disputes) and resolved disputes (click row)
 
-#### 2C. Developer detail page
-- Route: `/admin/developers/[id]`
-- New edge function: `admin-get-developer-detail` — GET `?id=<owner_id>`
-  - Returns: business profile, API key usage stats from `sdk_events`, webhook config from `webhooks`
+#### 2C. Developer detail page ✅
+- Route: `/admin/developers/[id]` (id = owner_id)
+- Direct Supabase queries: `businesses`, `sdk_api_keys`, `sdk_events`, `webhooks`
 - Page tabs: Overview | API Usage | Webhooks
-- Actions: suspend/activate developer, revoke API keys
-- Add Eye link on developers list page
+- Actions: suspend/activate developer
+- Eye link added to developers list page
 
 #### 2D. Wallet & ledger view (on business detail page)
 - Already has wallet balance on business detail — extend to show ledger entries
