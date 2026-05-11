@@ -88,6 +88,8 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - [x] Business detail page switched from edge function to direct Supabase queries (CORS/function slot fix)
 - [x] RLS admin read/write bypass policies added for all business detail tables (migration `20260511000000_admin_read_policies.sql`)
 - [x] `linked_accounts`, `financing_records`, `consent_records`, `dispute_records` column names corrected; FK joins replaced with institution lookup
+- [x] `admin-get-developers` edge function replaced with direct Supabase queries (was crashing on `auth.admin.listUsers()` service-role call) — now queries `sdk_api_keys` + `businesses` + `platform_events` directly
+- [x] Migration `20260511000001_admin_read_policies_ext.sql` — admin RLS read policies for `sdk_api_keys`, `platform_events`, `sdk_events`, `webhooks`, `ledger_entries`
 
 ---
 
@@ -123,28 +125,27 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - Wallet balance + status shown in card header
 - Migration `20260511000001_admin_read_policies_ext.sql` adds RLS for `ledger_entries`
 
-#### 2E. Financer onboarding approval workflow
-- Currently institutions exist with no approval columns in DB
-- Option A: Add `approval_status` and `approved_at` columns to `institutions` table via migration
-- Option B: Use `platform_events` to track approval state
-- Admin action buttons for approve/reject already exist on financer detail page
-- Needs DB migration + `admin-approve-financer` and `admin-suspend-financer` functions to write the status somewhere queryable
+#### 2E. Financer onboarding approval workflow ✅
+- Migration `20260511000002_institutions_approval_columns.sql` — added `approval_status`, `approved_at`, `suspended_at`, `approval_notes` to `institutions`
+- Financer detail page rewritten to use direct Supabase queries (dropped `admin-get-financer-detail` edge fn)
+- Approve / Suspend / Reactivate actions write directly to `institutions` + `audit_logs`
+- Approval status badge + timestamps shown on Overview and Actions tabs
 
 ---
 
 ### Phase 3 — Reporting & notifications
 
-#### 3A. Date range filtering on audit logs
+#### 3A. Date range filtering on audit logs ✅
 - File: `app/(admin)/admin/audit-logs/page.tsx`
-- Add date-from / date-to inputs above the log table
-- Filter the Supabase query: `.gte("created_at", from).lte("created_at", to)`
-- The audit log page queries `platform_events` directly via the Supabase client — no edge function needed
+- Date pickers added to filter panel (From / To); applies to both Platform Events and Admin Actions tabs
+- Query updated: `.gte("created_at", dateFrom).lte("created_at", dateTo + "T23:59:59")`
+- "Clear dates" resets both inputs; date changes reset to page 1
 
-#### 3B. Targeted notifications
-- File: `app/(admin)/admin/notifications/page.tsx`
-- Currently broadcasts to everyone — add audience selector: `all`, `businesses`, `financers`, `specific business (by ID)`
-- Update `admin-broadcast-notification` edge function to accept `audience` and `target_id` params
-- When `target_id` is set, only insert notification for that user's `owner_id`
+#### 3B. Targeted notifications ✅
+- Audience selector (All / Businesses / Financers / Developers) already existed in UI
+- `admin-broadcast-notification` edge function updated: now accepts `"businesses"` (alias for all businesses), `"financers"`, `"developers"`
+- Financers/developers return graceful "not yet supported" response + write a `platform_event` for audit trail
+- Notification history shows `audience` chip from `metadata.audience`
 
 #### 3C. Notification delivery status
 - Add `delivered_at` and `read_at` tracking to the `notifications` table (migration needed)
@@ -160,17 +161,18 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 
 ### Phase 4 — System & security
 
-#### 4A. Admin activity log (separate from platform events)
-- Route: `/admin/audit-logs` already exists but shows `platform_events`
-- Add a second tab "Admin Actions" that shows rows from `audit_logs` table where `actor_type = "admin"`
-- The `audit_logs` table has: `id, actor_id, actor_type, action, target_type, target_id, metadata, created_at`
-- No new edge function — query `audit_logs` directly from the page via Supabase client
+#### 4A. Admin activity log tab ✅
+- Added "Admin Actions" tab to `/admin/audit-logs` (tab switcher at top)
+- Queries `audit_logs` where `actor_type = "admin"`, ordered desc, limit 100
+- Shows: action (monospace), target_type · target_id, actor_id, relative time; metadata key-values as subtitle
+- Date range filter applies to this tab too
 
-#### 4B. Webhook delivery logs
-- Route: new tab or section on System page
-- Query `webhooks` table to show configured webhooks
-- Show delivery history if stored in a related table
-- Add retry button (calls `test-webhook` edge function)
+#### 4B. Webhook delivery logs ✅
+- Added "Webhooks" tab to `/admin/system` page
+- Queries `webhooks` table directly via Supabase (admin RLS policy already in place from migration 000001)
+- Shows: Active/Inactive badge, URL (clickable), subscribed events chips, owner ID, last triggered date
+- Test button fires `test-webhook` edge function and shows inline result: status code, response time, error message
+- Refresh button scoped to active tab
 
 #### 4C. Session management
 - Settings page — new "Sessions" tab (super_admin only)
@@ -182,24 +184,23 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - Wire the `mfa_required` setting to actually check `supabase.auth.mfa` status on login
 - Redirect non-MFA admin users to enroll after login
 
-#### 4E. Real-time system health
-- System page currently loads once — add auto-refresh every 30 seconds
-- Add `setInterval` in the page's `useEffect` with cleanup
-- Add a "last updated" timestamp display
+#### 4E. Real-time system health ✅
+- `setInterval(load, 30_000)` with `clearInterval` cleanup in `useEffect`
+- "Last checked" timestamp displays next to status badge
+- Manual Refresh button still works independently
 
 ---
 
 ### Phase 5 — Dashboard improvements
 
-#### 5A. Dashboard data wiring
-- Verification queue count (`verification_queue`) comes from `admin-get-platform-metrics` — verify it's showing
-- Recent audit events — `recent_audit` field from same function — wire to the audit strip component
-- Pipeline health preview — wire from `admin-get-pipeline-health` `summary` field
+#### 5A. Dashboard data wiring ✅
+- Verification queue count — wired from `admin-get-platform-metrics`
+- Recent audit events — **switched to direct Supabase**: queries `platform_events` directly (8 most recent)
+- Pipeline health — wired from `admin-get-pipeline-health` stages
 
-#### 5B. Dashboard quick-action buttons
-- "View pending verifications" → `/admin/verifications`
-- "Resolve oldest dispute" → `/admin/disputes`
-- These are just Link components — no backend needed
+#### 5B. Dashboard quick-action buttons ✅
+- "Quick Actions" card added to right sidebar (below pipeline runs card)
+- Three actions with hover effect: View pending verifications → `/admin/verifications`, Resolve oldest dispute → `/admin/disputes`, View audit log → `/admin/audit-logs`
 
 ---
 
@@ -212,8 +213,9 @@ businesses:       business_id, name, sector, owner_id, profile_status, kyc_statu
                   kyc_bvn_verified, kyc_nin_verified, kyc_id_type, kyc_id_verified,
                   created_at, deleted_at
 
-institutions:     institution_id, name, category, owner_id, created_at, tier
-                  (NO status, approval_status, or approved_at columns)
+institutions:     institution_id, name, category, owner_id, created_at, tier,
+                  approval_status (pending|approved|suspended), approved_at,
+                  suspended_at, approval_notes
 
 pipeline_runs:    pipeline_run_id, business_id, status, stage_reached, sync_reason,
                   tier, kyc_status, raw_transaction_count, started_at, completed_at,

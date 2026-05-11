@@ -5,6 +5,7 @@ import {
   Server, Activity, Database, Cpu, HardDrive,
   CheckCircle2, XCircle, AlertTriangle, RefreshCw,
   Zap, Clock, Globe, ShieldCheck, Loader2,
+  Webhook, Play, ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,9 +57,13 @@ function incidentSeverityBadge(s: string) {
 export default function AdminSystemPage() {
   const user = getMockAdminUser();
 
-  const [health,  setHealth]  = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [activeTab,       setActiveTab]       = useState<"health" | "webhooks">("health");
+  const [health,          setHealth]          = useState<any>(null);
+  const [loading,         setLoading]         = useState(true);
+  const [lastRefresh,     setLastRefresh]     = useState<Date | null>(null);
+  const [webhooks,        setWebhooks]        = useState<any[]>([]);
+  const [webhooksLoading, setWebhooksLoading] = useState(false);
+  const [testResults,     setTestResults]     = useState<Record<string, { loading: boolean; ok: boolean | null; status: number | null; ms: number | null; error: string | null }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,7 +78,50 @@ export default function AdminSystemPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadWebhooks = useCallback(async () => {
+    setWebhooksLoading(true);
+    try {
+      const { data } = await supabase
+        .from("webhooks")
+        .select("id, url, events, is_active, created_at, last_triggered_at, owner_id")
+        .order("created_at", { ascending: false });
+      setWebhooks(data ?? []);
+    } catch (e) {
+      console.error("[system/webhooks] load failed", e);
+    } finally {
+      setWebhooksLoading(false);
+    }
+  }, []);
+
+  async function handleTestWebhook(webhookId: string) {
+    setTestResults(prev => ({ ...prev, [webhookId]: { loading: true, ok: null, status: null, ms: null, error: null } }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-webhook`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+        body: JSON.stringify({ webhook_id: webhookId }),
+      });
+      const d = await res.json();
+      setTestResults(prev => ({ ...prev, [webhookId]: { loading: false, ok: d.success ?? false, status: d.status_code ?? null, ms: d.response_time_ms ?? null, error: d.error ?? null } }));
+    } catch (e: any) {
+      setTestResults(prev => ({ ...prev, [webhookId]: { loading: false, ok: false, status: null, ms: null, error: e.message ?? "Request failed" } }));
+    }
+  }
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  useEffect(() => {
+    if (activeTab === "webhooks") loadWebhooks();
+  }, [activeTab, loadWebhooks]);
 
   // ── Derived ────────────────────────────────────────────────
   const services        = (health?.services ?? []).map((s: any) => ({ ...s, status: normaliseStatus(s.status) }));
@@ -104,6 +152,19 @@ export default function AdminSystemPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
+      {/* TABS */}
+      <div style={{ display: "flex", gap: 2, background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: 4, width: "fit-content" }}>
+        {([
+          { id: "health",   label: "Health",   icon: <Activity size={13} /> },
+          { id: "webhooks", label: "Webhooks",  icon: <Webhook  size={13} /> },
+        ] as const).map((t) => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8, border: "none", background: activeTab === t.id ? "#0A2540" : "transparent", color: activeTab === t.id ? "white" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
@@ -120,10 +181,88 @@ export default function AdminSystemPage() {
             )}
           </div>
         </div>
-        <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
+        <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={activeTab === "webhooks" ? loadWebhooks : load} disabled={loading || webhooksLoading}>
+          <RefreshCw size={13} className={(loading || webhooksLoading) ? "animate-spin" : ""} /> Refresh
         </Button>
       </div>
+
+      {/* ── WEBHOOKS TAB ─────────────────────────────────────── */}
+      {activeTab === "webhooks" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+            <div style={{ padding: "14px 22px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Registered Webhooks</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>{webhooksLoading ? "Loading…" : `${webhooks.length} webhook${webhooks.length !== 1 ? "s" : ""}`}</p>
+            </div>
+            {webhooksLoading ? (
+              <div style={{ padding: "48px 22px", textAlign: "center" }}>
+                <Loader2 size={20} style={{ color: "#9CA3AF", margin: "0 auto 8px" }} className="animate-spin" />
+                <p style={{ fontSize: 14, color: "#9CA3AF" }}>Loading webhooks…</p>
+              </div>
+            ) : webhooks.length === 0 ? (
+              <div style={{ padding: "48px 22px", textAlign: "center" }}>
+                <Webhook size={24} style={{ color: "#D1D5DB", margin: "0 auto 10px", display: "block" }} />
+                <p style={{ fontSize: 14, color: "#6B7280" }}>No webhooks registered yet.</p>
+                <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 4 }}>Businesses configure webhooks via the SDK developer portal.</p>
+              </div>
+            ) : webhooks.map((wh: any, i: number) => {
+              const tr = testResults[wh.id];
+              const events: string[] = Array.isArray(wh.events) ? wh.events : [];
+              return (
+                <div key={wh.id} style={{ padding: "16px 22px", borderBottom: i < webhooks.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 9999, background: wh.is_active ? "#ECFDF5" : "#F3F4F6", color: wh.is_active ? "#059669" : "#6B7280", border: `1px solid ${wh.is_active ? "rgba(5,150,105,0.2)" : "#E5E7EB"}` }}>
+                          {wh.is_active ? "Active" : "Inactive"}
+                        </span>
+                        <a href={wh.url} target="_blank" rel="noreferrer"
+                          style={{ fontSize: 13, fontFamily: "monospace", color: "#0A2540", fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = "underline")}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = "none")}>
+                          {wh.url} <ExternalLink size={10} />
+                        </a>
+                      </div>
+                      {events.length > 0 && (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const, marginBottom: 6 }}>
+                          {events.map((ev: string) => (
+                            <span key={ev} style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 600, padding: "2px 7px", borderRadius: 5, background: "#F3F4F6", color: "#374151" }}>{ev}</span>
+                          ))}
+                        </div>
+                      )}
+                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                        Owner: {wh.owner_id?.slice(0, 12)}…
+                        {wh.last_triggered_at ? ` · Last triggered: ${new Date(wh.last_triggered_at).toLocaleDateString()}` : " · Never triggered"}
+                        {` · Registered: ${new Date(wh.created_at).toLocaleDateString()}`}
+                      </p>
+                      {tr && !tr.loading && (
+                        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                          {tr.ok ? <CheckCircle2 size={13} style={{ color: "#10B981" }} /> : <XCircle size={13} style={{ color: "#EF4444" }} />}
+                          <span style={{ fontSize: 12, color: tr.ok ? "#059669" : "#DC2626", fontWeight: 600 }}>
+                            {tr.ok ? `✅ ${tr.status} OK` : tr.error ?? `❌ ${tr.status ?? "Failed"}`}
+                          </span>
+                          {tr.ms != null && <span style={{ fontSize: 11, color: "#9CA3AF" }}>{tr.ms}ms</span>}
+                        </div>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" style={{ gap: 6, flexShrink: 0 }}
+                      onClick={() => handleTestWebhook(wh.id)} disabled={tr?.loading}>
+                      {tr?.loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                      {tr?.loading ? "Testing…" : "Test"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ background: "#F0FDFF", border: "1px solid rgba(0,212,255,0.2)", borderRadius: 10, padding: "12px 16px", fontSize: 12, color: "#0E7490" }}>
+            Webhooks are registered by developer accounts via the SDK portal. Use the Test button to fire a <code style={{ fontFamily: "monospace", background: "rgba(0,0,0,0.05)", padding: "1px 4px", borderRadius: 3 }}>test.ping</code> event and verify the endpoint is reachable.
+          </div>
+        </div>
+      )}
+
+      {/* ── HEALTH TAB ───────────────────────────────────────── */}
+      {activeTab === "health" && <>
 
       {/* LOADING */}
       {loading && (
@@ -264,6 +403,9 @@ export default function AdminSystemPage() {
           </div>
         </>
       )}
+
+      </>
+      }
 
       {/* SUPER ADMIN NOTE */}
       {!isSuperAdmin(user) && (
