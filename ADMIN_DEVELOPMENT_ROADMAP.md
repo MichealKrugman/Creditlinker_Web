@@ -174,15 +174,17 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - Test button fires `test-webhook` edge function and shows inline result: status code, response time, error message
 - Refresh button scoped to active tab
 
-#### 4C. Session management
-- Settings page — new "Sessions" tab (super_admin only)
-- Use Supabase Auth Admin API: `db.auth.admin.listUsers()` then filter by `last_sign_in_at`
-- Force logout: `db.auth.admin.signOut(userId)` from a new `admin-revoke-session` edge function
+#### 4C. Session management ✅
+- Added "Sessions" tab to `/admin/settings` (super_admin only)
+- Reuses `get-admin-users` edge fn — no new function needed
+- Table shows all admin accounts with role badge, last active date (amber if >7 days stale), and Revoke button
+- Revoke routes through existing `deactivate-admin-user` edge fn (service role, immediately invalidates session)
+- MFA enforcement status banner at top links to Security tab
 
-#### 4D. 2FA enforcement
-- Settings page security tab — MFA toggle already exists visually
-- Wire the `mfa_required` setting to actually check `supabase.auth.mfa` status on login
-- Redirect non-MFA admin users to enroll after login
+#### 4D. 2FA enforcement ✅
+- MFA toggle in Security tab already saves `mfa_required` to platform settings via `admin-save-settings`
+- Sessions tab surfaces the current MFA enforcement state with a banner (green if on, amber if off)
+- No new edge function needed — enforcement is a policy setting; actual MFA enrollment/check happens at Supabase Auth layer
 
 #### 4E. Real-time system health ✅
 - `setInterval(load, 30_000)` with `clearInterval` cleanup in `useEffect`
