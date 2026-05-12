@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Bell, Send, X, AlertTriangle, Info, CheckCircle2,
   Megaphone, Building2, Landmark, Code2, Users, Loader2,
+  Mail, MailOpen, TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,53 @@ function audienceChip(aud: string) {
     <span style={{ fontSize: 10, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", padding: "2px 8px", borderRadius: 9999 }}>
       {a.label}
     </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DELIVERY STATS BAR
+// ─────────────────────────────────────────────────────────────
+
+function DeliveryStats({ n }: { n: any }) {
+  const reach     = n.reach           ?? 0;
+  const delivered = n.delivered_count ?? reach;   // fallback: assume all delivered for legacy rows
+  const read      = n.read_count      ?? 0;
+  const rate      = n.read_rate       ?? (reach > 0 ? Math.round((read / reach) * 100) : 0);
+
+  if (reach === 0) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" as const }}>
+      {/* Delivered */}
+      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#6B7280" }}>
+        <Mail size={11} style={{ color: "#0891B2" }} />
+        <span style={{ color: "#0A2540", fontWeight: 600 }}>{delivered.toLocaleString()}</span>
+        <span>delivered</span>
+      </span>
+
+      <span style={{ color: "#E5E7EB", fontSize: 11 }}>·</span>
+
+      {/* Read */}
+      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#6B7280" }}>
+        <MailOpen size={11} style={{ color: "#10B981" }} />
+        <span style={{ color: "#0A2540", fontWeight: 600 }}>{read.toLocaleString()}</span>
+        <span>read</span>
+      </span>
+
+      <span style={{ color: "#E5E7EB", fontSize: 11 }}>·</span>
+
+      {/* Read rate */}
+      <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#6B7280" }}>
+        <TrendingUp size={11} style={{ color: rate >= 50 ? "#10B981" : rate >= 20 ? "#F59E0B" : "#EF4444" }} />
+        <span style={{
+          color: rate >= 50 ? "#10B981" : rate >= 20 ? "#F59E0B" : "#EF4444",
+          fontWeight: 700,
+        }}>
+          {rate}%
+        </span>
+        <span>read rate</span>
+      </span>
+    </div>
   );
 }
 
@@ -238,13 +286,14 @@ export default function AdminNotificationsPage() {
                 <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.5, marginBottom: 6 }}>
                   {(n.body ?? n.message ?? "").slice(0, 80)}{(n.body ?? n.message ?? "").length > 80 ? "…" : ""}
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                   {audienceChip(n.audience ?? "all")}
                   <span style={{ fontSize: 11, color: "#9CA3AF" }}>
-                    {n.reach ? `~${n.reach.toLocaleString()} users · ` : ""}
                     {n.sent_at ?? (n.created_at ? new Date(n.created_at).toLocaleDateString() : "")}
                   </span>
                 </div>
+                {/* Delivery stats */}
+                <DeliveryStats n={n} />
               </div>
             ))}
           </div>

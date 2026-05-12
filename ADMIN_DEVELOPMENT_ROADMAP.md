@@ -147,15 +147,16 @@ cd /home/greene/Documents/Creditlinker/Web && git add <files> && git commit -m "
 - Financers/developers return graceful "not yet supported" response + write a `platform_event` for audit trail
 - Notification history shows `audience` chip from `metadata.audience`
 
-#### 3C. Notification delivery status
-- Add `delivered_at` and `read_at` tracking to the `notifications` table (migration needed)
-- Show delivery stats on the notification history list in the notifications page
+#### 3C. Notification delivery status ✅
+- Migration `20260511000004_notifications_delivery_tracking.sql` — added `delivered_at` + `read_at` TIMESTAMPTZ columns; back-filled existing rows; added `admin_read_notifications` RLS policy
+- `admin-broadcast-notification/index.ts` — stamps `delivered_at: now` on every inserted row
+- `manage-notifications/index.ts` — `mark_read` and `mark_all_read` actions now set `read_at: now`
+- `admin-get-notifications/index.ts` — aggregates `delivered_count`, `read_count`, `read_rate` per broadcast
+- `notifications/page.tsx` — `DeliveryStats` component renders delivered · read · read rate under each history entry
 
-#### 3D. Business PDF statement
-- Route: button on business detail page → `/admin/businesses/[id]/statement`
-- New edge function: `admin-generate-business-statement` — returns JSON with all data
-- Web: use browser `window.print()` with a print-optimised layout, or generate via a PDF library
-- Content: business name, registration, score, data coverage, financing summary, dispute summary
+#### 3D. Business PDF statement ✅
+- `admin-generate-business-statement/index.ts` — Hono edge function; queries `businesses`, `creditlinker_scores`, `financing_records`, `dispute_records`; builds PDF with `pdf-lib`; uploads to `reports` bucket at `admin/statements/{business_id}/{timestamp}.pdf`; returns 60s signed URL
+- `businesses/[id]/page.tsx` — added `statementLoading` / `statementErr` state, `downloadStatement()` function, and "Admin Statement" card in the Actions tab (above Business Reports)
 
 ---
 

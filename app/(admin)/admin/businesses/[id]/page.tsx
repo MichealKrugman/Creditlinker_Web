@@ -9,7 +9,7 @@ import {
   Ban, Play, Edit2, Save, X, Wallet,
   Link as LinkIcon, FileText, TrendingUp,
   Clock, Activity, ChevronRight, Info,
-  DollarSign, Scale, BarChart3, BookOpen,
+  DollarSign, Scale, BarChart3, BookOpen, Download,
 } from "lucide-react";
 import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -420,6 +420,10 @@ export default function BusinessDetailPage() {
   const [editField, setEditField] = useState<FieldDef | null>(null);
   const [actionMsg, setActionMsg] = useState("");
   const [actionErr, setActionErr] = useState("");
+  const [reportLoading,    setReportLoading]    = useState(false);
+  const [reportErr,        setReportErr]        = useState("");
+  const [statementLoading, setStatementLoading] = useState(false);
+  const [statementErr,     setStatementErr]     = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -432,6 +436,38 @@ export default function BusinessDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function downloadStatement() {
+    setStatementLoading(true); setStatementErr("");
+    try {
+      const d = await callFn("admin-generate-business-statement", { business_id: id }, "POST");
+      if (d.download_url) {
+        window.open(d.download_url, "_blank");
+      } else {
+        throw new Error("No download URL returned");
+      }
+    } catch (e: any) {
+      setStatementErr(e.message ?? "Failed to generate statement");
+    } finally {
+      setStatementLoading(false);
+    }
+  }
+
+  async function downloadReport(reportType: "financial_identity" | "readiness" | "full") {
+    setReportLoading(true); setReportErr("");
+    try {
+      const d = await callFn("generate-report", { business_id: id, report_type: reportType, format: "pdf" }, "POST");
+      if (d.download_url) {
+        window.open(d.download_url, "_blank");
+      } else {
+        throw new Error("No download URL returned");
+      }
+    } catch (e: any) {
+      setReportErr(e.message ?? "Failed to generate report");
+    } finally {
+      setReportLoading(false);
+    }
+  }
 
   async function runAction(type: string, reason: string) {
     setActionMsg(""); setActionErr("");
@@ -900,6 +936,62 @@ export default function BusinessDetailPage() {
                   <Play size={13} /> Trigger
                 </Button>
               )}
+            </div>
+          </Card>
+
+          {/* Statement */}
+          <Card title="Admin Statement" icon={<FileText size={15} />}>
+            <p style={{ fontSize:12, color:"#9CA3AF", marginBottom:16, lineHeight:1.6 }}>
+              Generate a PDF admin statement for this business including profile, score, financing summary, and dispute summary.
+            </p>
+            {statementErr && (
+              <div style={{ background:"#FEF2F2", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#991B1B", marginBottom:14 }}>
+                {statementErr}
+              </div>
+            )}
+            <button onClick={downloadStatement} disabled={statementLoading}
+              style={{ display:"flex", flexDirection:"column", gap:4, padding:"12px 16px", border:"1.5px solid #E5E7EB", borderRadius:10, background:"white", cursor: statementLoading ? "not-allowed" : "pointer", textAlign:"left" as const, opacity: statementLoading ? 0.6 : 1, minWidth:200 }}
+              onMouseEnter={(e) => { if (!statementLoading) (e.currentTarget as HTMLElement).style.borderColor="#0A2540"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor="#E5E7EB"; }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                {statementLoading
+                  ? <Loader2 size={13} style={{ color:"#9CA3AF" }} className="animate-spin" />
+                  : <Download size={13} style={{ color:"#0A2540" }} />}
+                <span style={{ fontSize:13, fontWeight:700, color:"#0A2540" }}>Download Statement</span>
+              </div>
+              <span style={{ fontSize:11, color:"#9CA3AF" }}>Profile · Score · Financing · Disputes</span>
+            </button>
+          </Card>
+
+          {/* Reports */}
+          <Card title="Business Reports" icon={<FileText size={15} />}>
+            <p style={{ fontSize:12, color:"#9CA3AF", marginBottom:16, lineHeight:1.6 }}>
+              Generate a PDF report from this business's latest financial identity snapshot. Opens in a new tab for download. Requires a completed pipeline run.
+            </p>
+            {reportErr && (
+              <div style={{ background:"#FEF2F2", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#991B1B", marginBottom:14 }}>
+                {reportErr}
+              </div>
+            )}
+            <div style={{ display:"flex", gap:10, flexWrap:"wrap" as const }}>
+              {([
+                { type:"financial_identity" as const, label:"Financial Identity",   help:"Score, dimensions, data quality" },
+                { type:"readiness"          as const, label:"Financing Readiness",  help:"Readiness per product type" },
+                { type:"full"               as const, label:"Full Report",           help:"Combined — all sections" },
+              ]).map((r) => (
+                <button key={r.type} onClick={() => downloadReport(r.type)} disabled={reportLoading}
+                  style={{ display:"flex", flexDirection:"column", gap:4, padding:"12px 16px", border:"1.5px solid #E5E7EB", borderRadius:10, background:"white", cursor: reportLoading ? "not-allowed" : "pointer", textAlign:"left" as const, opacity: reportLoading ? 0.6 : 1, minWidth:160 }}
+                  onMouseEnter={(e) => { if (!reportLoading) (e.currentTarget as HTMLElement).style.borderColor="#0A2540"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor="#E5E7EB"; }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    {reportLoading
+                      ? <Loader2 size={13} style={{ color:"#9CA3AF" }} className="animate-spin" />
+                      : <Download size={13} style={{ color:"#6366F1" }} />}
+                    <span style={{ fontSize:13, fontWeight:700, color:"#0A2540" }}>{r.label}</span>
+                  </div>
+                  <span style={{ fontSize:11, color:"#9CA3AF" }}>{r.help}</span>
+                </button>
+              ))}
             </div>
           </Card>
 
