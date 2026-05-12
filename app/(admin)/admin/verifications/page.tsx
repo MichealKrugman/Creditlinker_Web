@@ -163,9 +163,62 @@ export default function AdminVerificationsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callFn("admin-get-verification-queue");
-      setQueue(data.queue ?? data.pending ?? []);
-      setResolved(data.recent_resolved ?? data.resolved ?? []);
+      const [queueR, resolvedR] = await Promise.allSettled([
+        supabase
+          .from("businesses")
+          .select(`
+            business_id, name, sector, kyc_status, registration_number,
+            data_coverage_start, data_coverage_end, created_at,
+            creditlinker_scores ( composite_score, data_quality_score, computed_at ),
+            business_documents ( document_id, filename, category, status, uploaded_at )
+          `)
+          .eq("kyc_status", "pending")
+          .order("created_at", { ascending: true })
+          .limit(50),
+        supabase
+          .from("businesses")
+          .select("business_id, name, sector, kyc_status, created_at")
+          .in("kyc_status", ["verified", "flagged"])
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+
+      const queueData = queueR.status === "fulfilled" ? (queueR.value.data ?? []) : [];
+      setQueue(queueData.map((b: any) => {
+        const latest = (b.creditlinker_scores ?? []).sort((a: any, x: any) =>
+          new Date(x.computed_at).getTime() - new Date(a.computed_at).getTime()
+        )[0] ?? null;
+        let months = 0;
+        if (b.data_coverage_start && b.data_coverage_end) {
+          months = Math.max(0, Math.round((new Date(b.data_coverage_end).getTime() - new Date(b.data_coverage_start).getTime()) / (1000 * 60 * 60 * 24 * 30)));
+        }
+        return {
+          id:          b.business_id,
+          business_id: b.business_id,
+          name:        b.name,
+          sector:      b.sector ?? "—",
+          kyc_status:  b.kyc_status,
+          rc_number:   b.registration_number ?? null,
+          months_data: months,
+          score_before:latest?.composite_score ?? 0,
+          data_quality:latest?.data_quality_score ?? 0,
+          submitted:   b.created_at,
+          priority:    (!latest || latest.composite_score < 100) ? "high" : "normal",
+          documents:   (b.business_documents ?? []).filter((d: any) => d.status !== "rejected").map((d: any) => ({
+            document_id: d.document_id, filename: d.filename,
+            category: d.category, status: d.status, uploaded_at: d.uploaded_at,
+          })),
+        };
+      }));
+
+      const resolvedData = resolvedR.status === "fulfilled" ? (resolvedR.value.data ?? []) : [];
+      setResolved(resolvedData.map((b: any) => ({
+        business_id: b.business_id,
+        name:        b.name,
+        sector:      b.sector ?? "—",
+        outcome:     b.kyc_status === "verified" ? "approved" : "rejected",
+        resolved_at: b.created_at,
+      })));
     } catch (e) {
       console.error("[verifications] load failed", e);
     } finally {

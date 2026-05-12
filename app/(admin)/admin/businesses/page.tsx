@@ -177,8 +177,26 @@ export default function AdminBusinessesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callFn("admin-get-businesses");
-      setBusinesses(data.businesses ?? data.data ?? []);
+      const { data, error } = await supabase
+        .from("businesses")
+        .select(`
+          business_id, name, sector, profile_status, kyc_status,
+          created_at, data_coverage_start, data_coverage_end,
+          creditlinker_scores ( composite_score ),
+          linked_accounts ( account_id )
+        `)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setBusinesses((data ?? []).map((b: any) => ({
+        ...b,
+        score:        b.creditlinker_scores?.[0]?.composite_score ?? 0,
+        accounts:     b.linked_accounts?.length ?? 0,
+        months:       b.data_coverage_start && b.data_coverage_end
+          ? Math.round((new Date(b.data_coverage_end).getTime() - new Date(b.data_coverage_start).getTime()) / (1000 * 60 * 60 * 24 * 30))
+          : 0,
+        status:       b.profile_status,
+        verification: b.kyc_status,
+      })));
     } catch (e) {
       console.error("[businesses] load failed", e);
     } finally {

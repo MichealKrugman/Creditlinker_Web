@@ -137,8 +137,41 @@ export default function AdminNotificationsPage() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const data = await callFn("admin-get-notifications", undefined, "GET");
-      setHistory(data.notifications ?? data.data ?? []);
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("notification_id, title, body, type, metadata, created_at, delivered_at, read_at")
+        .contains("metadata", { broadcast: true })
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+
+      const statsMap = new Map<string, any>();
+      for (const n of data ?? []) {
+        const key = `${n.title}__${n.created_at}`;
+        if (!statsMap.has(key)) statsMap.set(key, { reach: 0, delivered: 0, read: 0, sample: n });
+        const s = statsMap.get(key);
+        s.reach     += 1;
+        s.delivered += n.delivered_at ? 1 : 0;
+        s.read      += n.read_at      ? 1 : 0;
+      }
+      setHistory([...statsMap.values()].slice(0, 20).map((s: any) => {
+        const n    = s.sample;
+        const meta = (n.metadata ?? {}) as Record<string, unknown>;
+        return {
+          id:              n.notification_id,
+          title:           n.title,
+          body:            n.body,
+          message:         n.body,
+          type:            n.type,
+          audience:        (meta["audience"] as string) ?? "all",
+          reach:           s.reach,
+          delivered_count: s.delivered,
+          read_count:      s.read,
+          read_rate:       s.reach > 0 ? Math.round((s.read / s.reach) * 1000) / 10 : 0,
+          sent_at:         new Date(n.created_at).toLocaleDateString(),
+          created_at:      n.created_at,
+        };
+      }));
     } catch (e) {
       console.error("[notifications] load history failed", e);
     } finally {

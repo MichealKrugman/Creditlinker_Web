@@ -169,8 +169,44 @@ export default function AdminDisputesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callFn("admin-get-disputes");
-      setDisputes(data.disputes ?? data.data ?? []);
+      const { data, error } = await supabase
+        .from("dispute_records")
+        .select(`
+          dispute_id, business_id, institution_id, financing_record_id,
+          initiated_by, opened_at, reason, resolution, resolved_at,
+          resolution_notes, platform_verified, direct_debit_triggered, created_at,
+          businesses ( name ),
+          institutions ( name ),
+          financing_records ( terms )
+        `)
+        .order("opened_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      setDisputes((data ?? []).map((d: any) => ({
+        id:                     d.dispute_id,
+        dispute_id:             d.dispute_id,
+        business_id:            d.business_id,
+        institution_id:         d.institution_id,
+        financing_id:           d.financing_record_id,
+        business:               d.businesses?.name   ?? "—",
+        business_name:          d.businesses?.name   ?? "—",
+        financer:               d.institutions?.name ?? "—",
+        institution_name:       d.institutions?.name ?? "—",
+        amount_ngn:             (d.financing_records?.terms as any)?.principal ?? (d.financing_records?.terms as any)?.amount ?? 0,
+        initiated_by:           d.initiated_by,
+        initiator:              d.initiated_by,
+        opened_at:              d.opened_at ?? d.created_at,
+        reason:                 d.reason,
+        description:            d.reason,
+        resolution:             d.resolution,
+        status:                 d.resolution === "pending" ? "open" : "resolved",
+        severity:               "medium",
+        resolved_at:            d.resolved_at         ?? null,
+        resolution_notes:       d.resolution_notes    ?? null,
+        platform_verified:      d.platform_verified,
+        direct_debit_triggered: d.direct_debit_triggered,
+        evidence:               [],
+      })));
     } catch (e) {
       console.error("[disputes] load failed", e);
     } finally {

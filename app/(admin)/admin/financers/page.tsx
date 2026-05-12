@@ -126,8 +126,44 @@ export default function AdminFinancersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callFn("admin-get-financers");
-      setFinancers(data.financers ?? data.data ?? []);
+      const { data: instRows, error } = await supabase
+        .from("institutions")
+        .select("institution_id, name, category, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const instIds = (instRows ?? []).map((i: any) => i.institution_id);
+      if (!instIds.length) { setFinancers([]); return; }
+
+      const [consentsR, financingR, disputesR] = await Promise.allSettled([
+        supabase.from("consent_records").select("institution_id, is_active").in("institution_id", instIds),
+        supabase.from("financing_records").select("institution_id, status, terms").in("institution_id", instIds).in("status", ["active", "settled"]),
+        supabase.from("dispute_records").select("institution_id").in("institution_id", instIds).eq("resolution", "pending"),
+      ]);
+
+      const consentRows   = consentsR.status  === "fulfilled" ? (consentsR.value.data  ?? []) : [];
+      const financingRows = financingR.status === "fulfilled" ? (financingR.value.data ?? []) : [];
+      const disputeRows   = disputesR.status  === "fulfilled" ? (disputesR.value.data  ?? []) : [];
+
+      const metrics: Record<string, any> = {};
+      for (const id of instIds) metrics[id] = { active_consents: 0, active_financing: 0, portfolio_ngn: 0, disputes: 0 };
+      for (const c of consentRows)   { if (c.is_active && metrics[c.institution_id]) metrics[c.institution_id].active_consents++; }
+      for (const f of financingRows) { if (f.status === "active" && metrics[f.institution_id]) { metrics[f.institution_id].active_financing++; metrics[f.institution_id].portfolio_ngn += (f.terms as any)?.principal ?? (f.terms as any)?.amount ?? 0; } }
+      for (const d of disputeRows)   { if (metrics[d.institution_id]) metrics[d.institution_id].disputes++; }
+
+      setFinancers((instRows ?? []).map((inst: any) => ({
+        id:               inst.institution_id,
+        institution_id:   inst.institution_id,
+        name:             inst.name,
+        type:             inst.category,
+        status:           "active",
+        approval:         "approved",
+        created_at:       inst.created_at,
+        active_consents:  metrics[inst.institution_id]?.active_consents  ?? 0,
+        active_financing: metrics[inst.institution_id]?.active_financing ?? 0,
+        portfolio_ngn:    metrics[inst.institution_id]?.portfolio_ngn    ?? 0,
+        disputes:         metrics[inst.institution_id]?.disputes          ?? 0,
+      })));
     } catch (e) {
       console.error("[financers] load failed", e);
     } finally {
