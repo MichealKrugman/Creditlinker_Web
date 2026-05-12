@@ -148,7 +148,7 @@ function PipelineHealthCard() {
 
   useEffect(() => {
     callFn("admin-get-pipeline-health")
-      .then(d => setStages(d.stages ?? []))
+      .then(d => setStages(d.stage_health ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -233,8 +233,12 @@ function AuditStrip() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    callFn("admin-get-platform-metrics")
-      .then(d => setEntries((d.recent_audit ?? []).slice(0, 8)))
+    supabase
+      .from("platform_events")
+      .select("id, actor_id, actor_type, event_type, severity, message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(8)
+      .then(({ data }) => setEntries(data ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -353,8 +357,8 @@ function PipelineRunsCard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    callFn("get-pipeline-logs")
-      .then(d => setRuns((d.runs ?? d.data ?? d.logs ?? []).slice(0, 5)))
+    callFn("admin-get-pipeline-health")
+      .then(d => setRuns((d.recent_runs ?? []).slice(0, 2)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -379,10 +383,10 @@ function PipelineRunsCard() {
             <div style={{
               width: 28, height: 28, borderRadius: 7, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: run.status === "success" ? "#ECFDF5" : run.status === "failed" ? "#FEF2F2" : "#F0FDFF",
-              color: run.status === "success" ? "#10B981" : run.status === "failed" ? "#EF4444" : "#0891B2",
+              background: (run.status === "success" || run.status === "completed") ? "#ECFDF5" : run.status === "failed" ? "#FEF2F2" : "#F0FDFF",
+              color: (run.status === "success" || run.status === "completed") ? "#10B981" : run.status === "failed" ? "#EF4444" : "#0891B2",
             }}>
-              {run.status === "success" ? <CheckCircle2 size={13} /> : run.status === "failed" ? <XCircle size={13} /> : <RefreshCw size={13} style={{ animation: "spin 1.2s linear infinite" }} />}
+              {(run.status === "success" || run.status === "completed") ? <CheckCircle2 size={13} /> : run.status === "failed" ? <XCircle size={13} /> : <RefreshCw size={13} style={{ animation: "spin 1.2s linear infinite" }} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
@@ -573,6 +577,40 @@ export default function AdminDashboard() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {canView(user, "verifications") && <VerificationQueueCard />}
           {canView(user, "financial_data") && <PipelineRunsCard />}
+
+          {/* 5B — Quick-action shortcuts */}
+          <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "16px 18px" }}>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540", marginBottom: 12 }}>Quick Actions</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Link href="/admin/verifications" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: "1px solid #E5E7EB", textDecoration: "none", background: "#FAFAFA" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#0A2540")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#E5E7EB")}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <ShieldCheck size={14} style={{ color: "#0891B2" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>View pending verifications</span>
+                </div>
+                <ArrowUpRight size={13} style={{ color: "#9CA3AF" }} />
+              </Link>
+              <Link href="/admin/disputes" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: "1px solid #E5E7EB", textDecoration: "none", background: "#FAFAFA" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#0A2540")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#E5E7EB")}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <AlertTriangle size={14} style={{ color: "#F59E0B" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>Resolve oldest dispute</span>
+                </div>
+                <ArrowUpRight size={13} style={{ color: "#9CA3AF" }} />
+              </Link>
+              <Link href="/admin/audit-logs" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: "1px solid #E5E7EB", textDecoration: "none", background: "#FAFAFA" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#0A2540")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#E5E7EB")}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <ScrollText size={14} style={{ color: "#6366F1" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>View audit log</span>
+                </div>
+                <ArrowUpRight size={13} style={{ color: "#9CA3AF" }} />
+              </Link>
+            </div>
+          </div>
 
           {/* Disputes alert — visible if there are open disputes */}
           {canView(user, "verifications") && disputesOpen > 0 && (
