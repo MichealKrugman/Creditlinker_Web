@@ -233,14 +233,17 @@ function AuditStrip() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from("platform_events")
-      .select("id, actor_id, actor_type, event_type, severity, message, created_at")
-      .order("created_at", { ascending: false })
-      .limit(8)
-      .then(({ data }) => setEntries(data ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("platform_events")
+          .select("id, actor_id, actor_type, event_type, severity, message, created_at")
+          .order("created_at", { ascending: false })
+          .limit(8);
+        setEntries(data ?? []);
+      } catch {}
+      finally { setLoading(false); }
+    })();
   }, []);
 
   return (
