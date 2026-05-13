@@ -16,24 +16,47 @@ import {
 } from "@/lib/admin-rbac";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "POST") {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const url   = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const url   = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`;
   const res   = await fetch(url, {
-    method,
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
   }
   return res.json();
+}
+
+// Direct read: fetch admin users from the old individual function (still live)
+async function fetchAdminUsers(): Promise<any> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-admin-users`,
+    { method: "GET", headers: { Authorization: `Bearer ${token}`, apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! } },
+  );
+  if (!res.ok) throw new Error(`get-admin-users failed: ${res.status}`);
+  return res.json();
+}
+
+// Direct read: fetch platform settings via Supabase client (admin RLS allows this)
+async function fetchSettings(): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase
+    .from("platform_settings")
+    .select("key, value");
+  if (error) throw new Error(error.message);
+  const out: Record<string, unknown> = {};
+  for (const row of data ?? []) out[row.key] = row.value;
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -262,7 +285,7 @@ export default function AdminSettingsPage() {
   const loadAdmins = useCallback(async () => {
     setAdminsLoading(true);
     try {
-      const data = await callFn("get-admin-users", undefined, "GET");
+      const data = await fetchAdminUsers();
       setAdmins(data.users ?? []);
     } catch (e) { console.error("[settings] load admins failed", e); }
     finally { setAdminsLoading(false); }
@@ -271,7 +294,8 @@ export default function AdminSettingsPage() {
   const loadSettings = useCallback(async () => {
     setSettingsLoading(true);
     try {
-      const data = await callFn("admin-save-settings", undefined, "GET");
+      const settings = await fetchSettings();
+      const data = { settings };
       const s = data.settings ?? {};
       setSettings({
         platform_name:            s.platform_name            ?? DEFAULTS.platform_name,
@@ -295,7 +319,7 @@ export default function AdminSettingsPage() {
     try {
       const payload: Record<string, unknown> = {};
       keys.forEach(k => { payload[k] = settings[k]; });
-      await callFn("admin-save-settings", { settings: payload });
+      await callFn({ action: "save-settings", settings: payload });
       setSaved(true); setDirty(false);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) { setSaveError(e.message ?? "Failed to save"); }
@@ -305,13 +329,13 @@ export default function AdminSettingsPage() {
   async function handleDeactivate(userId: string) {
     if (!confirm("Deactivate this admin? They will immediately lose access.")) return;
     try {
-      await callFn("deactivate-admin-user", { user_id: userId });
+      await callFn({ action: "deactivate-admin-user", user_id: userId });
       await loadAdmins();
     } catch (e: any) { alert(e.message ?? "Failed to deactivate"); }
   }
 
   async function handleInvite(email: string, name: string, admin_role: AdminRole) {
-    await callFn("invite-admin-user", { email, name, admin_role });
+    await callFn({ action: "invite-admin-user", email, name, admin_role });
     await loadAdmins();
   }
 
