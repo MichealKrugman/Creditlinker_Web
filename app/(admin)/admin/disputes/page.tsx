@@ -11,18 +11,38 @@ import { Button } from "@/components/ui/button";
 import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
+// callFn — routes to the merged admin function
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
-  const res = await fetch(url, {
-    method,
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+// invokeFn — calls any other named edge function
+async function invokeFn(name: string, body: object): Promise<any> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -176,12 +196,11 @@ export default function AdminDisputesPage() {
           initiated_by, opened_at, reason, resolution, resolved_at,
           resolution_notes, platform_verified, direct_debit_triggered, created_at,
           businesses ( name ),
-          institutions ( name ),
-          financing_records ( terms )
+          institutions ( name )
         `)
         .order("opened_at", { ascending: false })
         .limit(200);
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
       setDisputes((data ?? []).map((d: any) => ({
         id:                     d.dispute_id,
         dispute_id:             d.dispute_id,
@@ -192,7 +211,7 @@ export default function AdminDisputesPage() {
         business_name:          d.businesses?.name   ?? "—",
         financer:               d.institutions?.name ?? "—",
         institution_name:       d.institutions?.name ?? "—",
-        amount_ngn:             (d.financing_records?.terms as any)?.principal ?? (d.financing_records?.terms as any)?.amount ?? 0,
+        amount_ngn:             0,
         initiated_by:           d.initiated_by,
         initiator:              d.initiated_by,
         opened_at:              d.opened_at ?? d.created_at,
@@ -208,7 +227,7 @@ export default function AdminDisputesPage() {
         evidence:               [],
       })));
     } catch (e) {
-      console.error("[disputes] load failed", e);
+      console.error("[disputes] load failed", e instanceof Error ? e.message : e);
     } finally {
       setLoading(false);
     }
@@ -366,7 +385,7 @@ export default function AdminDisputesPage() {
           dispute={selected}
           onResolve={async (notes, triggerDebit) => {
             try {
-              await callFn("resolve-dispute", {
+              await invokeFn("resolve-dispute", {
                 dispute_id:          selected.id,
                 financing_id:        selected.financing_id,
                 resolution_notes:    notes,

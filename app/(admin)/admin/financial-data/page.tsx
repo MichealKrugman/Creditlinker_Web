@@ -10,18 +10,22 @@ import { Badge } from "@/components/ui/badge";
 import { getMockAdminUser } from "@/lib/admin-rbac";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string) {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`, {
-    method: "GET",
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -98,7 +102,7 @@ export default function AdminFinancialDataPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const healthData = await callFn("admin-get-pipeline-health");
+      const healthData = await callFn({ action: "get-pipeline-health" });
       setStages(healthData.stage_health ?? []);
       setSummary(healthData.summary ?? {});
       setDqDist(healthData.dq_distribution ?? []);

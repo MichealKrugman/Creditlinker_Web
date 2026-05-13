@@ -11,18 +11,18 @@ import { Button } from "@/components/ui/button";
 import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "POST") {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`;
   const res = await fetch(url, {
-    method,
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -139,20 +139,25 @@ export default function AdminNotificationsPage() {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("notification_id, title, body, type, metadata, created_at, delivered_at, read_at")
-        .contains("metadata", { broadcast: true })
+        .select("notification_id, title, body, type, metadata, created_at, is_read")
+        .not("metadata", "is", null)
         .order("created_at", { ascending: false })
-        .limit(500);
-      if (error) throw error;
+        .limit(1000);
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
+
+      // Filter client-side to avoid JSONB operator issues across different column types
+      const broadcasts = (data ?? []).filter(
+        (n: any) => n.metadata?.broadcast === true || n.metadata?.broadcast === "true"
+      );
 
       const statsMap = new Map<string, any>();
-      for (const n of data ?? []) {
+      for (const n of broadcasts) {
         const key = `${n.title}__${n.created_at}`;
         if (!statsMap.has(key)) statsMap.set(key, { reach: 0, delivered: 0, read: 0, sample: n });
         const s = statsMap.get(key);
         s.reach     += 1;
-        s.delivered += n.delivered_at ? 1 : 0;
-        s.read      += n.read_at      ? 1 : 0;
+        s.delivered += 1;             // treat all inserted rows as delivered
+        s.read      += n.is_read ? 1 : 0;
       }
       setHistory([...statsMap.values()].slice(0, 20).map((s: any) => {
         const n    = s.sample;
@@ -187,7 +192,7 @@ export default function AdminNotificationsPage() {
     if (!title.trim() || !body.trim()) return;
     setSending(true); setSendError("");
     try {
-      await callFn("admin-broadcast-notification", { title, body, audience, type });
+      await callFn({ action: "broadcast-notification", title, body, audience, type });
       setSent(true);
       setTitle(""); setBody(""); setAudience("all"); setType("info");
       await loadHistory();
