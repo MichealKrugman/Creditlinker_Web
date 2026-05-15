@@ -7,6 +7,7 @@ import {
   Code2, Webhook, FlaskConical, Activity,
   ScrollText, LifeBuoy, Settings, ChevronRight,
 } from 'lucide-react';
+import { useDeveloperAccount } from '@/lib/developer-context';
 
 /* ─────────────────────────────────────────────────────────
    NAV CONFIG
@@ -122,6 +123,11 @@ function NavItem({
 ───────────────────────────────────────────────────────── */
 export function DeveloperSidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
+  const { account } = useDeveloperAccount();
+  const displayName = account?.name || 'Developer';
+  const displayEmail = account?.email || '';
+  const displayTier = account ? `${account.tier.charAt(0).toUpperCase() + account.tier.slice(1)} tier` : 'Loading…';
+  const initials = displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || 'D';
 
   return (
     <aside style={{
@@ -240,20 +246,20 @@ export function DeveloperSidebar({ isOpen = false, onClose }: { isOpen?: boolean
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 12, fontWeight: 700, color: '#00D4FF',
           }}>
-            D
+            {initials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{
               fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
-              dev@mycompany.io
+              {displayEmail || displayName}
             </p>
             <p style={{
               fontSize: 11, color: 'rgba(255,255,255,0.3)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
-              Developer account · Free plan
+              Developer · {displayTier}
             </p>
           </div>
           <ChevronRight size={13} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />

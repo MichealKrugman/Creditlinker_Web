@@ -342,37 +342,11 @@ export const SETTINGS_SUPER_ADMIN_ONLY = true;
  *      and pass the result through parseAdminFromToken()
  */
 /**
- * useAdminUser — React hook that resolves the logged-in admin
- * from the live Supabase session. Returns null while loading.
- *
- * Use this in all admin pages instead of getMockAdminUser().
- */
-export function useAdminUser(): AdminUser | null {
-  if (typeof window === 'undefined') return null;
-  // Resolved synchronously from sessionStorage on first render;
-  // the useEffect in AdminLayout keeps it fresh.
-  try {
-    const key = Object.keys(sessionStorage).find(k => k.includes('auth-token'));
-    if (!key) return null;
-    const session = JSON.parse(sessionStorage.getItem(key) ?? '{}');
-    const token = session?.access_token;
-    if (!token) return null;
-    return parseAdminFromToken(token);
-  } catch {
-    return null;
-  }
-}
-
-/**
  * getMockAdminUser — kept for backwards compatibility during transition.
- * New code should use useAdminUser() instead.
+ * New code should use useAdminUser() from @/lib/admin-user-context instead.
  */
 export function getMockAdminUser(): AdminUser {
-  if (typeof window !== 'undefined') {
-    const live = useAdminUser();
-    if (live) return live;
-  }
-  // Generic fallback — never exposes real user data
+  // Fallback-only — new code should use useAdminUser() from @/lib/admin-user-context
   return {
     id:               'dev_admin_fallback',
     name:             'Admin User',

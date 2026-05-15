@@ -5,10 +5,11 @@ import {
   Search, X, ChevronLeft, ChevronRight,
   CheckCircle2, AlertTriangle, XCircle, Info,
   Download, Filter, RefreshCw, Activity,
+  Calendar, ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getMockAdminUser } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
@@ -110,6 +111,11 @@ export default function AdminAuditLogsPage() {
   const [severity,  setSeverity]  = useState<Severity | "All">("All");
   const [showFilters, setShowFilters] = useState(false);
   const [loggingEnabled, setLoggingEnabled] = useState<boolean | null>(null);
+  const [activeTab,   setActiveTab]   = useState<"platform_events" | "admin_actions">("platform_events");
+  const [dateFrom,    setDateFrom]    = useState("");
+  const [dateTo,      setDateTo]      = useState("");
+  const [adminActions, setAdminActions] = useState<any[]>([]);
+  const [adminActionsLoading, setAdminActionsLoading] = useState(false);
 
   // Fetch logging toggle status
   useEffect(() => {
@@ -134,6 +140,8 @@ export default function AdminAuditLogsPage() {
 
       if (surface  !== "All") query = query.eq("surface",  surface);
       if (severity !== "All") query = query.eq("severity", severity);
+      if (dateFrom) query = query.gte("created_at", dateFrom);
+      if (dateTo)   query = query.lte("created_at", dateTo + "T23:59:59");
       if (search.trim()) {
         // Supabase full-text style: search across event_type, message, actor_id
         query = query.or(
@@ -150,17 +158,42 @@ export default function AdminAuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, surface, severity, search]);
+  }, [page, surface, severity, search, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
+  // Admin actions loader
+  const fetchAdminActions = useCallback(async () => {
+    setAdminActionsLoading(true);
+    try {
+      let q = supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("actor_type", "admin")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (dateFrom) q = q.gte("created_at", dateFrom);
+      if (dateTo)   q = q.lte("created_at", dateTo + "T23:59:59");
+      const { data } = await q;
+      setAdminActions(data ?? []);
+    } catch (err) {
+      console.error("[audit-logs] admin actions fetch failed", err);
+    } finally {
+      setAdminActionsLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (activeTab === "admin_actions") fetchAdminActions();
+  }, [activeTab, fetchAdminActions]);
+
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [surface, severity, search]);
+  useEffect(() => { setPage(1); }, [surface, severity, search, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const hasFilters = search || surface !== "All" || severity !== "All";
+  const hasFilters = search || surface !== "All" || severity !== "All" || dateFrom || dateTo;
 
   async function handleExport() {
     const { data } = await supabase
@@ -191,6 +224,19 @@ export default function AdminAuditLogsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
+      {/* TABS */}
+      <div style={{ display: "flex", gap: 2, background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: 4, width: "fit-content" }}>
+        {([
+          { id: "platform_events", label: "Platform Events", icon: <Activity size={13} /> },
+          { id: "admin_actions",   label: "Admin Actions",   icon: <ShieldCheck size={13} /> },
+        ] as const).map((t) => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 8, border: "none", background: activeTab === t.id ? "#0A2540" : "transparent", color: activeTab === t.id ? "white" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
@@ -202,12 +248,14 @@ export default function AdminAuditLogsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={fetchEvents} disabled={loading}>
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={activeTab === "admin_actions" ? fetchAdminActions : fetchEvents} disabled={loading || adminActionsLoading}>
+            <RefreshCw size={13} className={(loading || adminActionsLoading) ? "animate-spin" : ""} /> Refresh
           </Button>
-          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport}>
-            <Download size={13} /> Export CSV
-          </Button>
+          {activeTab === "platform_events" && (
+            <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport}>
+              <Download size={13} /> Export CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -252,7 +300,29 @@ export default function AdminAuditLogsPage() {
 
         {showFilters && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
+            {/* Date range */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", minWidth: 60 }}>Date</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={13} style={{ color: "#9CA3AF" }} />
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                  style={{ height: 32, padding: "0 10px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 12, color: "#374151", outline: "none", background: "white" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#0A2540")}
+                  onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")} />
+                <span style={{ fontSize: 12, color: "#9CA3AF" }}>to</span>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                  style={{ height: 32, padding: "0 10px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 12, color: "#374151", outline: "none", background: "white" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#0A2540")}
+                  onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")} />
+                {(dateFrom || dateTo) && (
+                  <button onClick={() => { setDateFrom(""); setDateTo(""); }}
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                    <X size={11} /> Clear dates
+                  </button>
+                )}
+              </div>
+            </div>
+            {activeTab === "platform_events" && [
               { label: "Surface",  options: SURFACES,   val: surface,  set: (v: string) => setSurface(v as Surface | "All") },
               { label: "Severity", options: SEVERITIES, val: severity, set: (v: string) => setSeverity(v as Severity | "All") },
             ].map(({ label, options, val, set }) => (
@@ -270,7 +340,51 @@ export default function AdminAuditLogsPage() {
         )}
       </div>
 
-      {/* TABLE */}
+      {/* ── ADMIN ACTIONS TAB ─────────────────────────────────── */}
+      {activeTab === "admin_actions" && (
+        <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "130px 1fr 120px 100px", padding: "10px 22px", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA", gap: 12 }}>
+            {["Action", "Target", "Actor", "When"].map((h) => (
+              <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</p>
+            ))}
+          </div>
+          {adminActionsLoading ? (
+            <div style={{ padding: "48px 22px", textAlign: "center" }}>
+              <Activity size={20} style={{ color: "#9CA3AF", margin: "0 auto 8px" }} />
+              <p style={{ fontSize: 14, color: "#9CA3AF" }}>Loading admin actions…</p>
+            </div>
+          ) : adminActions.length === 0 ? (
+            <div style={{ padding: "48px 22px", textAlign: "center" }}>
+              <p style={{ fontSize: 14, color: "#6B7280" }}>No admin actions found{(dateFrom || dateTo) ? " in the selected date range." : "."}</p>
+            </div>
+          ) : adminActions.map((a: any, i: number) => (
+            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "130px 1fr 120px 100px", padding: "11px 22px", borderBottom: i < adminActions.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", gap: 12 }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFAFA")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+              <p style={{ fontSize: 11, fontFamily: "monospace", color: "#374151", background: "#F3F4F6", padding: "3px 7px", borderRadius: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {a.action}
+              </p>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 12, color: "#0A2540", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {a.target_type}{a.target_id ? ` · ${a.target_id.slice(0, 12)}…` : ""}
+                </p>
+                {a.metadata && Object.keys(a.metadata).length > 0 && (
+                  <p style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {Object.entries(a.metadata).filter(([k]) => !["admin_id"].includes(k)).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                  </p>
+                )}
+              </div>
+              <p style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {a.actor_id?.slice(0, 16)}…
+              </p>
+              <p style={{ fontSize: 11, color: "#9CA3AF" }}>{relativeTime(a.created_at)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── PLATFORM EVENTS TAB ──────────────────────────────── */}
+      {activeTab === "platform_events" && (
       <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
         {/* Header */}
         <div style={{ display: "grid", gridTemplateColumns: "16px 80px 130px 1fr 1.6fr 100px", padding: "10px 22px", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA", gap: 12 }}>
@@ -322,9 +436,10 @@ export default function AdminAuditLogsPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* PAGINATION */}
-      {totalPages > 1 && (
+      {activeTab === "platform_events" && totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total.toLocaleString()}
@@ -350,3 +465,4 @@ export default function AdminAuditLogsPage() {
     </div>
   );
 }
+

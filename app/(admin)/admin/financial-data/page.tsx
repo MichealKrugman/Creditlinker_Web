@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getMockAdminUser } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 async function callFn(body: object): Promise<any> {

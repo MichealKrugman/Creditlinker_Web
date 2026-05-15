@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
@@ -198,9 +199,9 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
 //  PAGE
 // ─────────────────────────────────────────────────────────────
 export default function DeveloperDetailPage() {
-  const { id }  = useParams<{ id: string }>(); // id = owner_id
-  const user    = getMockAdminUser();
-  const canAct  = canManage(user, "developers");
+  const { id }  = useParams<{ id: string }>();
+  const { adminUser } = useAdminUser();
+  const canAct  = canManage(adminUser, "developers");
 
   const [data,      setData]      = useState<any>(null);
   const [loading,   setLoading]   = useState(true);

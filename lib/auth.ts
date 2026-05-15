@@ -193,12 +193,13 @@ export interface RegisterDeveloperInput {
 
 /**
  * Register a Developer account.
- * Developers only need a Supabase Auth user — no extra DB row needed for MVP.
+ * 1. Creates a Supabase Auth user with account_type metadata.
+ * 2. Inserts a row into developer_accounts so the portal can query it directly.
  */
 export async function registerDeveloper(input: RegisterDeveloperInput): Promise<void> {
   const { fullName, email, password } = input;
 
-  const { error: authError } = await supabase.auth.signUp({
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -214,6 +215,22 @@ export async function registerDeveloper(input: RegisterDeveloperInput): Promise<
       throw new Error("An account with this email already exists.");
     }
     throw new Error(authError.message);
+  }
+
+  const userId = authData.user?.id;
+  if (!userId) throw new Error("Account creation failed. Please try again.");
+
+  const { error: dbError } = await supabase.from("developer_accounts").insert({
+    id: userId,
+    name: fullName,
+    email,
+    status: "active",
+    tier: "read",
+  });
+
+  if (dbError) {
+    await supabase.auth.signOut();
+    throw new Error("Failed to create your developer profile. Please contact support.");
   }
 }
 

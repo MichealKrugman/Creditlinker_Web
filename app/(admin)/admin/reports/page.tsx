@@ -6,19 +6,20 @@ import {
   ShieldCheck, DollarSign, Activity, BarChart2, Download, Loader2, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string) {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`, {
-    method: "GET",
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
       "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
@@ -108,7 +109,7 @@ export default function AdminReportsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await callFn("admin-get-reports");
+      const res = await callFn({ action: "get-reports" });
       setData(res);
     } catch (e) {
       console.error("[reports] load failed", e);
@@ -119,11 +120,11 @@ export default function AdminReportsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const growth          = data?.growth          ?? [];
-  const sectorBreakdown = data?.sector_breakdown ?? [];
+  const growth          = data?.growth_6m        ?? [];
+  const sectorBreakdown = data?.sector_breakdown  ?? [];
   const scoreDist       = data?.score_distribution ?? [];
   const financing       = data?.financing_summary  ?? {};
-  const kpiDeltas       = data?.kpi_deltas          ?? [];
+  const kpiDeltas       = data?.kpis               ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -157,7 +158,7 @@ export default function AdminReportsPage() {
               <div key={kpi.label} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "16px 18px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280" }}>
-                    {ICON_MAP[kpi.icon_name] ?? <Activity size={16} />}
+                    <Activity size={16} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <TrendingUp size={11} style={{ color: "#10B981" }} />

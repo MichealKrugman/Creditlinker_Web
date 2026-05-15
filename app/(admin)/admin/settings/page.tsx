@@ -11,9 +11,10 @@ import { Badge }   from "@/components/ui/badge";
 import { Button }  from "@/components/ui/button";
 import { Input }   from "@/components/ui/input";
 import {
-  getMockAdminUser, isSuperAdmin,
+  isSuperAdmin,
   ROLE_LABELS, ROLE_DESCRIPTIONS, AdminRole,
 } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 async function callFn(body: object): Promise<any> {
@@ -36,16 +37,22 @@ async function callFn(body: object): Promise<any> {
   return res.json();
 }
 
-// Direct read: fetch admin users from the old individual function (still live)
+// Direct read: fetch admin users via RPC (queries auth.users with SECURITY DEFINER)
+// Uses supabase client directly — no edge function needed
 async function fetchAdminUsers(): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-admin-users`,
-    { method: "GET", headers: { Authorization: `Bearer ${token}`, apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! } },
-  );
-  if (!res.ok) throw new Error(`get-admin-users failed: ${res.status}`);
-  return res.json();
+  const { data, error } = await supabase.rpc("rpc_list_admin_users");
+  if (error) throw new Error(error.message);
+  const users = (data ?? []).map((u: any) => ({
+    id:             u.id,
+    email:          u.email ?? "",
+    name:           (u.user_metadata as any)?.name ?? "",
+    admin_role:     (u.app_metadata as any)?.admin_role ?? "viewer",
+    permissions:    (u.app_metadata as any)?.permissions ?? [],
+    last_sign_in:   u.last_sign_in_at ?? null,
+    created_at:     u.created_at,
+    is_deactivated: !!(u.app_metadata as any)?.deactivated || !!u.banned_until,
+  }));
+  return { users, count: users.length };
 }
 
 // Direct read: fetch platform settings via Supabase client (admin RLS allows this)
@@ -268,9 +275,9 @@ function SaveBar({
 //  PAGE
 // ─────────────────────────────────────────────────────────────
 export default function AdminSettingsPage() {
-  const user = getMockAdminUser();
-  if (!isSuperAdmin(user)) return <AccessDenied />;
+  const { adminUser, loading: userLoading } = useAdminUser();
 
+  // All hooks must be declared before any conditional return (Rules of Hooks)
   const [activeTab,       setActiveTab]       = useState<"admins"|"platform"|"security"|"logging"|"sessions">("admins");
   const [showInvite,      setShowInvite]      = useState(false);
   const [saved,           setSaved]           = useState(false);
@@ -313,6 +320,10 @@ export default function AdminSettingsPage() {
   }, []);
 
   useEffect(() => { loadAdmins(); loadSettings(); }, [loadAdmins, loadSettings]);
+
+  // Guards go here — after all hooks
+  if (userLoading) return null;
+  if (!isSuperAdmin(adminUser)) return <AccessDenied />;
 
   async function handleSave(keys: (keyof PlatformSettings)[]) {
     setSaving(true); setSaveError(""); setSaved(false);
@@ -543,9 +554,9 @@ export default function AdminSettingsPage() {
               </div>
             )}
             <SaveBar onSave={() => handleSave(["platform_logging_enabled"])} saving={saving} saved={saved} error={saveError} dirty={dirty}
-              saveLabel={settings.platform_logging_enabled ? "Enable Logging" : "Disable Logging"}
-              saveVariant={settings.platform_logging_enabled ? "primary" : "outline"}
-              saveStyle={!settings.platform_logging_enabled ? { color:"#EF4444", borderColor:"rgba(239,68,68,0.3)" } : {}} />
+              saveLabel={settings.platform_logging_enabled ? "Disable Logging" : "Enable Logging"}
+              saveVariant={settings.platform_logging_enabled ? "outline" : "primary"}
+              saveStyle={settings.platform_logging_enabled ? { color:"#EF4444", borderColor:"rgba(239,68,68,0.3)" } : {}} />
           </div>
           <div style={{ background:"white", border:"1px solid #E5E7EB", borderRadius:14, padding:22 }}>
             <p style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:14, color:"#0A2540", marginBottom:16 }}>Retention Window</p>

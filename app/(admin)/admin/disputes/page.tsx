@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 // callFn — routes to the merged admin function
@@ -155,8 +156,8 @@ function ResolveModal({
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminDisputesPage() {
-  const user = getMockAdminUser();
-  const canAct = canManage(user, "verifications");
+  const { adminUser } = useAdminUser();
+  const canAct = canManage(adminUser, "verifications");
 
   const [disputes,    setDisputes]    = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -194,7 +195,7 @@ export default function AdminDisputesPage() {
         .select(`
           dispute_id, business_id, institution_id, financing_record_id,
           initiated_by, opened_at, reason, resolution, resolved_at,
-          resolution_notes, platform_verified, direct_debit_triggered, created_at,
+          resolution_notes, platform_verified, direct_debit_triggered,
           businesses ( name ),
           institutions ( name )
         `)
@@ -214,7 +215,7 @@ export default function AdminDisputesPage() {
         amount_ngn:             0,
         initiated_by:           d.initiated_by,
         initiator:              d.initiated_by,
-        opened_at:              d.opened_at ?? d.created_at,
+        opened_at:              d.opened_at,
         reason:                 d.reason,
         description:            d.reason,
         resolution:             d.resolution,
@@ -390,7 +391,7 @@ export default function AdminDisputesPage() {
                 financing_id:        selected.financing_id,
                 resolution_notes:    notes,
                 trigger_direct_debit: triggerDebit,
-              }, "POST");
+              });
               setSelected(null);
               setActionError("");
               await load();

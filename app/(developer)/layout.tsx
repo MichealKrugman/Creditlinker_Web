@@ -4,12 +4,16 @@ import { useState } from 'react';
 import { DeveloperSidebar } from '@/components/layout/DeveloperSidebar';
 import { DeveloperTopNav } from '@/components/layout/DeveloperTopNav';
 import AuthGuard from '@/components/AuthGuard';
+import { DeveloperProvider } from '@/lib/developer-context';
+import { PlatformSettingsProvider } from '@/lib/platform-settings-context';
 
 export default function DeveloperLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <AuthGuard requiredAccountType="developer">
+    <PlatformSettingsProvider>
+    <DeveloperProvider>
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F5F7FA' }}>
 
       {/* Mobile overlay */}
@@ -65,6 +69,8 @@ export default function DeveloperLayout({ children }: { children: React.ReactNod
       </div>
 
     </div>
+    </DeveloperProvider>
+    </PlatformSettingsProvider>
     </AuthGuard>
   );
 }

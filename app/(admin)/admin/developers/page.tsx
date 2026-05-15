@@ -9,108 +9,38 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "POST") {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
-
 // ─────────────────────────────────────────────────────────────
-//  DIRECT QUERY — replaces admin-get-developers edge function
+//  DIRECT QUERY — developer_accounts table
 // ─────────────────────────────────────────────────────────────
 async function loadDevelopers() {
-  // Developers = businesses where the owner has SDK API keys.
-  // We query sdk_api_keys to find all owner_ids, then join businesses.
-  const [keysR, bizR, eventsR] = await Promise.allSettled([
-    supabase
-      .from("sdk_api_keys")
-      .select("key_id, owner_id, tier, status, last_used_at, created_at"),
-    supabase
-      .from("businesses")
-      .select("business_id, name, sector, profile_status, kyc_status, tier, owner_id, created_at")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("platform_events")
-      .select("actor_id, created_at")
-      .eq("surface", "sdk")
-      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
-  ]);
-
-  const allKeys  = keysR.status   === "fulfilled" ? (keysR.value.data   ?? []) : [];
-  const allBiz   = bizR.status    === "fulfilled" ? (bizR.value.data    ?? []) : [];
-  const events   = eventsR.status === "fulfilled" ? (eventsR.value.data ?? []) : [];
-
-  // Build lookup structures
-  const keysByOwner: Record<string, any[]> = {};
-  for (const k of allKeys) {
-    if (!keysByOwner[k.owner_id]) keysByOwner[k.owner_id] = [];
-    keysByOwner[k.owner_id].push(k);
-  }
-
-  const callsByActor: Record<string, number> = {};
-  for (const ev of events) {
-    callsByActor[ev.actor_id] = (callsByActor[ev.actor_id] ?? 0) + 1;
-  }
-
-  // Any owner who has SDK keys is a developer
-  const developerOwnerIds = [...new Set(allKeys.map((k: any) => k.owner_id))];
-
-  // If there are no SDK keys at all, fall back to all businesses as developers
-  // so the page isn't empty in early-stage environments
-  const sourceOwnerIds = developerOwnerIds.length > 0
-    ? developerOwnerIds
-    : allBiz.map((b: any) => b.owner_id);
-
-  const developerBizMap: Record<string, any> = {};
-  for (const b of allBiz) {
-    developerBizMap[b.owner_id] = b;
-  }
-
-  return sourceOwnerIds.map((ownerId: string) => {
-    const biz  = developerBizMap[ownerId];
-    const keys = keysByOwner[ownerId] ?? [];
-    const activeKeys = keys.filter((k: any) => k.status === "active");
-    const primaryTier = activeKeys[0]?.tier ?? keys[0]?.tier ?? "read";
-    // Derive status: if the business is suspended or all keys revoked → suspended
-    const allRevoked = keys.length > 0 && keys.every((k: any) => k.status !== "active");
-    const bizSuspended = biz?.profile_status === "suspended";
-    const status = (allRevoked || bizSuspended) ? "suspended" : "active";
-    const lastUsed = keys
-      .map((k: any) => k.last_used_at)
-      .filter(Boolean)
-      .sort()
-      .at(-1) ?? null;
-
-    return {
-      id:         ownerId,
-      name:       biz?.name ?? ownerId.slice(0, 8),
-      email:      "",            // not available client-side from auth.users
-      status,
-      tier:       primaryTier,
-      api_keys:   keys.length,
-      calls_30d:  callsByActor[ownerId] ?? 0,
-      last_active:lastUsed,
-      created_at: biz?.created_at ?? null,
-      business_id:biz?.business_id ?? null,
-    };
-  });
+  const { data, error } = await supabase
+    .from("developer_accounts")
+    .select(`
+      id, name, email, status, tier,
+      api_key_count, api_calls_30d, last_active_at, created_at
+    `)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((d: any) => ({
+    id:            d.id,
+    name:          d.name  || d.email,
+    email:         d.email,
+    status:        d.status        ?? "pending",
+    tier:          d.tier          ?? "read",
+    api_keys:      d.api_key_count ?? 0,
+    api_key_count: d.api_key_count ?? 0,
+    calls_30d:     d.api_calls_30d ?? 0,
+    api_calls_30d: d.api_calls_30d ?? 0,
+    last_active:   d.last_active_at
+                     ? new Date(d.last_active_at).toLocaleDateString()
+                     : "Never",
+    last_sign_in_at: d.last_active_at ?? null,
+  }));
 }
 
 
@@ -176,8 +106,8 @@ function ConfirmModal({ title, description, confirmLabel, confirmDanger, onConfi
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminDevelopersPage() {
-  const user = getMockAdminUser();
-  const canAct = canManage(user, "developers");
+  const { adminUser, loading: userLoading } = useAdminUser();
+  const canAct = canManage(adminUser, "developers");
 
   const [developers,  setDevelopers]  = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -218,8 +148,16 @@ export default function AdminDevelopersPage() {
     if (!modal) return;
     setActionError("");
     try {
-      const fnMap = { suspend: "admin-suspend-developer", unsuspend: "admin-activate-developer" };
-      await callFn(fnMap[modal.type], { developer_id: modal.id, reason }, "POST");
+      const newStatus = modal.type === "suspend" ? "suspended" : "active";
+      const { error } = await supabase
+        .from("developer_accounts")
+        .update({
+          status:           newStatus,
+          suspended_reason: modal.type === "suspend" ? reason : null,
+          updated_at:       new Date().toISOString(),
+        })
+        .eq("id", modal.id);
+      if (error) throw new Error(error.message);
       setModal(null);
       await load();
     } catch (e: any) {

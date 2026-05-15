@@ -7,21 +7,22 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`;
   const res = await fetch(url, {
-    method,
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -151,8 +152,8 @@ function ReviewModal({
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminVerificationsPage() {
-  const user = getMockAdminUser();
-  const canAct = canManage(user, "verifications");
+  const { adminUser } = useAdminUser();
+  const canAct = canManage(adminUser, "verifications");
 
   const [queue,    setQueue]    = useState<any[]>([]);
   const [resolved, setResolved] = useState<any[]>([]);
@@ -359,7 +360,7 @@ export default function AdminVerificationsPage() {
           item={selected}
           onApprove={async (notes) => {
             try {
-              await callFn("admin-approve-verification", { verification_id: selected.id, business_id: selected.business_id, notes }, "POST");
+              await callFn({ action: "approve-verification", business_id: selected.business_id, note: notes });
               setSelected(null);
               setActionError("");
               await load();
@@ -367,7 +368,7 @@ export default function AdminVerificationsPage() {
           }}
           onReject={async (reason) => {
             try {
-              await callFn("admin-reject-verification", { verification_id: selected.id, business_id: selected.business_id, reason }, "POST");
+              await callFn({ action: "reject-verification", business_id: selected.business_id, reason });
               setSelected(null);
               setActionError("");
               await load();

@@ -9,7 +9,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
@@ -89,8 +90,8 @@ function ConfirmModal({
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminFinancersPage() {
-  const user = getMockAdminUser();
-  const canAct = canManage(user, "financers");
+  const { adminUser } = useAdminUser();
+  const canAct = canManage(adminUser, "financers");
 
   function handleExport() {
     if (!financers.length) return;
@@ -128,7 +129,7 @@ export default function AdminFinancersPage() {
     try {
       const { data: instRows, error } = await supabase
         .from("institutions")
-        .select("institution_id, name, category, created_at")
+        .select("institution_id, name, category, approval_status, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
@@ -156,8 +157,9 @@ export default function AdminFinancersPage() {
         institution_id:   inst.institution_id,
         name:             inst.name,
         type:             inst.category,
-        status:           "active",
-        approval:         "approved",
+        approval_status:  inst.approval_status ?? "pending",
+        status:           inst.approval_status === "suspended" ? "suspended" : inst.approval_status === "approved" ? "active" : "pending",
+        approval:         inst.approval_status ?? "pending",
         created_at:       inst.created_at,
         active_consents:  metrics[inst.institution_id]?.active_consents  ?? 0,
         active_financing: metrics[inst.institution_id]?.active_financing ?? 0,

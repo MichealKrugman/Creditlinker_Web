@@ -11,7 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
@@ -143,8 +144,8 @@ function ConfirmModal({
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminBusinessesPage() {
-  const user = getMockAdminUser();
-  const canAct = canManage(user, "businesses");
+  const { adminUser } = useAdminUser();
+  const canAct = canManage(adminUser, "businesses");
 
   function handleExport() {
     if (!businesses.length) return;

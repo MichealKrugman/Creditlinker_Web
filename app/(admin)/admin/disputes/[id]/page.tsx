@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
@@ -216,7 +217,7 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
 // ─────────────────────────────────────────────────────────────
 export default function DisputeDetailPage() {
   const { id }  = useParams<{ id: string }>();
-  const user    = getMockAdminUser();
+  const { adminUser: user } = useAdminUser();
   const canAct  = canManage(user, "verifications");
 
   const [data,         setData]         = useState<any>(null);

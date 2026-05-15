@@ -1,0 +1,231 @@
+<h2 class="sr-only">Admin portal development roadmap — all features grouped by phase and priority</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.phase { margin-bottom: 2rem; }
+.phase-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.phase-badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+.phase-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.items { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.item { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; }
+.item-icon { font-size: 16px; color: var(--color-text-secondary); flex-shrink: 0; margin-top: 1px; }
+.item-text { flex: 1; }
+.item-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 2px; }
+.item-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-top: 5px; font-weight: 500; }
+</style>
+
+<div style="padding: 1rem 0;">
+
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge" style="background: #FCEBEB; color: #A32D2D;">Phase 1 — Now</span>
+      <span class="phase-title">Access control & account actions</span>
+    </div>
+    <div class="items">
+      <div class="item">
+        <i class="ti ti-shield-lock item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Admin roles & RBAC</div>
+          <div class="item-desc">super_admin, operations, risk, viewer tiers with enforced permissions</div>
+          <span class="tag" style="background: #FCEBEB; color: #A32D2D;">security</span>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-user-plus item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Create & manage admins</div>
+          <div class="item-desc">Invite admins, assign roles, deactivate accounts</div>
+          <span class="tag" style="background: #FCEBEB; color: #A32D2D;">security</span>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-tool item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Account actions panel</div>
+          <div class="item-desc">Suspend, activate, reset, adjust values directly on any account</div>
+          <span class="tag" style="background: #FCEBEB; color: #A32D2D;">critical ops</span>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-building item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Business detail page</div>
+          <div class="item-desc">Full drill-down: profile, scores, pipeline, consents, financing, disputes</div>
+          <span class="tag" style="background: #FCEBEB; color: #A32D2D;">critical ops</span>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-adjustments item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Manual field overrides</div>
+          <div class="item-desc">Edit score, KYC status, tier, profile fields directly from admin UI</div>
+          <span class="tag" style="background: #FCEBEB; color: #A32D2D;">critical ops</span>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-player-play item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Manual pipeline trigger</div>
+          <div class="item-desc">Force a pipeline run for any business from the UI</div>
+          <span class="tag" style="background: #FCEBEB; color: #A32D2D;">critical ops</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge" style="background: #FAEEDA; color: #854F0B;">Phase 2 — Soon</span>
+      <span class="phase-title">Business & financer management</span>
+    </div>
+    <div class="items">
+      <div class="item">
+        <i class="ti ti-landmark item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Financer detail page</div>
+          <div class="item-desc">Profile, financing portfolio, settlement history, active consents</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-checklist item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Financer approval flow</div>
+          <div class="item-desc">Onboarding, review, approve or reject institutions</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-chart-line item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Credit score history</div>
+          <div class="item-desc">Score trend chart, data quality over time per business</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-link item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Linked accounts & consents</div>
+          <div class="item-desc">View and revoke bank links and consent records per business</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-file-description item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Dispute detail & timeline</div>
+          <div class="item-desc">Full dispute history, evidence, escalation workflow</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-coin item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Wallet & ledger view</div>
+          <div class="item-desc">View wallet balance, ledger entries, transaction history per account</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge" style="background: #E6F1FB; color: #185FA5;">Phase 3 — Next</span>
+      <span class="phase-title">Reporting, exports & notifications</span>
+    </div>
+    <div class="items">
+      <div class="item">
+        <i class="ti ti-download item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Export on all pages</div>
+          <div class="item-desc">CSV/PDF export on businesses, financers, disputes, audit logs</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-calendar item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Date range filtering</div>
+          <div class="item-desc">Filter audit logs, pipeline runs, disputes by date range</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-target item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Targeted notifications</div>
+          <div class="item-desc">Send to specific business, sector, or tier instead of broadcast only</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-send item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Notification delivery status</div>
+          <div class="item-desc">Track if notifications were received and read</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-clock item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Scheduled notifications</div>
+          <div class="item-desc">Queue notifications for future delivery</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-file-analytics item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Business PDF statements</div>
+          <div class="item-desc">Downloadable credit & financial summary per business</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge" style="background: #EAF3DE; color: #3B6D11;">Phase 4 — Later</span>
+      <span class="phase-title">System, security & advanced ops</span>
+    </div>
+    <div class="items">
+      <div class="item">
+        <i class="ti ti-2fa item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">2FA for admin accounts</div>
+          <div class="item-desc">TOTP-based two-factor on all admin logins</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-activity item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Admin activity log</div>
+          <div class="item-desc">Who did what and when — separate from platform events</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-webhook item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Webhook delivery logs</div>
+          <div class="item-desc">View delivery status, retry failed webhooks from UI</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-bell-ringing item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Alert configuration</div>
+          <div class="item-desc">Notify admins when error rate, dispute rate, or pipeline failure exceeds threshold</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-lock-access item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">IP allowlisting</div>
+          <div class="item-desc">Restrict admin portal access to known IP ranges</div>
+        </div>
+      </div>
+      <div class="item">
+        <i class="ti ti-device-desktop item-icon" aria-hidden="true"></i>
+        <div class="item-text">
+          <div class="item-title">Session management</div>
+          <div class="item-desc">View active admin sessions, force logout any session</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

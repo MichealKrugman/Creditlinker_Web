@@ -1,57 +1,25 @@
 "use client";
 
-import { Activity, Zap, AlertCircle, TrendingUp, TrendingDown, Clock } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Activity, Zap, AlertCircle, TrendingUp, TrendingDown, Clock, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
+import { useDeveloperAccount } from "@/lib/developer-context";
+import { TIER_LIMITS, tierLabel, computeResetDate } from "@/lib/dev-utils";
 
 /* ─────────────────────────────────────────────────────────
-   MOCK DATA
+   TYPES
 ───────────────────────────────────────────────────────── */
-const PLAN = {
-  name: "Free",
-  requests_limit: 10000,
-  requests_used: 4312,
-  webhooks_limit: 500,
-  webhooks_used: 214,
-  pipeline_runs_limit: 20,
-  pipeline_runs_used: 7,
-  reset_date: "Feb 1, 2025",
-};
-
-const DAILY_REQUESTS = [
-  { day: "Jan 9",  count: 320 },
-  { day: "Jan 10", count: 490 },
-  { day: "Jan 11", count: 210 },
-  { day: "Jan 12", count: 580 },
-  { day: "Jan 13", count: 430 },
-  { day: "Jan 14", count: 670 },
-  { day: "Jan 15", count: 612 },
-];
-
-const TOP_ENDPOINTS = [
-  { path: "/business/score",     method: "GET",  count: 1840, avg_ms: 142, success_rate: 99.8 },
-  { path: "/business/profile",   method: "GET",  count: 730,  avg_ms: 88,  success_rate: 100  },
-  { path: "/business/readiness", method: "GET",  count: 490,  avg_ms: 200, success_rate: 99.2 },
-  { path: "/business/consent",   method: "GET",  count: 310,  avg_ms: 95,  success_rate: 100  },
-  { path: "/institution/discovery", method: "GET", count: 280, avg_ms: 310, success_rate: 98.6 },
-  { path: "/business/consent/grant", method: "POST", count: 120, avg_ms: 160, success_rate: 100 },
-];
-
-const PLANS = [
-  { name: "Free",       requests: "10K/mo",  webhooks: "500/mo",  price: "₦0",       current: true  },
-  { name: "Growth",     requests: "100K/mo", webhooks: "10K/mo",  price: "₦25,000/mo", current: false },
-  { name: "Scale",      requests: "1M/mo",   webhooks: "100K/mo", price: "₦90,000/mo", current: false },
-  { name: "Enterprise", requests: "Unlimited", webhooks: "Unlimited", price: "Custom",  current: false },
-];
+interface DailyCount    { day: string; count: number }
+interface TopEndpoint   { endpoint: string; method: string; count: number; avg_ms: number; success_rate: number }
+interface ApiStats      { requests_today: number; requests_yesterday: number; avg_latency_ms: number | null; success_rate: number | null }
+interface TierRow       { tier: string; label: string; requests_limit: number; webhooks_limit: number; price_label: string }
 
 /* ─────────────────────────────────────────────────────────
-   SHARED CARD
+   SHARED COMPONENTS
 ───────────────────────────────────────────────────────── */
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, ...style }}>
-      {children}
-    </div>
-  );
+  return <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, ...style }}>{children}</div>;
 }
 
 function CardHeader({ title, action }: { title: string; action?: React.ReactNode }) {
@@ -63,20 +31,15 @@ function CardHeader({ title, action }: { title: string; action?: React.ReactNode
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   QUOTA BAR
-───────────────────────────────────────────────────────── */
-function QuotaBar({
-  label, used, limit, unit = "",
-}: { label: string; used: number; limit: number; unit?: string }) {
-  const pct = Math.min((used / limit) * 100, 100);
+function QuotaBar({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct   = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
   const color = pct >= 90 ? "#EF4444" : pct >= 70 ? "#F59E0B" : "#10B981";
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{label}</span>
         <span style={{ fontSize: 12, color: "#6B7280" }}>
-          <b style={{ color: "#0A2540" }}>{used.toLocaleString()}{unit}</b> / {limit.toLocaleString()}{unit}
+          <b style={{ color: "#0A2540" }}>{used.toLocaleString()}</b> / {limit.toLocaleString()}
         </span>
       </div>
       <div style={{ height: 7, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
@@ -87,30 +50,25 @@ function QuotaBar({
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   SPARKBAR CHART
-───────────────────────────────────────────────────────── */
-function SparkBars({ data }: { data: { day: string; count: number }[] }) {
-  const max = Math.max(...data.map(d => d.count));
+function SparkBars({ data }: { data: DailyCount[] }) {
+  const max = Math.max(...data.map(d => d.count), 1);
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 6, padding: "0 4px", height: 80 }}>
       {data.map(d => (
         <div key={d.day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <div
-            title={`${d.count} requests on ${d.day}`}
-            style={{
-              width: "100%", borderRadius: "4px 4px 0 0",
-              height: `${(d.count / max) * 68}px`,
-              background: "linear-gradient(180deg, #00D4FF44, #00D4FF99)",
-              border: "1px solid rgba(0,212,255,0.35)",
-              transition: "height 0.4s ease",
-              cursor: "default",
-              minHeight: 4,
-            }}
-          />
-          <span style={{ fontSize: 9, color: "#9CA3AF", whiteSpace: "nowrap" }}>{d.day.split(" ")[1]}</span>
+          <div title={`${d.count} requests on ${d.day}`}
+            style={{ width: "100%", borderRadius: "4px 4px 0 0", height: `${(d.count / max) * 68}px`, background: "linear-gradient(180deg, #00D4FF44, #00D4FF99)", border: "1px solid rgba(0,212,255,0.35)", minHeight: d.count > 0 ? 4 : 1, transition: "height 0.4s ease", cursor: "default" }} />
+          <span style={{ fontSize: 9, color: "#9CA3AF", whiteSpace: "nowrap" as const }}>{d.day}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div style={{ padding: "32px 0", textAlign: "center" as const }}>
+      <p style={{ fontSize: 13, color: "#9CA3AF" }}>{label}</p>
     </div>
   );
 }
@@ -119,53 +77,124 @@ function SparkBars({ data }: { data: { day: string; count: number }[] }) {
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function UsagePage() {
-  const totalToday = DAILY_REQUESTS[DAILY_REQUESTS.length - 1].count;
-  const totalYesterday = DAILY_REQUESTS[DAILY_REQUESTS.length - 2].count;
-  const trend = totalToday - totalYesterday;
+  const { account } = useDeveloperAccount();
+  const tierKey    = account?.tier ?? "read";
+  const limits     = TIER_LIMITS[tierKey] ?? TIER_LIMITS.read;
+  const label      = tierLabel(account?.tier);
+  const resetDate  = computeResetDate(account?.created_at);
+  const liveRequests = account?.api_calls_30d ?? 0;
+
+  const [daily,     setDaily]     = useState<DailyCount[]>([]);
+  const [endpoints, setEndpoints] = useState<TopEndpoint[]>([]);
+  const [stats,     setStats]     = useState<ApiStats | null>(null);
+  const [tiers,     setTiers]     = useState<TierRow[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchAll = useCallback(async (dev_id: string) => {
+    const [dailyRes, endpointsRes, statsRes, tiersRes] = await Promise.all([
+      supabase.rpc("get_api_daily_counts",  { dev_id, days_back: 7 }),
+      supabase.rpc("get_api_top_endpoints", { dev_id, days_back: 30 }),
+      supabase.rpc("get_api_stats",         { dev_id }),
+      supabase.from("developer_tiers").select("tier, label, requests_limit, webhooks_limit, price_label").order("requests_limit"),
+    ]);
+
+    if (dailyRes.data) {
+      setDaily((dailyRes.data as any[]).map(r => ({
+        day:   new Date(r.day).toLocaleDateString("en-NG", { month: "short", day: "numeric" }),
+        count: Number(r.count),
+      })));
+    }
+
+    if (endpointsRes.data) {
+      setEndpoints((endpointsRes.data as any[]).map(r => ({
+        endpoint:     r.endpoint,
+        method:       r.method,
+        count:        Number(r.count),
+        avg_ms:       Number(r.avg_ms ?? 0),
+        success_rate: Number(r.success_rate ?? 0),
+      })));
+    }
+
+    if (statsRes.data?.[0]) {
+      const s = statsRes.data[0] as any;
+      setStats({
+        requests_today:     Number(s.requests_today     ?? 0),
+        requests_yesterday: Number(s.requests_yesterday ?? 0),
+        avg_latency_ms:     s.avg_latency_ms != null ? Number(s.avg_latency_ms) : null,
+        success_rate:       s.success_rate   != null ? Number(s.success_rate)   : null,
+      });
+    }
+
+    if (tiersRes.data) setTiers(tiersRes.data as TierRow[]);
+  }, []);
+
+  useEffect(() => {
+    if (!account?.id) return;
+    setLoading(true);
+    fetchAll(account.id).finally(() => setLoading(false));
+  }, [account?.id, fetchAll]);
+
+  async function handleRefresh() {
+    if (!account?.id || refreshing) return;
+    setRefreshing(true);
+    await fetchAll(account.id);
+    setRefreshing(false);
+  }
+
+  const todayCount     = stats?.requests_today     ?? 0;
+  const yesterdayCount = stats?.requests_yesterday ?? 0;
+  const trend          = todayCount - yesterdayCount;
+  const weekTotal      = daily.reduce((a, d) => a + d.count, 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Usage
-          </h2>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Usage</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Badge variant="outline">{PLAN.name} Plan</Badge>
-            <span style={{ fontSize: 13, color: "#6B7280" }}>Resets {PLAN.reset_date}</span>
+            <Badge variant="outline">{label} Plan</Badge>
+            <span style={{ fontSize: 13, color: "#6B7280" }}>Resets {resetDate}</span>
           </div>
         </div>
+        <button type="button" onClick={handleRefresh} disabled={refreshing || loading}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#6B7280", cursor: refreshing || loading ? "default" : "pointer", opacity: refreshing || loading ? 0.6 : 1 }}>
+          <RefreshCw size={12} style={{ animation: refreshing ? "spin 0.8s linear infinite" : "none" }} />
+          Refresh
+        </button>
       </div>
 
-      {/* ── STAT CARDS ── */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @media (max-width: 768px) { .dev-usage-grid { grid-template-columns: 1fr !important; } }`}</style>
+
+      {/* STAT CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
         {[
           {
             label: "Requests Today",
-            value: totalToday.toLocaleString(),
+            value: loading ? "—" : todayCount.toLocaleString(),
             icon: Activity,
-            trend: trend,
-            trendLabel: `${Math.abs(trend)} vs yesterday`,
+            trend: loading ? null : trend,
+            trendLabel: loading ? "" : `${Math.abs(trend).toLocaleString()} vs yesterday`,
           },
           {
             label: "Avg Latency",
-            value: "142ms",
+            value: loading || stats?.avg_latency_ms == null ? "—" : `${stats.avg_latency_ms}ms`,
             icon: Zap,
-            trend: -8,
-            trendLabel: "down 8ms this week",
+            trend: null,
+            trendLabel: "last 30 days",
           },
           {
             label: "Monthly Used",
-            value: `${((PLAN.requests_used / PLAN.requests_limit) * 100).toFixed(0)}%`,
+            value: `${limits.requests > 0 ? ((liveRequests / limits.requests) * 100).toFixed(0) : 0}%`,
             icon: TrendingUp,
             trend: null,
-            trendLabel: `${PLAN.requests_used.toLocaleString()} of ${PLAN.requests_limit.toLocaleString()}`,
+            trendLabel: `${liveRequests.toLocaleString()} of ${limits.requests.toLocaleString()}`,
           },
           {
             label: "Success Rate",
-            value: "99.4%",
+            value: loading || stats?.success_rate == null ? "—" : `${stats.success_rate}%`,
             icon: AlertCircle,
             trend: null,
             trendLabel: "last 30 days",
@@ -173,34 +202,24 @@ export default function UsagePage() {
         ].map(card => (
           <Card key={card.label} style={{ padding: "20px 22px" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 9, background: "#F3F4F6",
-                display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280",
-              }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280" }}>
                 <card.icon size={16} />
               </div>
               {card.trend !== null && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700,
-                  color: card.trend >= 0 ? "#10B981" : "#F59E0B",
-                  display: "flex", alignItems: "center", gap: 3,
-                }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: card.trend >= 0 ? "#10B981" : "#F59E0B", display: "flex", alignItems: "center", gap: 3 }}>
                   {card.trend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                  {Math.abs(card.trend)}
+                  {Math.abs(card.trend).toLocaleString()}
                 </span>
               )}
             </div>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 4 }}>
-              {card.value}
-            </p>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 4 }}>{card.value}</p>
             <p style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", marginBottom: 2 }}>{card.label}</p>
             <p style={{ fontSize: 11, color: "#9CA3AF" }}>{card.trendLabel}</p>
           </Card>
         ))}
       </div>
 
-      {/* ── MAIN GRID ── */}
-      <style>{`@media (max-width: 768px) { .dev-usage-grid { grid-template-columns: 1fr !important; } }`}</style>
+      {/* MAIN GRID */}
       <div className="dev-usage-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, alignItems: "start" }}>
 
         {/* LEFT */}
@@ -208,23 +227,25 @@ export default function UsagePage() {
 
           {/* Daily chart */}
           <Card>
-            <CardHeader
-              title="Daily Requests — Last 7 Days"
-              action={<span style={{ fontSize: 12, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 4 }}><Clock size={11} /> UTC</span>}
-            />
+            <CardHeader title="Daily Requests — Last 7 Days"
+              action={<span style={{ fontSize: 12, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 4 }}><Clock size={11} /> UTC</span>} />
             <div style={{ padding: "18px 22px 22px" }}>
-              <SparkBars data={DAILY_REQUESTS} />
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 12, borderTop: "1px solid #F3F4F6" }}>
-                <div>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
-                    {DAILY_REQUESTS.reduce((a, d) => a + d.count, 0).toLocaleString()}
-                  </span>
-                  <span style={{ fontSize: 13, color: "#6B7280", marginLeft: 6 }}>total this week</span>
-                </div>
-                <span style={{ fontSize: 12, color: "#10B981", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                  <TrendingUp size={13} /> +18% vs last week
-                </span>
-              </div>
+              {loading
+                ? <EmptyState label="Loading…" />
+                : daily.length === 0
+                  ? <EmptyState label="No requests in the last 7 days." />
+                  : <>
+                      <SparkBars data={daily} />
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 12, borderTop: "1px solid #F3F4F6" }}>
+                        <div>
+                          <span style={{ fontSize: 22, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
+                            {weekTotal.toLocaleString()}
+                          </span>
+                          <span style={{ fontSize: 13, color: "#6B7280", marginLeft: 6 }}>total this week</span>
+                        </div>
+                      </div>
+                    </>
+              }
             </div>
           </Card>
 
@@ -232,37 +253,28 @@ export default function UsagePage() {
           <Card>
             <CardHeader title="Top Endpoints" />
             <div style={{ padding: "12px 0 8px" }}>
-              {TOP_ENDPOINTS.map((ep, i) => (
-                <div key={ep.path} style={{
-                  display: "flex", alignItems: "center", gap: 14,
-                  padding: "10px 22px",
-                  borderBottom: i < TOP_ENDPOINTS.length - 1 ? "1px solid #F3F4F6" : "none",
-                }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4,
-                    background: ep.method === "GET" ? "#ECFDF5" : "#EFF6FF",
-                    color: ep.method === "GET" ? "#059669" : "#2563EB",
-                    fontFamily: "var(--font-mono, monospace)",
-                    flexShrink: 0,
-                  }}>
-                    {ep.method}
-                  </span>
-                  <code style={{ flex: 1, fontSize: 11, color: "#374151", fontFamily: "var(--font-mono, monospace)", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, whiteSpace: "nowrap" }}>
-                    {ep.path}
-                  </code>
-                  <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{ep.count.toLocaleString()}</p>
-                    <p style={{ fontSize: 10, color: "#9CA3AF" }}>{ep.avg_ms}ms avg</p>
-                  </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700,
-                    color: ep.success_rate >= 99.5 ? "#10B981" : "#F59E0B",
-                    minWidth: 40, textAlign: "right" as const, flexShrink: 0,
-                  }}>
-                    {ep.success_rate}%
-                  </span>
-                </div>
-              ))}
+              {loading
+                ? <EmptyState label="Loading…" />
+                : endpoints.length === 0
+                  ? <EmptyState label="No endpoint activity yet." />
+                  : endpoints.map((ep, i) => (
+                      <div key={`${ep.method}-${ep.endpoint}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 22px", borderBottom: i < endpoints.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: ep.method === "GET" ? "#ECFDF5" : "#EFF6FF", color: ep.method === "GET" ? "#059669" : "#2563EB", fontFamily: "monospace", flexShrink: 0 }}>
+                          {ep.method}
+                        </span>
+                        <code style={{ flex: 1, fontSize: 11, color: "#374151", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, whiteSpace: "nowrap" as const }}>
+                          {ep.endpoint}
+                        </code>
+                        <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{ep.count.toLocaleString()}</p>
+                          <p style={{ fontSize: 10, color: "#9CA3AF" }}>{ep.avg_ms}ms avg</p>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: ep.success_rate >= 99.5 ? "#10B981" : "#F59E0B", minWidth: 40, textAlign: "right" as const, flexShrink: 0 }}>
+                          {ep.success_rate}%
+                        </span>
+                      </div>
+                    ))
+              }
             </div>
           </Card>
 
@@ -273,54 +285,41 @@ export default function UsagePage() {
 
           {/* Monthly quota */}
           <Card style={{ padding: "18px 22px" }}>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 18 }}>
-              Monthly Quota
-            </p>
-            <QuotaBar label="API Requests"   used={PLAN.requests_used}       limit={PLAN.requests_limit} />
-            <QuotaBar label="Webhooks"        used={PLAN.webhooks_used}       limit={PLAN.webhooks_limit} />
-            <QuotaBar label="Pipeline Runs"   used={PLAN.pipeline_runs_used}  limit={PLAN.pipeline_runs_limit} />
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 18 }}>Monthly Quota</p>
+            <QuotaBar label="API Requests"  used={liveRequests} limit={limits.requests}  />
+            <QuotaBar label="Webhooks"       used={0}            limit={limits.webhooks}  />
+            <QuotaBar label="Pipeline Runs"  used={0}            limit={limits.pipelines} />
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 0 0", borderTop: "1px solid #F3F4F6" }}>
               <Clock size={11} style={{ color: "#9CA3AF" }} />
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>Quota resets {PLAN.reset_date}</span>
+              <span style={{ fontSize: 11, color: "#9CA3AF" }}>Quota resets {resetDate}</span>
             </div>
           </Card>
 
-          {/* Plan cards */}
+          {/* Plan comparison */}
           <Card>
             <div style={{ padding: "18px 22px 0" }}>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Upgrade Plan</p>
             </div>
             <div style={{ padding: "12px 0 8px" }}>
-              {PLANS.map((plan, i) => (
-                <div key={plan.name} style={{
-                  padding: "12px 22px",
-                  borderBottom: i < PLANS.length - 1 ? "1px solid #F3F4F6" : "none",
-                  background: plan.current ? "rgba(0,212,255,0.03)" : "transparent",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{plan.name}</span>
-                      {plan.current && <Badge variant="secondary" style={{ fontSize: 9 }}>Current</Badge>}
+              {tiers.length === 0
+                ? <EmptyState label="Loading plans…" />
+                : tiers.map((t, i) => (
+                    <div key={t.tier} style={{ padding: "12px 22px", borderBottom: i < tiers.length - 1 ? "1px solid #F3F4F6" : "none", background: t.tier === tierKey ? "rgba(0,212,255,0.03)" : "transparent" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{t.label}</span>
+                          {t.tier === tierKey && <Badge variant="secondary" style={{ fontSize: 9 }}>Current</Badge>}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#0A2540" }}>{t.price_label}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{t.requests_limit.toLocaleString()} req/mo · {t.webhooks_limit.toLocaleString()} webhooks</p>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: "#0A2540" }}>{plan.price}</span>
-                  </div>
-                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-                    {plan.requests} · {plan.webhooks}
-                  </p>
-                </div>
-              ))}
+                  ))
+              }
             </div>
             <div style={{ padding: "12px 22px 16px" }}>
-              <a href="/developers/support" style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: "100%", padding: "9px 0",
-                borderRadius: 8, background: "#0A2540",
-                fontSize: 13, fontWeight: 600, color: "white",
-                textDecoration: "none", transition: "opacity 0.12s",
-              }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "0.9"}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
-              >
+              <a href="/developers/support"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "9px 0", borderRadius: 8, background: "#0A2540", fontSize: 13, fontWeight: 600, color: "white", textDecoration: "none" }}>
                 Upgrade Plan
               </a>
             </div>

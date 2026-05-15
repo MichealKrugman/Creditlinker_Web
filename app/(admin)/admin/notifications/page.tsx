@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 async function callFn(body: object): Promise<any> {
@@ -120,8 +121,8 @@ function DeliveryStats({ n }: { n: any }) {
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminNotificationsPage() {
-  const user = getMockAdminUser();
-  const canSend = canManage(user, "notifications");
+  const { adminUser } = useAdminUser();
+  const canSend = canManage(adminUser, "notifications");
 
   const [title,    setTitle]    = useState("");
   const [body,     setBody]     = useState("");

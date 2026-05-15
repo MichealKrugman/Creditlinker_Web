@@ -11,24 +11,21 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  getMockAdminUser, canView, canManage, isSuperAdmin,
-} from "@/lib/admin-rbac";
-import { supabase } from "@/lib/supabase";
+import { canView, canManage, isSuperAdmin } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
+import { supabase } from "@/lib/supabase";
 
-const FUNCTIONS_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace("/rest/v1", "") + "/functions/v1";
-
-async function callFn(name: string) {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const res = await fetch(`${FUNCTIONS_URL}/${name}`, {
-    method: "GET",
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
       "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
@@ -147,7 +144,7 @@ function PipelineHealthCard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    callFn("admin-get-pipeline-health")
+    callFn({ action: "get-pipeline-health" })
       .then(d => setStages(d.stage_health ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -300,8 +297,24 @@ function VerificationQueueCard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    callFn("admin-get-verification-queue")
-      .then(d => setQueue((d.queue ?? d.data ?? []).slice(0, 4)))
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("businesses")
+          .select(`business_id, name, sector, kyc_status, created_at,
+            creditlinker_scores ( composite_score, computed_at )`)
+          .eq("kyc_status", "pending")
+          .order("created_at", { ascending: true })
+          .limit(4);
+        setQueue((data ?? []).map((b: any) => ({
+          id: b.business_id, name: b.name,
+          sector: b.sector ?? "—", type: "KYC",
+          submitted: new Date(b.created_at).toLocaleDateString(),
+          priority: !(b.creditlinker_scores?.[0]) ? "high" : "normal",
+        })));
+      } catch {}
+      finally { setLoading(false); }
+    })()
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -360,7 +373,7 @@ function PipelineRunsCard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    callFn("admin-get-pipeline-health")
+    callFn({ action: "get-pipeline-health" })
       .then(d => setRuns((d.recent_runs ?? []).slice(0, 2)))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -449,7 +462,8 @@ function SecondaryStats({ metrics }: { metrics: any }) {
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
-  const user = getMockAdminUser();
+  const { adminUser } = useAdminUser();
+  const user = adminUser;
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -457,7 +471,7 @@ export default function AdminDashboard() {
   const [metrics, setMetrics] = useState<any>(null);
 
   useEffect(() => {
-    callFn("admin-get-platform-metrics").then(d => setMetrics(d)).catch(() => {});
+    callFn({ action: "get-platform-metrics" }).then(d => setMetrics(d)).catch(() => {});
   }, []);
 
   const m = metrics ?? {};
@@ -480,7 +494,7 @@ export default function AdminDashboard() {
             fontFamily: "var(--font-display)", fontWeight: 800,
             fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4,
           }}>
-            {greeting}, {user.name.split(" ")[0]}.
+            {greeting}, {user?.name?.split(" ")[0] ?? "Admin"}.
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Badge variant="success">Platform Online</Badge>

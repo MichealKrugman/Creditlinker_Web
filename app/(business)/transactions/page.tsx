@@ -526,28 +526,19 @@ export default function TransactionsPage() {
       return;
     }
 
-    // 6. Aggregate stats — two DB-side sum queries, no rows sent to client
-    const buildBaseForStats = () => {
-      let q = supabase
-        .from("normalized_transactions")
-        .select("amount", { count: "exact" })
-        .eq("business_id", bid);
-      if (scopeAccountIds !== null && scopeAccountIds.length > 0) q = q.in("account_id", scopeAccountIds);
-      if (direction !== "All") q = q.eq("direction", direction.toLowerCase());
-      if (category  !== "All") q = q.eq("category",  category);
-      if (debouncedSearch)     q = q.or(`counterparty_cluster.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
-      if (showTaggedOnly)      q = q.in("id", taggedIds);
-      if (dateFrom)            q = q.gte("date", dateFrom);
-      if (dateTo)              q = q.lte("date", dateTo);
-      return q;
-    };
-
-    const [creditRes, debitRes] = await Promise.all([
-      buildBaseForStats().eq("direction", "credit").select("amount.sum()"),
-      buildBaseForStats().eq("direction", "debit").select("amount.sum()"),
-    ]);
-    const totalIn  = Number((creditRes.data as any)?.[0]?.sum ?? 0);
-    const totalOut = Number((debitRes.data  as any)?.[0]?.sum ?? 0);
+    // 6. Aggregate stats via RPC
+    const { data: statsData } = await supabase.rpc("get_transaction_stats", {
+      p_business_id: bid,
+      p_account_ids: scopeAccountIds ?? null,
+      p_direction:   direction !== "All" ? direction.toLowerCase() : null,
+      p_category:    category  !== "All" ? category : null,
+      p_search:      debouncedSearch || null,
+      p_date_from:   dateFrom || null,
+      p_date_to:     dateTo   || null,
+      p_tagged_ids:  showTaggedOnly && taggedIds.length > 0 ? taggedIds : null,
+    });
+    const totalIn  = Number(statsData?.[0]?.total_in  ?? 0);
+    const totalOut = Number(statsData?.[0]?.total_out ?? 0);
 
     // 7. Unknown count (large-value uncategorised) for nudge banner — scoped to entity, no other filters
     const unknownBase = (() => {

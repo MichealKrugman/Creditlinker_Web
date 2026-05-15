@@ -10,6 +10,8 @@ import {
   Code2, Webhook, FlaskConical, Activity,
   ScrollText, LifeBuoy,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useDeveloperAccount } from '@/lib/developer-context';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/developers':                  'Overview',
@@ -48,6 +50,10 @@ export function DeveloperTopNav({ onMenuToggle }: { onMenuToggle?: () => void })
   const pathname   = usePathname();
   const router     = useRouter();
   const title      = ROUTE_TITLES[pathname] ?? 'Developer Portal';
+  const { account } = useDeveloperAccount();
+  const displayEmail = account?.email || 'Developer';
+  const displayTier  = account ? `${account.tier.charAt(0).toUpperCase() + account.tier.slice(1)} tier` : '';
+  const initials = (account?.name || 'D').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
   const [open,       setOpen]       = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -83,6 +89,11 @@ export function DeveloperTopNav({ onMenuToggle }: { onMenuToggle?: () => void })
   }, []);
 
   useEffect(() => { setOpen(false); setSearchOpen(false); }, [pathname]);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.push('/developers/login');
+  }
 
   return (
     <header style={{
@@ -249,10 +260,10 @@ export function DeveloperTopNav({ onMenuToggle }: { onMenuToggle?: () => void })
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700, color: '#0A5060', flexShrink: 0,
             }}>
-              D
+              {initials}
             </div>
             <span className="dev-email-label" style={{ fontSize: 13, fontWeight: 600, color: '#0A2540' }}>
-              dev@mycompany.io
+              {displayEmail}
             </span>
             <style>{`@media (max-width: 480px) { .dev-email-label { display: none !important; } }`}</style>
             <ChevronDown
@@ -274,8 +285,8 @@ export function DeveloperTopNav({ onMenuToggle }: { onMenuToggle?: () => void })
             }}>
               <div style={{ padding: '14px 16px', borderBottom: '1px solid #F3F4F6' }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#0A2540', marginBottom: 2 }}>Developer Account</p>
-                <p style={{ fontSize: 12, color: '#9CA3AF' }}>dev@mycompany.io</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Free plan · Sandbox environment</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF' }}>{displayEmail}</p>
+                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{displayTier} · Sandbox environment</p>
               </div>
               <div style={{ padding: '6px 0' }}>
                 {MENU_ITEMS.map(item => (
@@ -299,6 +310,7 @@ export function DeveloperTopNav({ onMenuToggle }: { onMenuToggle?: () => void })
               </div>
               <div style={{ borderTop: '1px solid #F3F4F6', padding: '6px 0' }}>
                 <button
+                  onClick={handleSignOut}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     width: '100%', padding: '9px 16px',

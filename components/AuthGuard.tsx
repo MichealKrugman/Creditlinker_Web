@@ -32,25 +32,31 @@ export default function AuthGuard({ children, requiredAccountType }: AuthGuardPr
     let mounted = true;
 
     async function checkSession() {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-      if (!data.session) {
-        // No session at all → go to login
-        router.replace("/login");
-        return;
-      }
-
-      if (requiredAccountType) {
-        const actualType = data.session.user.user_metadata?.account_type as AccountType;
-        if (actualType && actualType !== requiredAccountType) {
-          // Logged in, but wrong account type → redirect to their real dashboard
-          router.replace(getDashboardPath(actualType));
+        if (!data.session) {
+          const loginPath = requiredAccountType === "developer"
+            ? "/developers/login"
+            : "/login";
+          router.replace(loginPath);
           return;
         }
-      }
 
-      setChecking(false);
+        if (requiredAccountType) {
+          const actualType = data.session.user.user_metadata?.account_type as AccountType;
+          if (actualType && actualType !== requiredAccountType) {
+            router.replace(getDashboardPath(actualType));
+            return;
+          }
+        }
+
+        setChecking(false);
+      } catch (err) {
+        console.error("[AuthGuard] session check failed:", err);
+        setChecking(false);
+      }
     }
 
     checkSession();
@@ -58,7 +64,10 @@ export default function AuthGuard({ children, requiredAccountType }: AuthGuardPr
     // Also listen for auth changes (e.g. token expiry) while the page is open
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
-        router.replace("/login");
+        const loginPath = requiredAccountType === "developer"
+          ? "/developers/login"
+          : "/login";
+        router.replace(loginPath);
       }
     });
 

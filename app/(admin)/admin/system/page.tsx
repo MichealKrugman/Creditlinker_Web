@@ -9,19 +9,21 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMockAdminUser, isSuperAdmin } from "@/lib/admin-rbac";
+import { isSuperAdmin } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
-async function callFn(name: string) {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`, {
-    method: "GET",
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
@@ -55,7 +57,8 @@ function incidentSeverityBadge(s: string) {
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminSystemPage() {
-  const user = getMockAdminUser();
+  const { adminUser } = useAdminUser();
+  const user = adminUser;
 
   const [activeTab,       setActiveTab]       = useState<"health" | "webhooks">("health");
   const [health,          setHealth]          = useState<any>(null);
@@ -68,7 +71,7 @@ export default function AdminSystemPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callFn("admin-get-system-health");
+      const data = await callFn({ action: "get-system-health" });
       setHealth(data);
       setLastRefresh(new Date());
     } catch (e) {

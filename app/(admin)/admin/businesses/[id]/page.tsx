@@ -14,24 +14,44 @@ import {
 import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input }  from "@/components/ui/input";
-import { getMockAdminUser, canManage } from "@/lib/admin-rbac";
+import { canManage } from "@/lib/admin-rbac";
+import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
 //  API HELPER
 // ─────────────────────────────────────────────────────────────
-async function callFn(name: string, body?: object, method: "GET" | "POST" = "GET") {
+async function callFn(body: object): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? "";
-  const base  = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
+  const base  = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`;
   const res   = await fetch(base, {
-    method,
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization:  `Bearer ${token}`,
       apikey:         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+async function invokeFn(name: string, body: object): Promise<any> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? "";
+  const res   = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization:  `Bearer ${token}`,
+      apikey:         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    },
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -41,7 +61,7 @@ async function callFn(name: string, body?: object, method: "GET" | "POST" = "GET
 }
 
 async function loadBusinessDetail(id: string) {
-  const [bizR, scoresR, runsR, accountsR, consentsR, financingR, disputesR, walletR, ledgerR] = await Promise.allSettled([
+  const [bizR, scoresR, runsR, accountsR, consentsR, financingR, disputesR, walletR] = await Promise.allSettled([
     supabase.from("businesses").select("*").eq("business_id", id).single(),
     supabase.from("creditlinker_scores")
       .select("composite_score, data_quality_score, computed_at")
@@ -53,7 +73,7 @@ async function loadBusinessDetail(id: string) {
       .select("account_id, bank_name, account_number_masked, account_type, currency, is_primary, source, last_synced_at")
       .eq("business_id", id).order("last_synced_at", { ascending: false }),
     supabase.from("consent_records")
-      .select("consent_id, institution_id, is_active, granted_at, expires_at")
+      .select("consent_id, institution_id, is_active, granted_at, permissions")
       .eq("business_id", id).order("granted_at", { ascending: false }),
     supabase.from("financing_records")
       .select("financing_id, institution_id, status, terms, granted_at, capital_category")
@@ -62,9 +82,6 @@ async function loadBusinessDetail(id: string) {
       .select("dispute_id, institution_id, reason, resolution, opened_at, resolved_at, initiated_by")
       .eq("business_id", id).order("opened_at", { ascending: false }),
     supabase.from("wallets").select("*").eq("business_id", id).maybeSingle(),
-    supabase.from("ledger_entries")
-      .select("entry_id, type, amount, currency, description, balance_after, created_at, reference_id")
-      .eq("business_id", id).order("created_at", { ascending: false }).limit(100),
   ]);
 
   const biz      = bizR.status      === "fulfilled" ? bizR.value.data      : null;
@@ -75,7 +92,18 @@ async function loadBusinessDetail(id: string) {
   const financing= financingR.status=== "fulfilled" ? (financingR.value.data?? []) : [];
   const disputes = disputesR.status === "fulfilled" ? (disputesR.value.data ?? []) : [];
   const wallet   = walletR.status   === "fulfilled" ? walletR.value.data   : null;
-  const ledger   = ledgerR.status   === "fulfilled" ? (ledgerR.value.data   ?? []) : [];
+
+  // Ledger: card_ledger_entries is keyed by wallet_id, not business_id
+  let ledger: any[] = [];
+  if (wallet?.id) {
+    const { data: ledgerData } = await supabase
+      .from("card_ledger_entries")
+      .select("id, entry_type, direction, amount, reference_id, description, created_at")
+      .eq("wallet_id", wallet.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    ledger = ledgerData ?? [];
+  }
 
   if (!biz) throw new Error("Business not found");
 
@@ -142,7 +170,7 @@ async function loadBusinessDetail(id: string) {
       institution_id: co.institution_id,
       is_active:      co.is_active,
       granted_at:     co.granted_at,
-      expires_at:     co.expires_at,
+      expires_at:     (co.permissions as any)?.valid_until ?? null,
     })),
     financing: (financing as any[]).map((f: any) => ({
       id:          f.financing_id,
@@ -170,14 +198,14 @@ async function loadBusinessDetail(id: string) {
       updated_at: (wallet as any).updated_at ?? null,
     } : null,
     ledger: (ledger as any[]).map((e: any) => ({
-      id:          e.entry_id,
-      type:        e.type,
-      amount:      e.amount,
-      currency:    e.currency ?? "NGN",
-      description: e.description,
-      balance_after: e.balance_after,
-      created_at:  e.created_at,
-      reference_id:e.reference_id,
+      id:           e.id,
+      type:         e.entry_type,
+      amount:       e.direction === "out" ? -Math.abs(e.amount) : e.amount,
+      currency:     "NGN",
+      description:  e.description,
+      balance_after: null,
+      created_at:   e.created_at,
+      reference_id: e.reference_id,
     })),
   };
 }
@@ -408,8 +436,8 @@ function KV({ label, value, mono }: { label: string; value: React.ReactNode; mon
 export default function BusinessDetailPage() {
   const { id }   = useParams<{ id: string }>();
   const router   = useRouter();
-  const user     = getMockAdminUser();
-  const canAct   = canManage(user, "businesses");
+  const { adminUser } = useAdminUser();
+  const canAct   = canManage(adminUser, "businesses");
 
   const [data,    setData]    = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -440,12 +468,29 @@ export default function BusinessDetailPage() {
   async function downloadStatement() {
     setStatementLoading(true); setStatementErr("");
     try {
-      const d = await callFn("admin-generate-business-statement", { business_id: id }, "POST");
-      if (d.download_url) {
-        window.open(d.download_url, "_blank");
-      } else {
-        throw new Error("No download URL returned");
-      }
+      const d = await callFn({ action: "generate-statement", business_id: id });
+      // Statement returns JSON data — build a simple printable CSV summary
+      const lines = [
+        `Admin Statement — ${d.business?.name ?? id}`,
+        `Generated: ${new Date(d.generated_at).toLocaleString()}`,
+        `Period: ${new Date(d.period?.start).toLocaleDateString()} – ${new Date(d.period?.end).toLocaleDateString()}`,
+        ``,
+        `Credit Score: ${d.credit_score?.composite ?? "N/A"}`,
+        `Data Quality: ${d.credit_score?.data_quality ?? "N/A"}%`,
+        ``,
+        `Transactions in period: ${d.transaction_summary?.total_transactions ?? 0}`,
+        `Credits: ${d.transaction_summary?.total_credits_ngn?.toLocaleString() ?? 0}`,
+        `Debits: ${d.transaction_summary?.total_debits_ngn?.toLocaleString() ?? 0}`,
+        `Net Flow: ${d.transaction_summary?.net_flow_ngn?.toLocaleString() ?? 0}`,
+        ``,
+        `Active Consents: ${d.data_connections?.active_consents ?? 0}`,
+        `Pipeline Runs: ${d.pipeline_activity?.runs_in_period ?? 0} (${d.pipeline_activity?.success_rate_pct ?? 0}% success)`,
+        `Financing Records: ${d.financing?.total_records ?? 0}`,
+      ].join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([lines], { type: "text/plain" }));
+      a.download = `statement-${id.slice(0,8)}-${new Date().toISOString().slice(0,10)}.txt`;
+      a.click();
     } catch (e: any) {
       setStatementErr(e.message ?? "Failed to generate statement");
     } finally {
@@ -456,7 +501,7 @@ export default function BusinessDetailPage() {
   async function downloadReport(reportType: "financial_identity" | "readiness" | "full") {
     setReportLoading(true); setReportErr("");
     try {
-      const d = await callFn("generate-report", { business_id: id, report_type: reportType, format: "pdf" }, "POST");
+      const d = await invokeFn("generate-report", { business_id: id, report_type: reportType, format: "pdf" });
       if (d.download_url) {
         window.open(d.download_url, "_blank");
       } else {
@@ -473,13 +518,13 @@ export default function BusinessDetailPage() {
     setActionMsg(""); setActionErr("");
     try {
       if (type === "suspend") {
-        await callFn("admin-suspend-business",  { business_id: id, reason }, "POST");
+        await callFn({ action: "suspend-business",        business_id: id, reason });
       } else if (type === "activate") {
-        await callFn("admin-activate-business", { business_id: id, reason }, "POST");
+        await callFn({ action: "activate-business",       business_id: id, reason });
       } else if (type === "verify") {
-        await callFn("admin-approve-verification", { business_id: id, reason }, "POST");
+        await callFn({ action: "approve-verification",    business_id: id, note: reason });
       } else if (type === "pipeline") {
-        await callFn("run-pipeline", { business_id: id, reason }, "POST");
+        await invokeFn("run-pipeline", { business_id: id, sync_reason: reason });
       }
       setActionMsg("Action completed successfully.");
       await load();

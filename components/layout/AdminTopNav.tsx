@@ -525,7 +525,7 @@ export function AdminTopNav() {
                   onClick={async () => {
                     const { supabase } = await import('@/lib/supabase');
                     await supabase.auth.signOut();
-                    router.push('/login');
+                    router.push('/admin/login');
                   }}
                 >
                   <LogOut size={13} />
