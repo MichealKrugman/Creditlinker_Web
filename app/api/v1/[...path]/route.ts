@@ -24,8 +24,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveApiKey, logApiCall } from "@/lib/api-logger";
 
+// Next.js 16 app router config
+export const dynamic    = "force-dynamic";
+export const maxDuration = 60;
+
 // The real backend that actually handles business logic.
-// Set INTERNAL_API_URL in .env.local — defaults to localhost:4000 for dev.
 const INTERNAL_API_URL =
   process.env.INTERNAL_API_URL ?? "http://localhost:4000";
 
@@ -70,8 +73,6 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
   // ── 2. Build upstream request ─────────────────────────────────────
   const upstreamUrl = `${INTERNAL_API_URL}/v1${endpoint}${req.nextUrl.search}`;
 
-  // Forward all headers except stripped ones; replace Authorization with
-  // an internal service token so the backend knows it's trusted.
   const upstreamHeaders = new Headers();
   req.headers.forEach((value, key) => {
     if (!STRIP_HEADERS.has(key.toLowerCase())) {
@@ -97,7 +98,6 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
     });
     statusCode = upstreamResponse.status;
   } catch (err) {
-    // Upstream is unreachable — log and return 502
     const elapsed = Date.now() - start;
     void logApiCall({
       developer_id:     keyInfo.developer_id,
@@ -135,7 +135,6 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
       responseHeaders.set(key, value);
     }
   });
-  // Add timing header for transparency
   responseHeaders.set("x-response-time", `${elapsed}ms`);
   responseHeaders.set("x-request-id",    crypto.randomUUID());
 
@@ -151,8 +150,3 @@ export const PUT     = handler;
 export const PATCH   = handler;
 export const DELETE  = handler;
 export const OPTIONS = handler;
-
-// Allow large request bodies (file uploads etc.)
-export const config = {
-  api: { bodyParser: false },
-};

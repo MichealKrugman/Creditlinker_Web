@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SUPABASE_FUNCTIONS_URL = "https://gsillmzvcufuntriytjc.supabase.co/functions/v1";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
 
   if (host.startsWith("api.")) {
