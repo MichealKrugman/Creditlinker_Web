@@ -40,8 +40,8 @@ export function proxy(request: NextRequest) {
   if (rawKey && !rawKey.startsWith(expectedPrefix)) {
     return new NextResponse(
       JSON.stringify({
-        error:   "api_key_env_mismatch",
-        message: `Invalid API key for this environment. This endpoint requires a key starting with "${expectedPrefix}".`,
+        error: "unauthorized",
+        message: "Authentication failed. Check your API key and ensure you are using the correct endpoint.",
       }),
       {
         status:  403,
