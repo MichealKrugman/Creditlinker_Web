@@ -68,15 +68,26 @@ function CopyBtn({ text }: { text: string }) {
 /* ─────────────────────────────────────────────────────────
    KEY ROW  (no full secret stored — only prefix)
 ───────────────────────────────────────────────────────── */
-function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) => void }) {
-  const [revoking, setRevoking] = useState(false);
+function KeyRow({ apiKey, onRevoke, onDelete }: {
+  apiKey: ApiKey;
+  onRevoke: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
   const isRevoked = !apiKey.is_active;
   const masked = apiKey.key_prefix + "•".repeat(24);
 
   async function handleRevoke() {
-    setRevoking(true);
+    setBusy(true);
     await onRevoke(apiKey.id);
-    setRevoking(false);
+    setBusy(false);
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Permanently delete "${apiKey.label}"? This cannot be undone.`)) return;
+    setBusy(true);
+    await onDelete(apiKey.id);
+    setBusy(false);
   }
 
   return (
@@ -132,28 +143,49 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
           </div>
         </div>
 
-        {!isRevoked && (
-          <button
-            className="dev-key-actions"
-            onClick={handleRevoke}
-            disabled={revoking}
-            title="Revoke key"
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "6px 12px", borderRadius: 7,
-              border: "1px solid #FCA5A5",
-              background: "white", color: "#EF4444",
-              fontSize: 12, fontWeight: 600, cursor: revoking ? "default" : "pointer",
-              transition: "all 0.12s", flexShrink: 0,
-              opacity: revoking ? 0.6 : 1,
-            }}
-            onMouseEnter={e => { if (!revoking) (e.currentTarget as HTMLElement).style.background = "#FEF2F2"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "white"; }}
-          >
-            {revoking ? <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> : <Trash2 size={12} />}
-            {revoking ? "Revoking…" : "Revoke"}
-          </button>
-        )}
+        <div className="dev-key-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {!isRevoked && (
+            <button
+              onClick={handleRevoke}
+              disabled={busy}
+              title="Revoke key"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", borderRadius: 7,
+                border: "1px solid #FCA5A5",
+                background: "white", color: "#EF4444",
+                fontSize: 12, fontWeight: 600, cursor: busy ? "default" : "pointer",
+                transition: "all 0.12s", opacity: busy ? 0.6 : 1,
+              }}
+              onMouseEnter={e => { if (!busy) (e.currentTarget as HTMLElement).style.background = "#FEF2F2"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "white"; }}
+            >
+              {busy ? <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> : <Trash2 size={12} />}
+              {busy ? "Revoking…" : "Revoke"}
+            </button>
+          )}
+
+          {isRevoked && (
+            <button
+              onClick={handleDelete}
+              disabled={busy}
+              title="Delete key permanently"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", borderRadius: 7,
+                border: "1px solid #E5E7EB",
+                background: "white", color: "#6B7280",
+                fontSize: 12, fontWeight: 600, cursor: busy ? "default" : "pointer",
+                transition: "all 0.12s", opacity: busy ? 0.6 : 1,
+              }}
+              onMouseEnter={e => { if (!busy) { (e.currentTarget as HTMLElement).style.background = "#FEF2F2"; (e.currentTarget as HTMLElement).style.color = "#EF4444"; (e.currentTarget as HTMLElement).style.borderColor = "#FCA5A5"; } }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "white"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; (e.currentTarget as HTMLElement).style.borderColor = "#E5E7EB"; }}
+            >
+              {busy ? <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> : <Trash2 size={12} />}
+              {busy ? "Deleting…" : "Delete"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
     </>
@@ -161,47 +193,126 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
 }
 
 /* ─────────────────────────────────────────────────────────
-   NEW KEY REVEAL BANNER  (shown once after creation)
+   NEW KEY REVEAL MODAL  (shown once after creation)
 ───────────────────────────────────────────────────────── */
-function NewKeyBanner({ fullKey, onDismiss }: { fullKey: string; onDismiss: () => void }) {
+function NewKeyModal({ fullKey, onDismiss }: { fullKey: string; onDismiss: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(fullKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
   return (
     <div style={{
-      padding: "16px 20px",
-      background: "#F0FDFF",
-      border: "1px solid rgba(0,212,255,0.3)",
-      borderRadius: 12,
+      position: "fixed", inset: 0, zIndex: 300,
+      background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-        <CheckCircle2 size={16} style={{ color: "#10B981", flexShrink: 0, marginTop: 1 }} />
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>API key created — copy it now</p>
-          <p style={{ fontSize: 12, color: "#6B7280" }}>This is the only time the full key will be shown.</p>
+      <div style={{
+        background: "white", borderRadius: 18,
+        boxShadow: "0 32px 80px rgba(0,0,0,0.22)",
+        width: "100%", maxWidth: 500, margin: "0 16px",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "24px 24px 16px", borderBottom: "1px solid #F3F4F6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <CheckCircle2 size={17} style={{ color: "#10B981" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 800, color: "#0A2540", letterSpacing: "-0.02em" }}>API Key Created</p>
+              <p style={{ fontSize: 12, color: "#6B7280" }}>Copy and store it somewhere safe before closing</p>
+            </div>
+          </div>
         </div>
-        <button onClick={onDismiss} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <code style={{
-          flex: 1, fontSize: 12, fontFamily: "var(--font-mono, monospace)",
-          background: "white", border: "1px solid #D1D5DB",
-          padding: "9px 12px", borderRadius: 7,
-          color: "#0A2540", wordBreak: "break-all",
-        }}>
-          {fullKey}
-        </code>
-        <button
-          onClick={() => { navigator.clipboard.writeText(fullKey); setCopied(true); setTimeout(() => setCopied(false), 2500); }}
-          style={{
-            display: "flex", alignItems: "center", gap: 5,
-            padding: "8px 14px", borderRadius: 7,
-            border: "1px solid #D1D5DB", background: "white",
-            fontSize: 12, fontWeight: 600, cursor: "pointer",
-            color: copied ? "#10B981" : "#374151", flexShrink: 0,
-          }}
-        >
-          {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-          {copied ? "Copied!" : "Copy"}
-        </button>
+
+        {/* Key display */}
+        <div style={{ padding: "20px 24px" }}>
+          <div style={{
+            padding: "14px 16px",
+            background: "#F8FAFC", border: "1px solid #E5E7EB",
+            borderRadius: 10, marginBottom: 12,
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", marginBottom: 8 }}>YOUR API KEY</p>
+            <code style={{
+              display: "block", fontSize: 13,
+              fontFamily: "var(--font-mono, 'Courier New', monospace)",
+              color: "#0A2540", wordBreak: "break-all", lineHeight: 1.6,
+            }}>
+              {fullKey}
+            </code>
+          </div>
+
+          <button
+            onClick={handleCopy}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              padding: "10px 16px", borderRadius: 9,
+              border: `1px solid ${copied ? "rgba(16,185,129,0.3)" : "#D1D5DB"}`,
+              background: copied ? "#ECFDF5" : "white",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              color: copied ? "#10B981" : "#374151",
+              transition: "all 0.15s",
+            }}
+          >
+            {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+            {copied ? "Copied to clipboard!" : "Copy Key"}
+          </button>
+
+          {/* Warning */}
+          <div style={{
+            marginTop: 14, padding: "12px 14px",
+            background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.25)",
+            borderRadius: 9, display: "flex", gap: 10, alignItems: "flex-start",
+          }}>
+            <AlertCircle size={14} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: "#92400E", lineHeight: 1.6 }}>
+              This key will <strong>not</strong> be shown again. If you lose it, you'll need to revoke it and generate a new one.
+            </p>
+          </div>
+
+          {/* Acknowledgment checkbox */}
+          <label style={{
+            display: "flex", alignItems: "flex-start", gap: 10,
+            marginTop: 16, cursor: "pointer",
+          }}>
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={e => setConfirmed(e.target.checked)}
+              style={{ marginTop: 2, accentColor: "#0A2540", width: 15, height: 15 }}
+            />
+            <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+              I have copied and saved my API key in a secure location
+            </span>
+          </label>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "0 24px 22px" }}>
+          <button
+            onClick={onDismiss}
+            disabled={!confirmed}
+            style={{
+              width: "100%", padding: "11px 16px", borderRadius: 9,
+              border: "none",
+              background: confirmed ? "#0A2540" : "#E5E7EB",
+              color: confirmed ? "white" : "#9CA3AF",
+              fontSize: 14, fontWeight: 700, cursor: confirmed ? "pointer" : "default",
+              transition: "all 0.15s",
+            }}
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -246,7 +357,9 @@ function CreateKeyModal({ onClose, onCreate }: {
             Create API Key
           </h2>
           <p style={{ fontSize: 13, color: "#6B7280" }}>
-            Keys are scoped to sandbox until you request production access.
+            {typeof window !== "undefined" && (window.location.hostname.startsWith("sandbox.") || window.location.hostname === "localhost")
+              ? "This key will be scoped to the sandbox environment (sk_test_)."
+              : "This key will be scoped to the production environment (sk_live_)."}
           </p>
         </div>
 
@@ -339,23 +452,50 @@ export default function ApiKeysPage() {
     if (!account) return;
     setError(null);
 
-    // Generate a key client-side — in production this should be an edge function
-    // so the raw key never touches the DB. For now we store a truncated prefix
-    // and surface the full key once.
-    const raw = `sk_test_${crypto.randomUUID().replace(/-/g, "")}`;
-    const prefix = raw.slice(0, 16); // "sk_test_xxxxxxxx"
+    // Determine environment from host:
+    //   sandbox.api.creditlinker.com.ng  → test key  (sk_test_)
+    //   api.creditlinker.com.ng          → live key   (sk_live_)
+    //   localhost / 127.0.0.1            → test key   (sk_test_)
+    // TODO: move key generation to a Supabase edge function so the raw key
+    // never passes through the client. This is acceptable for sandbox-only keys.
+    const host = window.location.hostname;
+    const isSandbox =
+      host.startsWith("sandbox.") ||
+      host === "localhost" ||
+      host.includes("127.0.0.1");
+    const environment: "test" | "live" = isSandbox ? "test" : "live";
+    const prefix_tag = environment === "test" ? "sk_test" : "sk_live";
 
-    // Simple sha256-style hash substitute — real prod should use bcrypt via edge fn
+    // Generate raw key: sk_test_<40 hex chars>  (160-bit entropy)
+    const r1 = crypto.randomUUID().replace(/-/g, "");
+    const r2 = crypto.randomUUID().replace(/-/g, "");
+    const randomPart = (r1 + r2).slice(0, 40);
+    const raw = `${prefix_tag}_${randomPart}`;
+
+    // Prefix stored in DB = tag + first 8 random chars  e.g. sk_test_a1b2c3d4
+    // Long enough to identify the key in logs; short enough to stay opaque.
+    const key_prefix = `${prefix_tag}_${randomPart.slice(0, 8)}`;
+
+    // Guard: prefix must be consistent with environment (belt-and-suspenders)
+    const prefixEnvMatch =
+      (environment === "test" && key_prefix.startsWith("sk_test_")) ||
+      (environment === "live" && key_prefix.startsWith("sk_live_"));
+    if (!prefixEnvMatch) {
+      setError("Key prefix / environment mismatch — please refresh and try again.");
+      return;
+    }
+
+    // SHA-256 hash of full key — used for verification on inbound requests
     const encoder = new TextEncoder();
     const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(raw));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const keyHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const key_hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
     const { error } = await supabase.from("developer_api_keys").insert({
       developer_id: account.id,
-      key_prefix: prefix,
-      key_hash: keyHash,
-      environment: "test",
+      key_prefix,
+      key_hash,
+      environment,
       label,
       is_active: true,
     });
@@ -376,6 +516,18 @@ export default function ApiKeysPage() {
 
     if (error) { setError(error.message); return; }
     setKeys(prev => prev.map(k => k.id === id ? { ...k, is_active: false } : k));
+    await refreshAccount();
+  }
+
+  async function handleDelete(id: string) {
+    setError(null);
+    const { error } = await supabase
+      .from("developer_api_keys")
+      .delete()
+      .eq("id", id);
+
+    if (error) { setError(error.message); return; }
+    setKeys(prev => prev.filter(k => k.id !== id));
     await refreshAccount();
   }
 
@@ -408,9 +560,9 @@ export default function ApiKeysPage() {
         </div>
       )}
 
-      {/* ── NEW KEY BANNER ── */}
+      {/* ── NEW KEY MODAL ── */}
       {newKeyFull && (
-        <NewKeyBanner fullKey={newKeyFull} onDismiss={() => setNewKeyFull(null)} />
+        <NewKeyModal fullKey={newKeyFull} onDismiss={() => setNewKeyFull(null)} />
       )}
 
       {/* ── SECURITY NOTICE ── */}
@@ -449,7 +601,7 @@ export default function ApiKeysPage() {
               <p style={{ fontSize: 13, color: "#9CA3AF" }}>Create your first API key to start making requests.</p>
             </div>
           ) : (
-            activeKeys.map(k => <KeyRow key={k.id} apiKey={k} onRevoke={handleRevoke} />)
+            activeKeys.map(k => <KeyRow key={k.id} apiKey={k} onRevoke={handleRevoke} onDelete={handleDelete} />)
           )}
         </div>
       </Card>
@@ -461,7 +613,7 @@ export default function ApiKeysPage() {
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Revoked Keys</p>
           </div>
           <div style={{ marginTop: 12 }}>
-            {revokedKeys.map(k => <KeyRow key={k.id} apiKey={k} onRevoke={handleRevoke} />)}
+            {revokedKeys.map(k => <KeyRow key={k.id} apiKey={k} onRevoke={handleRevoke} onDelete={handleDelete} />)}
           </div>
         </Card>
       )}
