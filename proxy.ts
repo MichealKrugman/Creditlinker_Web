@@ -38,12 +38,10 @@ export function proxy(request: NextRequest) {
   // Enforce prefix/environment match — only if a key was supplied.
   // No key = pass through and let the edge function return its own 401.
   if (rawKey && !rawKey.startsWith(expectedPrefix)) {
-    const wrongEnv = rawKey.startsWith("sk_live_") ? "live" : "test";
     return new NextResponse(
       JSON.stringify({
         error:   "api_key_env_mismatch",
-        message: `You are calling the ${env} endpoint with a ${wrongEnv} key. ` +
-                 `Use a key that starts with "${expectedPrefix}".`,
+        message: `Invalid API key for this environment. This endpoint requires a key starting with "${expectedPrefix}".`,
       }),
       {
         status:  403,
