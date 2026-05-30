@@ -800,7 +800,7 @@ function PersonalDashboard({
                     </div>
                     {activePortfolio.map((item, i) => (
                       <div key={item.financing_id} style={{ display: "grid", gridTemplateColumns: "1fr 160px 100px 100px 80px", padding: "12px 22px", borderBottom: i < activePortfolio.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "var(--font-mono, monospace)", fontSize: 12 }}>BUS-{item.business_id.slice(0, 8).toUpperCase()}</p>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", fontFamily: "var(--font-mono, monospace)" }}>BUS-{item.business_id.slice(0, 8).toUpperCase()}</p>
                         <p style={{ fontSize: 12, color: "#6B7280", textTransform: "capitalize" }}>{item.capital_category.replace(/_/g, " ")}</p>
                         <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.terms?.amount ? formatNGN(item.terms.amount) : "—"}</p>
                         <p style={{ fontSize: 12, color: "#6B7280" }}>{item.granted_at ? new Date(item.granted_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</p>
