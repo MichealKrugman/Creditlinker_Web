@@ -1,123 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
-  Building2, Inbox, Tag, TrendingUp,
+  Building2, Inbox, TrendingUp,
   ChevronRight, ArrowUpRight, Activity,
   Banknote, Target, ShieldCheck, Users,
   Crown, Shield, UserCheck, User,
-  LayoutDashboard, Clock, CheckCircle2,
-  AlertCircle, BarChart2,
+  LayoutDashboard, CheckCircle2,
+  Tag,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useIsMobile } from "@/lib/mobile-nav-context";
+import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/session-context";
+import { getMyInstitutionContext } from "@/lib/institution";
 
 /* ─────────────────────────────────────────────────────────
-   ROLE SIMULATION
-   In production, derive from Keycloak JWT claims:
-     realm_roles: ["financer_owner" | "financer_admin" |
-                   "financer_team_lead" | "financer_analyst"]
-   team_lead_id comes from the OrgMember record for this user.
+   TYPES
 ───────────────────────────────────────────────────────── */
 type OrgRole = "owner" | "admin" | "team_lead" | "analyst";
 
-// ← Change role here to preview each dashboard experience
-const CURRENT_USER: {
-  id: string; name: string; role: OrgRole; team_lead_id: string | null;
-} = {
-  id: "u3",
-  name: "Chidi Eze",
-  role: "team_lead",
-  team_lead_id: null,
+type MemberRow = {
+  id: string;
+  user_id: string;
+  role: OrgRole;
+  team_lead_id: string | null;
+  full_name: string;
+  email: string;
+  active_requests: number;
+  active_portfolio: number;
+  pending_actions: number;
 };
 
-/* ─────────────────────────────────────────────────────────
-   SHARED MEMBER ROSTER
-───────────────────────────────────────────────────────── */
-const TEAM_MEMBERS = [
-  { id: "u1", name: "Tunde Adeyemi", role: "owner"     as OrgRole, team_lead_id: null,
-    active_requests: 3,  active_portfolio: "₦65M",  pending_actions: 2 },
-  { id: "u2", name: "Kemi Obi",      role: "admin"     as OrgRole, team_lead_id: null,
-    active_requests: 4,  active_portfolio: "₦88M",  pending_actions: 1 },
-  { id: "u3", name: "Chidi Eze",     role: "team_lead" as OrgRole, team_lead_id: null,
-    active_requests: 2,  active_portfolio: "₦41M",  pending_actions: 0 },
-  { id: "u4", name: "Amaka Nwosu",   role: "analyst"   as OrgRole, team_lead_id: "u3",
-    active_requests: 1,  active_portfolio: "₦22M",  pending_actions: 1 },
-  { id: "u5", name: "Bola Fashola",  role: "analyst"   as OrgRole, team_lead_id: "u3",
-    active_requests: 2,  active_portfolio: "₦32M",  pending_actions: 0 },
-];
+type FinancingRecord = {
+  financing_id: string;
+  business_id: string;
+  capital_category: string;
+  terms: { amount?: number; financing_amount?: number; currency?: string } | null;
+  status: string;
+  granted_at: string | null;
+  settled_at: string | null;
+  created_by_member_id: string | null;
+};
 
-/* ─────────────────────────────────────────────────────────
-   ORG-LEVEL MOCK DATA
-───────────────────────────────────────────────────────── */
-const ORG_METRICS = [
-  { label: "Total Deployed",   value: "₦248M", sub: "Across all members",         icon: <Banknote size={16} />, accent: true  },
-  { label: "Active Members",   value: "5",     sub: "1 team lead · 2 analysts",   icon: <Users    size={16} />, accent: false },
-  { label: "Pending Requests", value: "7",     sub: "Across all members",         icon: <Inbox    size={16} />, alert: true   },
-  { label: "Org Match Score",  value: "87%",   sub: "Avg. across discovery feed", icon: <Target   size={16} />, accent: false },
-];
+type DiscoveryMatch = {
+  match_id: string;
+  anonymized_id: string;
+  capital_category: string;
+  match_score: number;
+  matched_at: string;
+  status: string;
+  access_requested_at: string | null;
+  created_by_member_id: string | null;
+};
 
-const ORG_ACTIVITY = [
-  { actor: "Kemi Obi",      action: "created offer",         target: "SME Working Capital",     time: "1h ago",    type: "offer"   as const },
-  { actor: "Amaka Nwosu",   action: "reviewed request from", target: "BIZ-7X9A",                time: "2h ago",    type: "request" as const },
-  { actor: "Chidi Eze",     action: "granted access to",     target: "BIZ-3K2M",                time: "Yesterday", type: "access"  as const },
-  { actor: "Bola Fashola",  action: "confirmed settlement",  target: "Kemi Superstores (₦15M)", time: "Dec 28",    type: "settle"  as const },
-  { actor: "Tunde Adeyemi", action: "invited",               target: "ngozi@stanbicibtc.com",   time: "Dec 27",    type: "invite"  as const },
-];
+type ActivityLog = {
+  id: string;
+  member_id: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
 
-/* ─────────────────────────────────────────────────────────
-   TEAM-LEAD-LEVEL MOCK DATA
-   In production: filter by team_lead_id === CURRENT_USER.id
-───────────────────────────────────────────────────────── */
-const TEAM_REQUESTS = [
-  { member: "Amaka Nwosu",  business: "BIZ-4F9T", sector: "Retail",     type: "Working Capital", amount: "₦8M",  score: 761, risk: "Low Risk",    time: "1h ago",    status: "pending"  as const },
-  { member: "Bola Fashola", business: "BIZ-2R8K", sector: "Logistics",  type: "Asset Financing", amount: "₦20M", score: 694, risk: "Medium Risk", time: "Yesterday", status: "pending"  as const },
-  { member: "Bola Fashola", business: "BIZ-9P4L", sector: "Technology", type: "Revenue Advance", amount: "₦3M",  score: 799, risk: "Low Risk",    time: "Dec 28",    status: "reviewed" as const },
-];
+function formatNGN(amount: number): string {
+  if (amount >= 1_000_000_000) return `₦${(amount / 1_000_000_000).toFixed(1)}B`;
+  if (amount >= 1_000_000)     return `₦${(amount / 1_000_000).toFixed(0)}M`;
+  if (amount >= 1_000)         return `₦${(amount / 1_000).toFixed(0)}K`;
+  return `₦${amount.toLocaleString()}`;
+}
 
-const TEAM_PORTFOLIO = [
-  { member: "Amaka Nwosu",  business: "Aduke Bakeries", type: "Working Capital", amount: "₦12M", due: "Mar 2025", health: "on_track" as const },
-  { member: "Amaka Nwosu",  business: "Kemi Superstores", type: "Invoice Fin.", amount: "₦10M", due: "Feb 2025", health: "watch"    as const },
-  { member: "Bola Fashola", business: "Nonso Logistics",  type: "Asset Fin.",   amount: "₦32M", due: "Sep 2026", health: "on_track" as const },
-];
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hrs  = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 60)  return `${mins}m ago`;
+  if (hrs  < 24)  return `${hrs}h ago`;
+  if (days === 1) return "Yesterday";
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
 
-const TEAM_ACTIVITY = [
-  { actor: "Amaka Nwosu",  action: "submitted request for", target: "BIZ-4F9T",               time: "1h ago",    type: "request" as const },
-  { actor: "Bola Fashola", action: "reviewed request from", target: "BIZ-9P4L",               time: "Yesterday", type: "request" as const },
-  { actor: "Amaka Nwosu",  action: "granted access to",     target: "BIZ-2K7N",               time: "Dec 29",    type: "access"  as const },
-  { actor: "Bola Fashola", action: "confirmed settlement",  target: "Tola Farms (₦8M)",       time: "Dec 27",    type: "settle"  as const },
-];
-
-/* ─────────────────────────────────────────────────────────
-   PERSONAL MOCK DATA
-───────────────────────────────────────────────────────── */
-const PERSONAL_METRICS = [
-  { label: "Active Deployments", value: "3",     sub: "My active records",         icon: <Banknote   size={16} />, accent: true   },
-  { label: "Capital Deployed",   value: "₦41M",  sub: "+₦8M this month",           icon: <TrendingUp size={16} />, positive: true },
-  { label: "Pending Requests",   value: "2",     sub: "Awaiting my review",        icon: <Inbox      size={16} />, alert: true    },
-  { label: "Avg. Match Score",   value: "89%",   sub: "Last 15 discovery matches", icon: <Target     size={16} />, accent: false  },
-];
-
-const MY_REQUESTS = [
-  { business: "BIZ-7X9A", sector: "Food & Beverage", type: "Working Capital Loan", amount: "₦10M", score: 742, risk: "Low Risk",    requested: "2 hours ago", status: "pending"  as const },
-  { business: "BIZ-5N2W", sector: "Agriculture",     type: "Trade Finance",        amount: "₦18M", score: 681, risk: "Medium Risk", requested: "Yesterday",   status: "pending"  as const },
-  { business: "BIZ-1R8T", sector: "Retail",          type: "Invoice Financing",    amount: "₦5M",  score: 799, risk: "Low Risk",    requested: "Dec 28",      status: "reviewed" as const },
-];
-
-const MY_PORTFOLIO = [
-  { business: "Kemi Superstores", type: "Working Capital", amount: "₦15M", disbursed: "Oct 2024", due: "Apr 2025", health: "on_track" as const },
-  { business: "Nonso Logistics",  type: "Asset Financing", amount: "₦42M", disbursed: "Sep 2024", due: "Sep 2026", health: "on_track" as const },
-  { business: "Bright Pharma",    type: "Invoice Financing", amount: "₦8M", disbursed: "Dec 2024", due: "Feb 2025", health: "watch"    as const },
-];
-
-const DISCOVERY_MATCHES = [
-  { id: "BIZ-7X9A", sector: "Retail",     revenue_band: "₦5M – ₦20M/mo",  data_months: 18, dims: [85,78,81,74,80,69], cap: "Working Capital", match: 94 },
-  { id: "BIZ-3K2M", sector: "Logistics",  revenue_band: "₦10M – ₦50M/mo", data_months: 24, dims: [91,84,77,88,85,76], cap: "Asset Financing", match: 91 },
-  { id: "BIZ-9P4L", sector: "Technology", revenue_band: "₦2M – ₦8M/mo",   data_months: 12, dims: [79,82,88,71,77,83], cap: "Revenue Advance",  match: 88 },
-];
-
-const DIM_COLORS = ["#10B981","#38BDF8","#818CF8","#F59E0B","#10B981","#EF4444"];
+function getAmount(terms: FinancingRecord["terms"]): number {
+  return terms?.financing_amount ?? terms?.amount ?? 0;
+}
 
 /* ─────────────────────────────────────────────────────────
    HELPERS
@@ -145,15 +112,7 @@ function healthCfg(h: "on_track"|"watch"|"overdue") {
   }[h];
 }
 
-function activityIcon(t: "offer"|"request"|"access"|"settle"|"invite") {
-  return {
-    offer:   { icon: <Tag          size={13} />, color: "#818CF8", bg: "#F3F0FF"              },
-    request: { icon: <Inbox        size={13} />, color: "#0A2540", bg: "#F3F4F6"              },
-    access:  { icon: <ShieldCheck  size={13} />, color: "#10B981", bg: "#ECFDF5"              },
-    settle:  { icon: <CheckCircle2 size={13} />, color: "#10B981", bg: "#ECFDF5"              },
-    invite:  { icon: <Users        size={13} />, color: "#00A8CC", bg: "rgba(0,212,255,0.08)" },
-  }[t];
-}
+
 
 /* ─────────────────────────────────────────────────────────
    SHARED UI PRIMITIVES
@@ -199,42 +158,7 @@ function MetricCard({ label, value, sub, icon, accent = false, alert = false, po
   );
 }
 
-function DimBars({ dims }: { dims: number[] }) {
-  return (
-    <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 24 }}>
-      {dims.map((v, i) => (
-        <div key={i} style={{ width: 5, height: Math.max(3, (v / 100) * 20), borderRadius: 2, background: DIM_COLORS[i], opacity: 0.85 }} />
-      ))}
-    </div>
-  );
-}
 
-function ActivityFeed({ items }: { items: typeof ORG_ACTIVITY }) {
-  return (
-    <div style={{ padding: "10px 0 8px" }}>
-      {items.map((a, i) => {
-        const ic = activityIcon(a.type);
-        return (
-          <div key={i} style={{
-            display: "flex", alignItems: "center", gap: 12,
-            padding: "11px 22px",
-            borderBottom: i < items.length - 1 ? "1px solid #F3F4F6" : "none",
-          }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: ic.bg, display: "flex", alignItems: "center", justifyContent: "center", color: ic.color }}>
-              {ic.icon}
-            </div>
-            <p style={{ flex: 1, fontSize: 13, color: "#374151", minWidth: 0 }}>
-              <strong style={{ color: "#0A2540", fontWeight: 700 }}>{a.actor}</strong>{" "}
-              {a.action}{" "}
-              <strong style={{ color: "#0A2540", fontWeight: 600 }}>{a.target}</strong>
-            </p>
-            <p style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0 }}>{a.time}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /* ─────────────────────────────────────────────────────────
    DARK PORTFOLIO GLANCE CARD (reused across all views)
@@ -245,7 +169,7 @@ function PortfolioGlance({ rows }: { rows: { label: string; value: string; color
       <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "white", marginBottom: 4 }}>
         Portfolio at a glance
       </p>
-      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 18 }}>December 2024</p>
+      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 18 }}>{new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</p>
       {rows.map(row => (
         <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{row.label}</span>
@@ -259,30 +183,88 @@ function PortfolioGlance({ rows }: { rows: { label: string; value: string; color
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   ACTIVITY FEED (shared across org + team views)
+───────────────────────────────────────────────────────── */
+function ActivityFeed({ items }: { items: ActivityLog[] }) {
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: "32px", textAlign: "center" as const }}>
+        <Activity size={22} style={{ color: "#E5E7EB", marginBottom: 8 }} />
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No activity yet</p>
+        <p style={{ fontSize: 12, color: "#9CA3AF" }}>Actions by team members will appear here.</p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ padding: "10px 0 8px" }}>
+      {items.map((item, i) => (
+        <div key={item.id} style={{ display: "flex", gap: 12, padding: "10px 22px", borderBottom: i < items.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#E5E7EB", flexShrink: 0, marginTop: 5 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 2 }}>
+              <span style={{ fontWeight: 600, color: "#0A2540" }}>
+                {item.action.replace(/_/g, " ")}
+              </span>
+              {item.target_type && (
+                <span style={{ color: "#9CA3AF" }}> · {item.target_type.replace(/_/g, " ")}</span>
+              )}
+            </p>
+            <p style={{ fontSize: 11, color: "#9CA3AF" }}>{timeAgo(item.created_at)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════
    VIEW 1 — ORGANISATION  (owner / admin)
    Shows: whole org at a glance, every member's workload,
    org-wide activity, pending actions tracker
 ══════════════════════════════════════════════════════════ */
-function OrgDashboard() {
-  const totalRequests  = TEAM_MEMBERS.reduce((s, m) => s + m.active_requests, 0);
-  const pendingActions = TEAM_MEMBERS.reduce((s, m) => s + m.pending_actions, 0);
+function OrgDashboard({
+  institutionName = "",
+  members = [],
+  allRecords = [],
+  allMatches = [],
+  activityLogs = [],
+  loadingData = false,
+}: {
+  institutionName?: string;
+  members?: MemberRow[];
+  allRecords?: FinancingRecord[];
+  allMatches?: DiscoveryMatch[];
+  activityLogs?: ActivityLog[];
+  loadingData?: boolean;
+}) {
+  const totalDeployed  = allRecords.filter(r => r.status === "active").reduce((s, r) => s + getAmount(r.terms), 0);
+  const pendingRequests = allMatches.filter(m => m.status === "access_requested").length;
+  const avgMatchScore  = allMatches.length
+    ? Math.round(allMatches.reduce((s, m) => s + m.match_score, 0) / allMatches.length * 100)
+    : 0;
+  const pendingActions = members.reduce((s, m) => s + m.pending_actions, 0);
+
+  const orgMetrics = [
+    { label: "Total Deployed",   value: loadingData ? "…" : (totalDeployed ? formatNGN(totalDeployed) : "₦0"),           sub: "Across all active deals",      icon: <Banknote size={16} />, accent: true                },
+    { label: "Active Members",   value: loadingData ? "…" : String(members.length),                                       sub: `${members.filter(m => m.role === "team_lead").length} lead · ${members.filter(m => m.role === "analyst").length} analysts`, icon: <Users size={16} /> },
+    { label: "Pending Requests", value: loadingData ? "…" : String(pendingRequests),                                      sub: "Across institution",           icon: <Inbox  size={16} />, alert: pendingRequests > 0  },
+    { label: "Avg Match Score",  value: loadingData ? "…" : (avgMatchScore ? `${avgMatchScore}%` : "—"),                 sub: "Across discovery feed",        icon: <Target size={16} />                               },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-      {/* Welcome */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Stanbic IBTC — Organisation View
+            {institutionName || "Organisation View"}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Badge variant="default" style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <Crown size={10} /> Principal
             </Badge>
             <span style={{ fontSize: 13, color: "#6B7280" }}>
-              {TEAM_MEMBERS.length} members · {totalRequests} active requests · {pendingActions} pending actions
+              {loadingData ? "Loading\u2026" : `${members.length} members \u00b7 ${pendingRequests} pending requests \u00b7 ${pendingActions} pending actions`}
             </span>
           </div>
         </div>
@@ -293,7 +275,7 @@ function OrgDashboard() {
 
       {/* Org metrics */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14 }}>
-        {ORG_METRICS.map(m => <MetricCard key={m.label} {...m} />)}
+        {orgMetrics.map(m => <MetricCard key={m.label} {...m} />)}
       </div>
 
       {/* Main grid — fnc-db-main-grid collapses to 1fr on mobile via globals.css */}
@@ -310,18 +292,17 @@ function OrgDashboard() {
 
             {/* Mobile cards — hidden on desktop via CSS */}
             <div className="fnc-db-mobile-card" style={{ display: "none", padding: "10px 0 8px" }}>
-              {TEAM_MEMBERS.map((m, i) => {
+              {members.map((m, i) => {
                 const rc = ROLE_CONFIG[m.role];
-                const isMe = m.id === CURRENT_USER.id;
                 return (
-                  <div key={m.id} style={{ padding: "12px 18px", borderBottom: i < TEAM_MEMBERS.length - 1 ? "1px solid #F3F4F6" : "none", background: isMe ? "rgba(0,212,255,0.02)" : "transparent" }}>
+                  <div key={m.id} style={{ padding: "12px 18px", borderBottom: i < members.length - 1 ? "1px solid #F3F4F6" : "none" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: isMe ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: isMe ? "#00D4FF" : "#0A2540" }}>
-                          {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0A2540" }}>
+                          {m.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                         </div>
                         <div>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{m.name} {isMe && <span style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 400 }}>(you)</span>}</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{m.full_name}</p>
                           <Badge variant={rc.variant} style={{ fontSize: 9, display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2 }}>{rc.icon} {rc.label}</Badge>
                         </div>
                       </div>
@@ -351,26 +332,25 @@ function OrgDashboard() {
                   <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
                 ))}
               </div>
-              {TEAM_MEMBERS.map((m, i) => {
+              {members.map((m, i) => {
                 const rc = ROLE_CONFIG[m.role];
-                const lead = m.team_lead_id ? TEAM_MEMBERS.find(t => t.id === m.team_lead_id) : null;
-                const isMe = m.id === CURRENT_USER.id;
+                const lead = m.team_lead_id ? members.find(t => t.id === m.team_lead_id) : null;
                 return (
-                  <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 80px 80px 90px", gap: 12, padding: "13px 22px", borderBottom: i < TEAM_MEMBERS.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", background: isMe ? "rgba(0,212,255,0.02)" : "transparent" }}>
+                  <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 80px 80px 90px", gap: 12, padding: "13px 22px", borderBottom: i < members.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 7, background: isMe ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: isMe ? "#00D4FF" : "#0A2540", flexShrink: 0 }}>
-                        {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#0A2540", flexShrink: 0 }}>
+                        {m.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                       </div>
                       <div>
-                        <p style={{ fontSize: 13, fontWeight: isMe ? 700 : 600, color: "#0A2540" }}>
-                          {m.name} {isMe && <span style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 400 }}>(you)</span>}
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>
+                          {m.full_name}
                         </p>
-                        {lead && <p style={{ fontSize: 10, color: "#9CA3AF" }}>Reports to {lead.name}</p>}
+                        {lead && <p style={{ fontSize: 10, color: "#9CA3AF" }}>Reports to {lead.full_name}</p>}
                       </div>
                     </div>
                     <Badge variant={rc.variant} style={{ fontSize: 9, display: "inline-flex", alignItems: "center", gap: 3, width: "fit-content" }}>{rc.icon} {rc.label}</Badge>
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{m.active_requests}</p>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540" }}>{m.active_portfolio}</p>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540" }}>{formatNGN(m.active_portfolio)}</p>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       {m.pending_actions > 0 ? (
                         <span style={{ minWidth: 20, height: 20, borderRadius: 9999, background: "#FEF2F2", color: "#EF4444", fontSize: 10, fontWeight: 700, padding: "0 5px", display: "flex", alignItems: "center", justifyContent: "center" }}>{m.pending_actions}</span>
@@ -385,7 +365,7 @@ function OrgDashboard() {
           {/* Org activity */}
           <Card>
             <CardHeader title="Organisation Activity" />
-            <ActivityFeed items={ORG_ACTIVITY} />
+            <ActivityFeed items={activityLogs} />
           </Card>
         </div>
 
@@ -394,13 +374,13 @@ function OrgDashboard() {
           <Card>
             <CardHeader title="Pending Actions" />
             <div style={{ padding: "10px 0 8px" }}>
-              {TEAM_MEMBERS.filter(m => m.pending_actions > 0).map((m, i, arr) => (
+              {members.filter(m => m.pending_actions > 0).map((m, i, arr) => (
                 <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 22px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none" }}>
                   <div style={{ width: 30, height: 30, borderRadius: 7, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#0A2540", flexShrink: 0 }}>
-                    {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                    {m.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{m.name}</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{m.full_name}</p>
                     <p style={{ fontSize: 11, color: "#9CA3AF" }}>{m.pending_actions} pending {m.pending_actions === 1 ? "action" : "actions"}</p>
                   </div>
                   <span style={{ minWidth: 22, height: 22, borderRadius: 9999, padding: "0 5px", background: "#FEF2F2", color: "#EF4444", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -412,10 +392,10 @@ function OrgDashboard() {
           </Card>
 
           <PortfolioGlance rows={[
-            { label: "Total disbursed",  value: "₦248M",    color: "#00D4FF" },
-            { label: "Total repaid",     value: "₦102M",    color: "#10B981" },
-            { label: "Under review",     value: "₦45M",     color: "#F59E0B" },
-            { label: "Team deployments", value: "12 deals", color: "#818CF8" },
+            { label: "Total disbursed",  value: formatNGN(totalDeployed),                                                                    color: "#00D4FF" },
+            { label: "Active records",   value: String(allRecords.filter(r => r.status === "active").length) + " deals",                    color: "#818CF8" },
+            { label: "Pending requests", value: String(pendingRequests),                                                                     color: "#F59E0B" },
+            { label: "Avg match score",  value: avgMatchScore ? `${avgMatchScore}%` : "—",                                                  color: "#10B981" },
           ]} />
         </div>
       </div>
@@ -428,12 +408,28 @@ function OrgDashboard() {
    Shows: own team's requests + portfolio, team member
    workloads, team activity, can't see outside their team
 ══════════════════════════════════════════════════════════ */
-function TeamLeadDashboard() {
-  // Members this lead is responsible for
-  const myTeam = TEAM_MEMBERS.filter(m => m.team_lead_id === CURRENT_USER.id);
-  const teamRequests  = TEAM_REQUESTS.length;
-  const teamPending   = TEAM_REQUESTS.filter(r => r.status === "pending").length;
-  const teamPortfolio = TEAM_PORTFOLIO.reduce((_acc, _r) => _acc, 0); // placeholder
+function TeamLeadDashboard({
+  currentMember,
+  myTeam = [],
+  teamRecords = [],
+  teamRequests = [],
+  teamActivity = [],
+  allMembers = [],
+  loadingData = false,
+}: {
+  currentMember: MemberRow;
+  myTeam?: MemberRow[];
+  teamRecords?: FinancingRecord[];
+  teamRequests?: DiscoveryMatch[];
+  teamActivity?: ActivityLog[];
+  allMembers?: MemberRow[];
+  loadingData?: boolean;
+}) {
+  const teamPending      = teamRequests.filter(r => r.status === "access_requested").length;
+  const teamDeployed     = teamRecords.filter(r => r.status === "active").reduce((s, r) => s + getAmount(r.terms), 0);
+  const avgTeamScore     = teamRequests.length
+    ? Math.round(teamRequests.reduce((s, r) => s + r.match_score, 0) / teamRequests.length * 100)
+    : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -442,14 +438,14 @@ function TeamLeadDashboard() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Good morning, {CURRENT_USER.name.split(" ")[0]}.
+            Good morning, {currentMember.full_name.split(" ")[0]}.
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Badge variant="warning" style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <UserCheck size={10} /> Team Lead
             </Badge>
             <span style={{ fontSize: 13, color: "#6B7280" }}>
-              {myTeam.length} direct reports · {teamRequests} team requests · {teamPending} pending review
+              {myTeam.length} direct reports · {teamRequests.length} team requests · {teamPending} pending review
             </span>
           </div>
         </div>
@@ -461,10 +457,10 @@ function TeamLeadDashboard() {
       {/* Team metrics */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14 }}>
         {[
-          { label: "Team Requests",   value: String(teamRequests),  sub: `${teamPending} pending review`,    icon: <Inbox      size={16} />, alert: teamPending > 0  },
-          { label: "Team Portfolio",  value: "₦54M",               sub: "Across my team",                   icon: <Banknote   size={16} />, accent: true           },
-          { label: "Direct Reports",  value: String(myTeam.length), sub: myTeam.map(m => m.name.split(" ")[0]).join(" · "), icon: <Users size={16} />  },
-          { label: "Team Match Score",value: "88%",                 sub: "Avg. across team's feed",          icon: <Target     size={16} />                         },
+          { label: "Team Requests",    value: loadingData ? "…" : String(teamRequests.length), sub: `${teamPending} pending review`,                          icon: <Inbox    size={16} />, alert: teamPending > 0 },
+          { label: "Team Portfolio",   value: loadingData ? "…" : formatNGN(teamDeployed),     sub: "Across my team",                                          icon: <Banknote size={16} />, accent: true           },
+          { label: "Direct Reports",   value: String(myTeam.length),                            sub: myTeam.map(m => m.full_name.split(" ")[0]).join(" · ") || "No reports", icon: <Users size={16} />  },
+          { label: "Team Match Score", value: avgTeamScore ? `${avgTeamScore}%` : "—",         sub: "Avg. across team’s feed",                                  icon: <Target   size={16} />                         },
         ].map(m => <MetricCard key={m.label} {...m} />)}
       </div>
 
@@ -480,37 +476,51 @@ function TeamLeadDashboard() {
               </Link>
             } />
             <div style={{ padding: "10px 0 8px" }}>
-              {TEAM_REQUESTS.map((req, i) => (
-                <div key={i} style={{ padding: "12px 16px", borderBottom: i < TEAM_REQUESTS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0A2540" }}>
-                      {req.member.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>{req.member}</p>
-                        <span style={{ fontSize: 9, color: "#D1D5DB" }}>→</span>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business}</p>
-                        <Badge variant={riskVariant(req.risk)} style={{ fontSize: 9, padding: "1px 6px" }}>{req.risk}</Badge>
-                      </div>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.type} · {req.time}</p>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 46 }}>
-                    <div>
-                      <span style={{ fontSize: 18, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{req.score}</span>
-                      <span style={{ fontSize: 11, color: "#6B7280", marginLeft: 6 }}>{req.amount}</span>
-                    </div>
-                    {req.status === "pending" ? (
-                      <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                        Review <ArrowUpRight size={11} />
-                      </Link>
-                    ) : (
-                      <Badge variant="secondary">Reviewed</Badge>
-                    )}
-                  </div>
+              {teamRequests.length === 0 ? (
+                <div style={{ padding: "32px", textAlign: "center" as const }}>
+                  <Inbox size={26} style={{ color: "#D1D5DB", marginBottom: 8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No team requests</p>
+                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>Access requests raised by your team will appear here.</p>
                 </div>
-              ))}
+              ) : teamRequests.map((req, i) => {
+                const pct = Math.round(req.match_score * 100);
+                const memberName = allMembers.find(m => m.id === req.created_by_member_id)?.full_name ?? "Unknown";
+                const shortId = `BIZ-${req.anonymized_id.slice(0, 6).toUpperCase()}`;
+                const requestedDate = req.access_requested_at
+                  ? new Date(req.access_requested_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                  : "—";
+                return (
+                  <div key={req.match_id} style={{ padding: "12px 16px", borderBottom: i < teamRequests.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0A2540" }}>
+                        {memberName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>{memberName}</p>
+                          <span style={{ fontSize: 9, color: "#D1D5DB" }}>→</span>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{shortId}</p>
+                        </div>
+                        <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.capital_category.replace(/_/g, " ")} · Requested {requestedDate}</p>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)", flexShrink: 0 }}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 46 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 80, height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444", borderRadius: 9999 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: "#9CA3AF" }}>match score</span>
+                      </div>
+                      <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                        View <ArrowUpRight size={11} />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
 
@@ -524,45 +534,39 @@ function TeamLeadDashboard() {
             <div style={{ padding: "10px 0 8px" }}>
               {/* Mobile cards */}
               <div className="fnc-db-mobile-card" style={{ display: "none" }}>
-                {TEAM_PORTFOLIO.map((item, i) => {
-                  const hc = healthCfg(item.health);
-                  return (
-                    <div key={i} style={{ padding: "12px 18px", borderBottom: i < TEAM_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{item.business}</p>
-                          <p style={{ fontSize: 11, color: "#9CA3AF" }}>{item.member.split(" ")[0]} · {item.type}</p>
-                        </div>
-                        <Badge variant={hc.variant} style={{ fontSize: 10 }}>{hc.label}</Badge>
+                {teamRecords.filter(r => r.status === "active").map((item, i, arr) => (
+                  <div key={item.financing_id} style={{ padding: "12px 18px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>BUS-{item.business_id.slice(0, 6).toUpperCase()}</p>
+                        <p style={{ fontSize: 11, color: "#9CA3AF" }}>{allMembers.find(m => m.id === item.created_by_member_id)?.full_name?.split(" ")[0] ?? "—"} · {item.capital_category.replace(/_/g, " ")}</p>
                       </div>
-                      <div style={{ display: "flex", gap: 16 }}>
-                        <span style={{ fontSize: 12, color: "#6B7280" }}>Amount: <strong style={{ color: "#0A2540" }}>{item.amount}</strong></span>
-                        <span style={{ fontSize: 12, color: "#6B7280" }}>Due: <strong style={{ color: "#0A2540" }}>{item.due}</strong></span>
-                      </div>
+                      <Badge variant="success" style={{ fontSize: 10 }}>Active</Badge>
                     </div>
-                  );
-                })}
+                    <div style={{ display: "flex", gap: 16 }}>
+                      <span style={{ fontSize: 12, color: "#6B7280" }}>Amount: <strong style={{ color: "#0A2540" }}>{item.terms?.amount ? formatNGN(item.terms.amount) : "—"}</strong></span>
+                      <span style={{ fontSize: 12, color: "#6B7280" }}>Since: <strong style={{ color: "#0A2540" }}>{item.granted_at ? new Date(item.granted_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</strong></span>
+                    </div>
+                  </div>
+                ))}
               </div>
               {/* Desktop table */}
               <div className="fnc-db-desktop-only">
                 <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
-                  {["Member", "Business", "Type", "Amount", "Due", "Health"].map(h => (
+                  {["Member", "Business", "Type", "Amount", "Since", "Status"].map(h => (
                     <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
                   ))}
                 </div>
-                {TEAM_PORTFOLIO.map((item, i) => {
-                  const hc = healthCfg(item.health);
-                  return (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "12px 22px", borderBottom: i < TEAM_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
-                      <p style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{item.member.split(" ")[0]}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{item.business}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.type}</p>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.amount}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.due}</p>
-                      <Badge variant={hc.variant} style={{ width: "fit-content", fontSize: 10 }}>{hc.label}</Badge>
-                    </div>
-                  );
-                })}
+                {teamRecords.filter(r => r.status === "active").map((item, i, arr) => (
+                  <div key={item.financing_id} style={{ display: "grid", gridTemplateColumns: "100px 1fr 120px 80px 80px 80px", gap: 10, padding: "12px 22px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
+                    <p style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{allMembers.find(m => m.id === item.created_by_member_id)?.full_name?.split(" ")[0] ?? "—"}</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>BUS-{item.business_id.slice(0, 8).toUpperCase()}</p>
+                    <p style={{ fontSize: 12, color: "#6B7280", textTransform: "capitalize" }}>{item.capital_category.replace(/_/g, " ")}</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.terms?.amount ? formatNGN(item.terms.amount) : "—"}</p>
+                    <p style={{ fontSize: 12, color: "#6B7280" }}>{item.granted_at ? new Date(item.granted_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</p>
+                    <Badge variant="success" style={{ width: "fit-content", fontSize: 10 }}>Active</Badge>
+                  </div>
+                ))}
               </div>
             </div>
           </Card>
@@ -581,10 +585,10 @@ function TeamLeadDashboard() {
                 <div key={m.id} style={{ padding: "12px 22px", borderBottom: i < myTeam.length - 1 ? "1px solid #F3F4F6" : "none" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <div style={{ width: 30, height: 30, borderRadius: 7, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#0A2540", flexShrink: 0 }}>
-                      {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                      {m.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{m.name}</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{m.full_name}</p>
                       <Badge variant="outline" style={{ fontSize: 9, display: "inline-flex", alignItems: "center", gap: 3 }}>
                         <User size={9} /> Analyst
                       </Badge>
@@ -599,13 +603,13 @@ function TeamLeadDashboard() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {[
                       { label: "Requests",  value: m.active_requests,  max: 6 },
-                      { label: "Portfolio", value: parseInt(m.active_portfolio.replace(/[₦M]/g, "")) || 0, max: 100 },
+                      { label: "Portfolio", value: m.active_portfolio,  max: 50_000_000 },
                     ].map(stat => (
                       <div key={stat.label}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                           <span style={{ fontSize: 10, color: "#9CA3AF" }}>{stat.label}</span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#374151" }}>
-                            {stat.label === "Portfolio" ? m.active_portfolio : stat.value}
+                            {stat.label === "Portfolio" ? formatNGN(m.active_portfolio) : stat.value}
                           </span>
                         </div>
                         <div style={{ height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
@@ -622,14 +626,14 @@ function TeamLeadDashboard() {
           {/* Team activity */}
           <Card>
             <CardHeader title="Team Activity" />
-            <ActivityFeed items={TEAM_ACTIVITY} />
+            <ActivityFeed items={teamActivity} />
           </Card>
 
           <PortfolioGlance rows={[
-            { label: "Team disbursed",  value: "₦54M",    color: "#00D4FF" },
-            { label: "Team repaid",     value: "₦22M",    color: "#10B981" },
-            { label: "In review",       value: "₦12M",    color: "#F59E0B" },
-            { label: "Team deals",      value: "4 active", color: "#818CF8" },
+            { label: "Team deployed",    value: formatNGN(teamDeployed),                                                                   color: "#00D4FF" },
+            { label: "Active deals",     value: String(teamRecords.filter(r => r.status === "active").length) + " deals",                color: "#818CF8" },
+            { label: "Pending requests", value: String(teamPending),                                                                       color: "#F59E0B" },
+            { label: "Avg match score",  value: avgTeamScore ? `${avgTeamScore}%` : "—",                                                color: "#10B981" },
           ]} />
         </div>
       </div>
@@ -642,18 +646,40 @@ function TeamLeadDashboard() {
                         analysts always land here)
    Shows: own requests, own portfolio, discovery matches
 ══════════════════════════════════════════════════════════ */
-function PersonalDashboard() {
+function PersonalDashboard({
+  institutionName = "",
+  portfolio = [],
+  matches = [],
+  myRequests = [],
+  consentCount = 0,
+  loadingData = false,
+}: {
+  institutionName?: string;
+  portfolio?: FinancingRecord[];
+  matches?: DiscoveryMatch[];
+  myRequests?: DiscoveryMatch[];
+  consentCount?: number;
+  loadingData?: boolean;
+}) {
+  // Derived real metrics
+  const activePortfolio  = portfolio.filter(r => r.status === "active");
+  const settledPortfolio = portfolio.filter(r => r.status === "settled");
+  const totalDeployed    = activePortfolio.reduce((s, r) => s + getAmount(r.terms), 0);
+  const totalSettled     = settledPortfolio.reduce((s, r) => s + getAmount(r.terms), 0);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Good morning, {CURRENT_USER.name.split(" ")[0]}.
+            {institutionName || "My Dashboard"}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Badge variant="success"><Activity size={10} /> Active</Badge>
-            <span style={{ fontSize: 13, color: "#6B7280" }}>2 pending requests · 3 active deployments</span>
+            <span style={{ fontSize: 13, color: "#6B7280" }}>
+              {loadingData ? "Loading…" : `${activePortfolio.length} active deployment${activePortfolio.length !== 1 ? "s" : ""} · ${matches.length} new match${matches.length !== 1 ? "es" : ""}`}
+            </span>
           </div>
         </div>
         <Link href="/financer/businesses" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", height: 36, borderRadius: 8, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
@@ -662,7 +688,12 @@ function PersonalDashboard() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14 }}>
-        {PERSONAL_METRICS.map(m => <MetricCard key={m.label} {...m} />)}
+        {[
+          { label: "Active Deployments",    value: loadingData ? "…" : String(activePortfolio.length),        sub: "Currently deployed",          icon: <Banknote   size={16} />, accent: true                          },
+          { label: "Capital Deployed",       value: loadingData ? "…" : (totalDeployed ? formatNGN(totalDeployed) : "₦0"), sub: totalSettled ? `${formatNGN(totalSettled)} settled` : "No settled deals yet", icon: <TrendingUp size={16} />, positive: totalDeployed > 0  },
+          { label: "Consented Businesses",   value: loadingData ? "…" : String(consentCount),                 sub: "Active data access grants",   icon: <ShieldCheck size={16} />                                       },
+          { label: "Discovery Matches",      value: loadingData ? "…" : String(matches.length),               sub: "Pending your review",         icon: <Target     size={16} />, accent: matches.length > 0            },
+        ].map(m => <MetricCard key={m.label} {...m} />)}
       </div>
 
       <div className="fnc-db-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14, alignItems: "start" }}>
@@ -676,39 +707,55 @@ function PersonalDashboard() {
               </Link>
             } />
             <div style={{ padding: "10px 0 8px" }}>
-              {MY_REQUESTS.map((req, i) => (
-                <div key={i} style={{ padding: "12px 16px", borderBottom: i < MY_REQUESTS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#0A2540" }}>
-                      {req.business.slice(0, 4)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{req.business}</p>
-                        <Badge variant={riskVariant(req.risk)} style={{ fontSize: 9, padding: "1px 6px" }}>{req.risk}</Badge>
-                      </div>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{req.sector} · {req.type} · {req.requested}</p>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 46 }}>
-                    <div>
-                      <span style={{ fontSize: 18, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{req.score}</span>
-                      <span style={{ fontSize: 11, color: "#6B7280", marginLeft: 6 }}>{req.amount}</span>
-                    </div>
-                    {req.status === "pending" ? (
-                      <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                        Review <ArrowUpRight size={11} />
-                      </Link>
-                    ) : (
-                      <Badge variant="secondary">Reviewed</Badge>
-                    )}
-                  </div>
+              {myRequests.length === 0 ? (
+                <div style={{ padding: "32px", textAlign: "center" as const }}>
+                  <Inbox size={26} style={{ color: "#D1D5DB", marginBottom: 8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No active requests</p>
+                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>Financing requests you raise will appear here.</p>
                 </div>
-              ))}
+              ) : myRequests.map((req, i) => {
+                const pct = Math.round(req.match_score * 100);
+                const shortId = `BIZ-${req.anonymized_id.slice(0, 6).toUpperCase()}`;
+                const requestedDate = req.access_requested_at
+                  ? new Date(req.access_requested_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                  : "—";
+                return (
+                  <div key={req.match_id} style={{ padding: "12px 16px", borderBottom: i < myRequests.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#0A2540" }}>
+                        {shortId.slice(4, 8)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{shortId}</p>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Anonymous</span>
+                        </div>
+                        <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                          {req.capital_category.replace(/_/g, " ")} · Requested {requestedDate}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)", flexShrink: 0 }}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 46 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 80, height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444", borderRadius: 9999 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: "#9CA3AF" }}>match score</span>
+                      </div>
+                      <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, background: "#0A2540", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                        View <ArrowUpRight size={11} />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
 
-          {/* My portfolio */}
+          {/* My portfolio — real data from financing_records */}
           <Card>
             <CardHeader title="My Active Portfolio" action={
               <Link href="/financer/portfolio" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
@@ -716,53 +763,59 @@ function PersonalDashboard() {
               </Link>
             } />
             <div style={{ padding: "10px 0 8px" }}>
-              {/* Mobile cards */}
-              <div className="fnc-db-mobile-card" style={{ display: "none" }}>
-                {MY_PORTFOLIO.map((item, i) => {
-                  const hc = healthCfg(item.health);
-                  return (
-                    <div key={i} style={{ padding: "12px 18px", borderBottom: i < MY_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{item.business}</p>
-                          <p style={{ fontSize: 11, color: "#9CA3AF" }}>{item.type}</p>
-                        </div>
-                        <Badge variant={hc.variant} style={{ fontSize: 10 }}>{hc.label}</Badge>
-                      </div>
-                      <div style={{ display: "flex", gap: 16 }}>
-                        <span style={{ fontSize: 12, color: "#6B7280" }}>Amount: <strong style={{ color: "#0A2540" }}>{item.amount}</strong></span>
-                        <span style={{ fontSize: 12, color: "#6B7280" }}>Due: <strong style={{ color: "#0A2540" }}>{item.due}</strong></span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Desktop table */}
-              <div className="fnc-db-desktop-only">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px 90px 80px", padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
-                  {["Business", "Type", "Amount", "Due", "Health"].map(h => (
-                    <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-                  ))}
+              {loadingData ? (
+                <div style={{ padding: "32px", textAlign: "center" as const, color: "#9CA3AF", fontSize: 13 }}>Loading portfolio…</div>
+              ) : activePortfolio.length === 0 ? (
+                <div style={{ padding: "32px", textAlign: "center" as const }}>
+                  <Banknote size={26} style={{ color: "#D1D5DB", marginBottom: 8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No active deployments</p>
+                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>Financing records will appear here once deals are active.</p>
                 </div>
-                {MY_PORTFOLIO.map((item, i) => {
-                  const hc = healthCfg(item.health);
-                  return (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px 90px 80px", padding: "12px 22px", borderBottom: i < MY_PORTFOLIO.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{item.business}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.type}</p>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.amount}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280" }}>{item.due}</p>
-                      <Badge variant={hc.variant} style={{ width: "fit-content", fontSize: 10 }}>{hc.label}</Badge>
+              ) : (
+                <>
+                  {/* Mobile cards */}
+                  <div className="fnc-db-mobile-card" style={{ display: "none" }}>
+                    {activePortfolio.map((item, i) => (
+                      <div key={item.financing_id} style={{ padding: "12px 18px", borderBottom: i < activePortfolio.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                          <div>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>BUS-{item.business_id.slice(0, 6).toUpperCase()}</p>
+                            <p style={{ fontSize: 11, color: "#9CA3AF" }}>{item.capital_category.replace(/_/g, " ")}</p>
+                          </div>
+                          <Badge variant="success" style={{ fontSize: 10 }}>Active</Badge>
+                        </div>
+                        <div style={{ display: "flex", gap: 16 }}>
+                          <span style={{ fontSize: 12, color: "#6B7280" }}>Amount: <strong style={{ color: "#0A2540" }}>{item.terms?.amount ? formatNGN(item.terms.amount) : "—"}</strong></span>
+                          <span style={{ fontSize: 12, color: "#6B7280" }}>Since: <strong style={{ color: "#0A2540" }}>{item.granted_at ? new Date(item.granted_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="fnc-db-desktop-only">
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 100px 100px 80px", padding: "4px 22px 10px", borderBottom: "1px solid #F3F4F6" }}>
+                      {["Business", "Capital Type", "Amount", "Since", "Status"].map(h => (
+                        <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
+                    {activePortfolio.map((item, i) => (
+                      <div key={item.financing_id} style={{ display: "grid", gridTemplateColumns: "1fr 160px 100px 100px 80px", padding: "12px 22px", borderBottom: i < activePortfolio.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "var(--font-mono, monospace)", fontSize: 12 }}>BUS-{item.business_id.slice(0, 8).toUpperCase()}</p>
+                        <p style={{ fontSize: 12, color: "#6B7280", textTransform: "capitalize" }}>{item.capital_category.replace(/_/g, " ")}</p>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{item.terms?.amount ? formatNGN(item.terms.amount) : "—"}</p>
+                        <p style={{ fontSize: 12, color: "#6B7280" }}>{item.granted_at ? new Date(item.granted_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</p>
+                        <Badge variant="success" style={{ width: "fit-content", fontSize: 10 }}>Active</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Discovery matches */}
+          {/* Discovery matches — real data from discovery_matches */}
           <Card>
             <CardHeader title="New Matches" action={
               <Link href="/financer/businesses" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
@@ -770,29 +823,49 @@ function PersonalDashboard() {
               </Link>
             } />
             <div style={{ padding: "10px 0 4px" }}>
-              {DISCOVERY_MATCHES.map((m, i) => (
-                <div key={i} style={{ padding: "12px 22px", borderBottom: i < DISCOVERY_MATCHES.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{m.id}</p>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em" }}>Anonymous</span>
-                      </div>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{m.sector} · {m.cap} · {m.data_months}mo data</p>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: m.match >= 90 ? "#10B981" : "#F59E0B", fontFamily: "var(--font-display)" }}>{m.match}%</span>
-                  </div>
-                  <div className="fnc-db-match-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                      <DimBars dims={m.dims} />
-                      <p style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.revenue_band}</p>
-                    </div>
-                    <Link href="/financer/businesses" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                      Request access <ArrowUpRight size={11} />
-                    </Link>
-                  </div>
+              {loadingData ? (
+                <div style={{ padding: "32px", textAlign: "center" as const, color: "#9CA3AF", fontSize: 13 }}>Loading matches…</div>
+              ) : matches.length === 0 ? (
+                <div style={{ padding: "32px", textAlign: "center" as const }}>
+                  <Target size={26} style={{ color: "#D1D5DB", marginBottom: 8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No matches yet</p>
+                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>Set your matching criteria in Settings to start receiving discoveries.</p>
                 </div>
-              ))}
+              ) : (
+                matches.map((m, i) => {
+                  const pct = Math.round(m.match_score * 100);
+                  const shortId = `BIZ-${m.anonymized_id.slice(0, 6).toUpperCase()}`;
+                  const matchedDate = new Date(m.matched_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                  return (
+                    <div key={m.match_id} style={{ padding: "12px 22px", borderBottom: i < matches.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{shortId}</p>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Anonymous</span>
+                          </div>
+                          <p style={{ fontSize: 11, color: "#9CA3AF" }}>{m.capital_category.replace(/_/g, " ")} · Matched {matchedDate}</p>
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444", fontFamily: "var(--font-display)" }}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {/* Score bar */}
+                          <div style={{ width: 80, height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${pct}%`, background: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444", borderRadius: 9999 }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: "#9CA3AF" }}>match score</span>
+                        </div>
+                        <Link href="/financer/businesses" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                          Request access <ArrowUpRight size={11} />
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
             <div style={{ padding: "12px 22px", borderTop: "1px solid #F3F4F6" }}>
               <p style={{ fontSize: 11, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 5 }}>
@@ -802,10 +875,10 @@ function PersonalDashboard() {
           </Card>
 
           <PortfolioGlance rows={[
-            { label: "My disbursed",   value: "₦41M",    color: "#00D4FF" },
-            { label: "My repaid",      value: "₦18M",    color: "#10B981" },
-            { label: "In review",      value: "₦12M",    color: "#F59E0B" },
-            { label: "Settled (Dec)",  value: "1 deal",  color: "#818CF8" },
+            { label: "Total deployed",   value: totalDeployed  ? formatNGN(totalDeployed)  : "₦0",                              color: "#00D4FF" },
+            { label: "Total settled",    value: totalSettled   ? formatNGN(totalSettled)   : "₦0",                              color: "#10B981" },
+            { label: "Active deals",     value: activePortfolio.length  ? `${activePortfolio.length} deal${activePortfolio.length !== 1 ? "s" : ""}` : "None yet", color: "#818CF8" },
+            { label: "Consented biz",    value: String(consentCount),                                                           color: "#F59E0B" },
           ]} />
         </div>
       </div>
@@ -817,13 +890,67 @@ function PersonalDashboard() {
    ROOT PAGE — role-aware view switcher
 ══════════════════════════════════════════════════════════ */
 export default function FinancerDashboard() {
-  const role = CURRENT_USER.role;
+  const { user } = useSession();
 
-  // Determine which views this role can access and what the default is
+  const [institutionName, setInstitutionName] = useState("");
+  const [currentMember,   setCurrentMember]   = useState<MemberRow | null>(null);
+  const [allMembers,      setAllMembers]       = useState<MemberRow[]>([]);
+  const [allRecords,      setAllRecords]       = useState<FinancingRecord[]>([]);
+  const [allMatches,      setAllMatches]       = useState<DiscoveryMatch[]>([]);
+  const [activityLogs,    setActivityLogs]     = useState<ActivityLog[]>([]);
+  const [consentCount,    setConsentCount]     = useState(0);
+  const [loadingData,     setLoadingData]      = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      const { institutionId, institution: inst, member: me } = await getMyInstitutionContext(user!.id);
+      if (!institutionId || !inst) { setLoadingData(false); return; }
+      setInstitutionName(inst.name);
+
+      const [membersRes, recordsRes, matchesRes, activityRes] = await Promise.all([
+        supabase.from("institution_members").select("id, user_id, role, team_lead_id, full_name, email").eq("institution_id", institutionId).order("created_at"),
+        supabase.from("financing_records").select("financing_id, business_id, capital_category, terms, status, granted_at, settled_at, created_by_member_id").eq("institution_id", institutionId).order("granted_at", { ascending: false }),
+        supabase.from("discovery_matches").select("match_id, anonymized_id, capital_category, match_score, matched_at, status, access_requested_at, created_by_member_id").eq("institution_id", institutionId).order("match_score", { ascending: false }),
+        supabase.from("financer_activity_logs").select("id, member_id, action, target_type, target_id, metadata, created_at").eq("institution_id", institutionId).order("created_at", { ascending: false }).limit(20),
+      ]);
+
+      const rawMembers  = membersRes.data  ?? [];
+      const rawRecords  = recordsRes.data  ?? [];
+      const rawMatches  = matchesRes.data  ?? [];
+      const rawActivity = activityRes.data ?? [];
+
+      const membersWithStats: MemberRow[] = rawMembers.map(m => ({
+        ...m,
+        active_requests: rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
+        active_portfolio: rawRecords.filter(x => x.created_by_member_id === m.id && x.status === "active").reduce((s, r) => s + getAmount(r.terms), 0),
+        pending_actions: rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
+      }));
+
+      setAllMembers(membersWithStats);
+      setAllRecords(rawRecords);
+      setAllMatches(rawMatches);
+      setActivityLogs(rawActivity);
+
+      if (me) {
+        const meWithStats = membersWithStats.find(m => m.id === me.id) ?? { ...me, active_requests: 0, active_portfolio: 0, pending_actions: 0 };
+        setCurrentMember(meWithStats);
+      }
+
+      const { count } = await supabase
+        .from("consent_records")
+        .select("consent_id", { count: "exact", head: true })
+        .eq("institution_id", institutionId)
+        .eq("is_active", true);
+      setConsentCount(count ?? 0);
+      setLoadingData(false);
+    }
+    load();
+  }, [user]);
+
+  const role: OrgRole = currentMember?.role ?? "analyst";
   type ViewKey = "org" | "team" | "personal";
-
   const viewOptions: { key: ViewKey; label: string; icon: React.ReactNode }[] = [];
-
   if (role === "owner" || role === "admin") {
     viewOptions.push(
       { key: "org",      label: "Organisation", icon: <Building2       size={13} /> },
@@ -831,54 +958,50 @@ export default function FinancerDashboard() {
     );
   } else if (role === "team_lead") {
     viewOptions.push(
-      { key: "team",     label: "My Team",  icon: <Users           size={13} /> },
-      { key: "personal", label: "My Work",  icon: <LayoutDashboard size={13} /> },
+      { key: "team",     label: "My Team", icon: <Users           size={13} /> },
+      { key: "personal", label: "My Work", icon: <LayoutDashboard size={13} /> },
     );
   }
-  // analysts get no toggle — viewOptions stays empty
-
-  const defaultView: ViewKey = role === "owner" || role === "admin"
-    ? "org"
-    : role === "team_lead"
-    ? "team"
-    : "personal";
-
+  const defaultView: ViewKey = (role === "owner" || role === "admin") ? "org" : role === "team_lead" ? "team" : "personal";
   const [view, setView] = useState<ViewKey>(defaultView);
+
+  const isOwnerOrAdmin = role === "owner" || role === "admin";
+  const myTeam      = currentMember ? allMembers.filter(m => m.team_lead_id === currentMember.id) : [];
+  const myTeamIds   = new Set(myTeam.map(m => m.id));
+  // Owners/admins see all institution records in personal view;
+  // analysts/leads see only records attributed to their member ID.
+  const myRecords   = isOwnerOrAdmin
+    ? allRecords
+    : currentMember ? allRecords.filter(r => r.created_by_member_id === currentMember.id) : allRecords;
+  const myMatches   = isOwnerOrAdmin
+    ? allMatches
+    : currentMember ? allMatches.filter(m => m.created_by_member_id === currentMember.id) : allMatches;
+  const myRequests  = myMatches.filter(m => m.status === "access_requested");
+  const myDiscovery = myMatches.filter(m => m.status === "pending");
+  const teamRecords  = allRecords.filter(r => r.created_by_member_id !== null && myTeamIds.has(r.created_by_member_id!));
+  const teamRequests = allMatches.filter(m => m.created_by_member_id !== null && myTeamIds.has(m.created_by_member_id!) && m.status === "access_requested");
+  const teamActivity = activityLogs.filter(a => myTeamIds.has(a.member_id));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-      {/* View switcher — only shown when the role has multiple views */}
       {viewOptions.length > 0 && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 4,
-          padding: "4px", background: "#F3F4F6",
-          borderRadius: 10, alignSelf: "flex-start",
-        }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px", background: "#F3F4F6", borderRadius: 10, alignSelf: "flex-start" }}>
           {viewOptions.map(v => (
-            <button
-              key={v.key}
-              onClick={() => setView(v.key)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "6px 14px", borderRadius: 7, border: "none",
-                background: view === v.key ? "white" : "transparent",
-                boxShadow: view === v.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                color: view === v.key ? "#0A2540" : "#6B7280",
-                fontSize: 13, fontWeight: 600, cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-            >
+            <button key={v.key} onClick={() => setView(v.key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: "none", background: view === v.key ? "white" : "transparent", boxShadow: view === v.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none", color: view === v.key ? "#0A2540" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
               {v.icon} {v.label}
             </button>
           ))}
         </div>
       )}
-
-      {/* Render the correct view */}
-      {view === "org"      && <OrgDashboard />}
-      {view === "team"     && <TeamLeadDashboard />}
-      {view === "personal" && <PersonalDashboard />}
+      {view === "org" && (
+        <OrgDashboard institutionName={institutionName} members={allMembers} allRecords={allRecords} allMatches={allMatches} activityLogs={activityLogs} loadingData={loadingData} />
+      )}
+      {view === "team" && currentMember && (
+        <TeamLeadDashboard currentMember={currentMember} myTeam={myTeam} teamRecords={teamRecords} teamRequests={teamRequests} teamActivity={teamActivity} allMembers={allMembers} loadingData={loadingData} />
+      )}
+      {view === "personal" && (
+        <PersonalDashboard institutionName={institutionName} portfolio={myRecords} matches={myDiscovery} myRequests={myRequests} consentCount={consentCount} loadingData={loadingData} />
+      )}
     </div>
   );
 }

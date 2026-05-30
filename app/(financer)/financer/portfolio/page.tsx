@@ -1,182 +1,230 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight, CheckCircle2, Clock, AlertCircle,
-  TrendingUp, Banknote, PieChart, ChevronRight,
+  Banknote, Building2, Loader2, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useIsMobile } from "@/lib/mobile-nav-context";
+import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/session-context";
+import { getMyInstitutionId } from "@/lib/institution";
 
 /* ─────────────────────────────────────────────────────────
-   MOCK DATA
-   Replace with: GET /institution/financing → FinancingRecord[]
+   TYPES — real financing_records schema
 ───────────────────────────────────────────────────────── */
 type FinancingStatus = "active" | "settled" | "disputed" | "withdrawn";
 
-/**
- * originated_by: the analyst or member who first recommended this deal
- * recommended_at: when the report was submitted into the approval chain
- * approved_by: the team lead (or principal) who made the final call
- * approved_at: when final approval was granted
- * report_id: links back to the business report that originated this deal
- */
-const RECORDS = [
-  {
-    id: "FIN-001",
-    business_id: "BIZ-1R8T",
-    business_name: "Kemi Superstores Ltd",
-    business_cl_id: "BIZ-1R8T",
-    capital_category: "Working Capital",
-    amount: "₦15M",
-    amount_raw: 15_000_000,
-    disbursed: "Oct 15, 2024",
-    due: "Apr 15, 2025",
-    status: "active" as FinancingStatus,
-    health: "on_track" as const,
-    repaid_pct: 42,
-    sector: "Retail",
-    originated_by: "Bola Fashola",
-    recommended_at: "Oct 10, 2024",
-    approved_by: "Chidi Eze",
-    approved_at: "Oct 13, 2024",
-    report_id: "RPT-002",
-  },
-  {
-    id: "FIN-002",
-    business_id: "BIZ-3K2M",
-    business_name: "Nonso Logistics",
-    business_cl_id: "BIZ-3K2M",
-    capital_category: "Asset Financing",
-    amount: "₦42M",
-    amount_raw: 42_000_000,
-    disbursed: "Sep 1, 2024",
-    due: "Sep 1, 2026",
-    status: "active" as FinancingStatus,
-    health: "on_track" as const,
-    repaid_pct: 18,
-    sector: "Logistics",
-    originated_by: "Amaka Nwosu",
-    recommended_at: "Aug 24, 2024",
-    approved_by: "Chidi Eze",
-    approved_at: "Aug 28, 2024",
-    report_id: "RPT-008",
-  },
-  {
-    id: "FIN-003",
-    business_id: "BIZ-9P4L",
-    business_name: "Bright Pharma",
-    business_cl_id: "BIZ-9P4L",
-    capital_category: "Invoice Financing",
-    amount: "₦8M",
-    amount_raw: 8_000_000,
-    disbursed: "Dec 1, 2024",
-    due: "Feb 28, 2025",
-    status: "active" as FinancingStatus,
-    health: "watch" as const,
-    repaid_pct: 0,
-    sector: "Healthcare",
-    originated_by: "Amaka Nwosu",
-    recommended_at: "Nov 28, 2024",
-    approved_by: "Tunde Adeyemi",
-    approved_at: "Nov 30, 2024",
-    report_id: "RPT-003",
-  },
-  {
-    id: "FIN-004",
-    business_id: "BIZ-4F9T",
-    business_name: "Aduke Bakeries Ltd",
-    business_cl_id: "BIZ-4F9T",
-    capital_category: "Working Capital",
-    amount: "₦12M",
-    amount_raw: 12_000_000,
-    disbursed: "Jun 10, 2024",
-    due: "Dec 10, 2024",
-    status: "settled" as FinancingStatus,
-    health: "on_track" as const,
-    repaid_pct: 100,
-    sector: "Food & Beverage",
-    originated_by: "Amaka Nwosu",
-    recommended_at: "Jun 2, 2024",
-    approved_by: "Chidi Eze",
-    approved_at: "Jun 6, 2024",
-    report_id: "RPT-001",
-  },
-  {
-    id: "FIN-005",
-    business_id: "BIZ-2B7R",
-    business_name: "Delta Textiles",
-    business_cl_id: "BIZ-2B7R",
-    capital_category: "Term Loan",
-    amount: "₦22M",
-    amount_raw: 22_000_000,
-    disbursed: "Aug 5, 2024",
-    due: "Aug 5, 2025",
-    status: "disputed" as FinancingStatus,
-    health: "watch" as const,
-    repaid_pct: 30,
-    sector: "Manufacturing",
-    originated_by: "Bola Fashola",
-    recommended_at: "Jul 28, 2024",
-    approved_by: "Chidi Eze",
-    approved_at: "Aug 1, 2024",
-    report_id: "RPT-006",
-  },
-];
-
-const PORTFOLIO_SUMMARY = {
-  total_deployed: "₦248M",
-  active_count: 3,
-  settled_count: 8,
-  at_risk_count: 2,
-  repayment_rate: "94%",
+type FinancingRecord = {
+  financing_id:     string;
+  capital_category: string;
+  status:           FinancingStatus;
+  granted_at:       string | null;
+  institution_id:   string;
+  terms: {
+    amount?:   number;
+    rate?:     string | number;
+    tenure?:   string;
+    due_date?: string;
+    [key: string]: unknown;
+  };
+  settlement_proof: {
+    installments?: { paid_at: string; amount: number }[];
+    total_paid?:   number;
+  };
+  // joined
+  institution_name?: string;
+  institution_type?: string;
+  business_name?:    string;
+  anonymized_id?:    string;
 };
 
-function statusConfig(s: FinancingStatus) {
-  return {
-    active:    { label: "Active",    variant: "success"     as const, icon: <CheckCircle2 size={11} /> },
-    settled:   { label: "Settled",   variant: "secondary"   as const, icon: <CheckCircle2 size={11} /> },
-    disputed:  { label: "Disputed",  variant: "destructive" as const, icon: <AlertCircle  size={11} /> },
-    withdrawn: { label: "Withdrawn", variant: "outline"     as const, icon: <Clock        size={11} /> },
-  }[s];
+/* ─────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────── */
+function formatNGN(n: number) {
+  if (n >= 1_000_000_000) return `₦${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000)     return `₦${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)         return `₦${(n / 1_000).toFixed(0)}K`;
+  return `₦${n.toLocaleString()}`;
 }
 
-function healthConfig(h: "on_track" | "watch" | "overdue") {
-  return {
-    on_track: { color: "#10B981", label: "On Track" },
-    watch:    { color: "#F59E0B", label: "Watch"    },
-    overdue:  { color: "#EF4444", label: "Overdue"  },
-  }[h];
+function healthConfig(r: FinancingRecord) {
+  if (r.status === "settled")   return { label: "Settled",   variant: "success"     as const, icon: <CheckCircle2 size={11} /> };
+  if (r.status === "disputed")  return { label: "Disputed",  variant: "destructive" as const, icon: <AlertCircle  size={11} /> };
+  if (r.status === "withdrawn") return { label: "Withdrawn", variant: "secondary"   as const, icon: <Clock        size={11} /> };
+  // active — look at repayment progress
+  const totalPaid = r.settlement_proof?.total_paid ?? 0;
+  const totalAmt  = r.terms?.amount ?? 0;
+  const pct       = totalAmt > 0 ? totalPaid / totalAmt : 0;
+  if (pct >= 0.5) return { label: "On Track",  variant: "success" as const, icon: <CheckCircle2 size={11} /> };
+  return               { label: "Active",     variant: "warning" as const, icon: <Clock       size={11} /> };
+}
+
+function repaidPct(r: FinancingRecord): number {
+  const totalPaid = r.settlement_proof?.total_paid ?? 0;
+  const totalAmt  = r.terms?.amount ?? 0;
+  if (!totalAmt) return 0;
+  return Math.min(100, Math.round((totalPaid / totalAmt) * 100));
+}
+
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 /* ─────────────────────────────────────────────────────────
-   SUMMARY CARD
+   PORTFOLIO RECORD ROW
 ───────────────────────────────────────────────────────── */
-function SummaryCard({ label, value, sub, icon, accent = false }: {
-  label: string; value: string; sub: string; icon: React.ReactNode; accent?: boolean;
+function RecordRow({ record, expanded, onToggle }: {
+  record: FinancingRecord;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
+  const hc       = healthConfig(record);
+  const pct      = repaidPct(record);
+  const shortId  = `FIN-${record.financing_id.slice(0, 6).toUpperCase()}`;
+  const amount   = record.terms?.amount ? formatNGN(record.terms.amount) : "—";
+  const totalPaid = record.settlement_proof?.total_paid
+    ? formatNGN(record.settlement_proof.total_paid) : "—";
+  const dueDate  = record.terms?.due_date ? fmtDate(record.terms.due_date as string) : "—";
+
   return (
     <div style={{
-      background: "white", border: "1px solid #E5E7EB",
-      borderRadius: 14, padding: "20px 22px",
+      background: "white", border: "1px solid #E5E7EB", borderRadius: 12,
+      overflow: "hidden",
     }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 9, marginBottom: 14,
-        background: accent ? "#0A2540" : "#F3F4F6",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: accent ? "#00D4FF" : "#6B7280",
-      }}>
-        {icon}
+      {/* Summary row */}
+      <div
+        onClick={onToggle}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 120px 110px 100px 100px 130px 28px",
+          gap: 12, padding: "14px 20px", alignItems: "center", cursor: "pointer",
+        }}
+        className="portfolio-row"
+      >
+        {/* Business */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+            background: "#0A2540",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Building2 size={15} color="#00D4FF" />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{shortId}</p>
+            <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+              {record.capital_category.replace(/_/g, " ")}
+              {" · "}{record.business_name ?? (record.anonymized_id ? `BIZ-${record.anonymized_id.slice(0,6).toUpperCase()}` : "—")}
+              {record.institution_name ? ` · ${record.institution_name}` : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* Amount */}
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{amount}</p>
+
+        {/* Repaid */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+            <span style={{ fontSize: 10, color: "#9CA3AF" }}>Repaid</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#374151" }}>{pct}%</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: pct >= 50 ? "#10B981" : "#F59E0B", borderRadius: 9999 }} />
+          </div>
+        </div>
+
+        {/* Disbursed */}
+        <p style={{ fontSize: 12, color: "#6B7280" }}>{fmtDate(record.granted_at)}</p>
+
+        {/* Due */}
+        <p style={{ fontSize: 12, color: "#6B7280" }}>{dueDate}</p>
+
+        {/* Status */}
+        <Badge variant={hc.variant} style={{ fontSize: 10, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          {hc.icon} {hc.label}
+        </Badge>
+
+        {/* Chevron */}
+        <div style={{ color: "#9CA3AF", display: "flex" }}>
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </div>
       </div>
-      <p style={{
-        fontFamily: "var(--font-display)", fontWeight: 800,
-        fontSize: 26, color: "#0A2540", letterSpacing: "-0.04em",
-        lineHeight: 1, marginBottom: 4,
-      }}>
-        {value}
-      </p>
-      <p style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", marginBottom: 2 }}>{label}</p>
-      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{sub}</p>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div style={{ borderTop: "1px solid #F3F4F6", padding: "20px", background: "#FAFAFA" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "start" }}>
+            {/* Left: terms grid */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px",
+              background: "white", border: "1px solid #E5E7EB",
+              borderRadius: 10, padding: "16px 18px",
+            }}>
+              {[
+                { label: "Financing ID",    value: record.financing_id },
+                { label: "Business",        value: record.business_name ?? (record.anonymized_id ? `BIZ-${record.anonymized_id.slice(0,6).toUpperCase()}` : "—") },
+                { label: "Institution",     value: record.institution_name ?? "—" },
+                { label: "Capital Type",    value: record.capital_category.replace(/_/g, " ") },
+                { label: "Amount",          value: amount },
+                { label: "Total Repaid",    value: totalPaid },
+                { label: "Rate",            value: record.terms?.rate ? String(record.terms.rate) : "—" },
+                { label: "Tenure",          value: record.terms?.tenure ? String(record.terms.tenure) : "—" },
+                { label: "Disbursed",       value: fmtDate(record.granted_at) },
+                { label: "Due Date",        value: dueDate },
+                { label: "Status",          value: hc.label },
+              ].map(r => (
+                <div key={r.label}>
+                  <p style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 2 }}>
+                    {r.label}
+                  </p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{r.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Right: repayment progress + link */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 160 }}>
+              <div style={{
+                background: "white", border: "1px solid #E5E7EB",
+                borderRadius: 10, padding: "14px 16px",
+              }}>
+                <p style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 8 }}>Repayment</p>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 8 }}>
+                  <p style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 800, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1 }}>
+                    {pct}%
+                  </p>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>repaid</p>
+                </div>
+                <div style={{ height: 6, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct >= 50 ? "#10B981" : "#F59E0B", borderRadius: 9999 }} />
+                </div>
+                {record.settlement_proof?.installments && record.settlement_proof.installments.length > 0 && (
+                  <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8 }}>
+                    {record.settlement_proof.installments.length} instalment{record.settlement_proof.installments.length !== 1 ? "s" : ""} recorded
+                  </p>
+                )}
+              </div>
+
+              <Link
+                href={`/financer/portfolio/${record.financing_id}`}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "9px 18px", borderRadius: 8,
+                  background: "#0A2540", color: "white",
+                  fontSize: 13, fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                Full Record <ArrowUpRight size={13} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -185,193 +233,248 @@ function SummaryCard({ label, value, sub, icon, accent = false }: {
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function FinancerPortfolio() {
-  const isMobile = useIsMobile();
-  const active   = RECORDS.filter(r => r.status === "active");
-  const settled  = RECORDS.filter(r => r.status === "settled");
-  const disputed = RECORDS.filter(r => r.status === "disputed");
+  const { user } = useSession();
+
+  const [records,  setRecords]  = useState<FinancingRecord[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [filter,   setFilter]   = useState<"all" | FinancingStatus>("all");
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+      setError(null);
+
+      // Resolve institution
+      const instId = await getMyInstitutionId(user.id);
+      if (!instId) { setError("No institution found."); setLoading(false); return; }
+
+      const { data, error: fetchErr } = await supabase
+        .from("financing_records")
+        .select(`
+          financing_id,
+          capital_category,
+          terms,
+          status,
+          granted_at,
+          settlement_proof,
+          institution_id,
+          business_id,
+          institutions ( name, category )
+        `)
+        .eq("institution_id", instId)
+        .order("granted_at", { ascending: false });
+
+      if (fetchErr) { setError(`Failed to load portfolio: ${fetchErr.message}`); setLoading(false); return; }
+
+      // Fetch business names separately
+      const businessIds = [...new Set((data ?? []).map((r: any) => r.business_id).filter(Boolean))];
+      let bizMap: Record<string, { name: string; financial_identity_id: string }> = {};
+      if (businessIds.length > 0) {
+        const { data: bizRows } = await supabase
+          .from("businesses")
+          .select("business_id, name, financial_identity_id")
+          .in("business_id", businessIds);
+        (bizRows ?? []).forEach((b: any) => { bizMap[b.business_id] = b; });
+      }
+
+      const shaped: FinancingRecord[] = (data ?? []).map((r: any) => {
+        const t  = r.terms            ?? {};
+        const sp = r.settlement_proof ?? {};
+        const biz = bizMap[r.business_id];
+        return {
+          financing_id:     r.financing_id,
+          capital_category: r.capital_category,
+          terms: {
+            amount:   t.financing_amount ?? t.amount ?? undefined,
+            rate:     t.interest_rate    ?? t.rate   ?? undefined,
+            tenure:   t.tenure_months != null ? `${t.tenure_months} months` : (t.tenure ?? undefined),
+            due_date: t.settlement_date  ?? t.due_date ?? undefined,
+          },
+          status:           r.status,
+          granted_at:       r.granted_at,
+          settlement_proof: {
+            total_paid:   sp.amount_paid  ?? sp.total_paid  ?? undefined,
+            installments: sp.installments ?? undefined,
+          },
+          institution_id:   r.institution_id,
+          institution_name: r.institutions?.name     ?? undefined,
+          institution_type: r.institutions?.category ?? undefined,
+          business_name:    biz?.name                ?? undefined,
+          anonymized_id:    biz?.financial_identity_id ?? undefined,
+        };
+      });
+
+      setRecords(shaped);
+      setLoading(false);
+    })();
+  }, [user]);
+
+  const filtered = filter === "all" ? records : records.filter(r => r.status === filter);
+
+  const totalDeployed = records
+    .filter(r => r.status === "active")
+    .reduce((s, r) => s + (r.terms?.amount ?? 0), 0);
+  const totalRepaid = records
+    .reduce((s, r) => s + (r.settlement_proof?.total_paid ?? 0), 0);
+
+  const counts = {
+    all:       records.length,
+    active:    records.filter(r => r.status === "active").length,
+    settled:   records.filter(r => r.status === "settled").length,
+    disputed:  records.filter(r => r.status === "disputed").length,
+    withdrawn: records.filter(r => r.status === "withdrawn").length,
+  };
+
+  const tabs: { key: "all" | FinancingStatus; label: string }[] = [
+    { key: "all",       label: "All" },
+    { key: "active",    label: "Active" },
+    { key: "settled",   label: "Settled" },
+    { key: "disputed",  label: "Disputed" },
+    { key: "withdrawn", label: "Withdrawn" },
+  ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* ── HEADER ── */}
-      <div>
-        <h2 style={{
-          fontFamily: "var(--font-display)", fontWeight: 800,
-          fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4,
-        }}>
-          Portfolio
-        </h2>
-        <p style={{ fontSize: 13, color: "#6B7280" }}>
-          {RECORDS.length} financing records · {active.length} active · {settled.length} settled
-        </p>
-      </div>
-
-      {/* ── SUMMARY METRICS ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
-        <SummaryCard label="Total Deployed"  value={PORTFOLIO_SUMMARY.total_deployed} sub="Across all records"          icon={<Banknote size={16} />}  accent />
-        <SummaryCard label="Active"          value={String(PORTFOLIO_SUMMARY.active_count)} sub="Currently funded"       icon={<TrendingUp size={16} />} />
-        <SummaryCard label="Settled"         value={String(PORTFOLIO_SUMMARY.settled_count)} sub="Fully repaid"          icon={<CheckCircle2 size={16} />} />
-        <SummaryCard label="Repayment Rate"  value={PORTFOLIO_SUMMARY.repayment_rate} sub="On-time settlement rate"      icon={<PieChart size={16} />} />
-      </div>
-
-      {/* ── ACTIVE RECORDS ── */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>
-            Active Financing
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{
+            fontFamily: "var(--font-display)", fontWeight: 800,
+            fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4,
+          }}>
+            Portfolio
+          </h2>
+          <p style={{ fontSize: 13, color: "#6B7280" }}>
+            {loading ? "Loading…" : (
+              <>
+                {counts.active} active deal{counts.active !== 1 ? "s" : ""}
+                {totalDeployed > 0 && <> · <span style={{ fontWeight: 600, color: "#0A2540" }}>{formatNGN(totalDeployed)} deployed</span></>}
+                {totalRepaid > 0 && <> · <span style={{ color: "#10B981", fontWeight: 600 }}>{formatNGN(totalRepaid)} repaid</span></>}
+              </>
+            )}
           </p>
-          <Link href="/financer/reports" style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>
-            View report <ChevronRight size={12} />
-          </Link>
         </div>
+      </div>
 
-        <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
-          {isMobile ? (
-            active.map((rec, i) => {
-              const hc = healthConfig(rec.health);
-              return (
-                <div key={rec.id} style={{ padding: "14px 18px", borderBottom: i < active.length - 1 ? "1px solid #F3F4F6" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
-                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.capital_category} · {rec.sector}</p>
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: hc.color, flexShrink: 0 }}>{hc.label}</span>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                    <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px" }}>
-                      <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Amount</p>
-                      <p style={{ fontSize: 15, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{rec.amount}</p>
-                    </div>
-                    <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 10px" }}>
-                      <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Due</p>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{rec.due}</p>
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>Repaid</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: hc.color }}>{rec.repaid_pct}%</span>
-                    </div>
-                    <div style={{ height: 6, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${rec.repaid_pct}%`, background: hc.color, borderRadius: 9999 }} />
-                    </div>
-                  </div>
-                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>by {rec.originated_by} · appr. {rec.approved_by}</p>
-                </div>
-              );
-            })
-          ) : (
-            <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 90px 120px 90px 70px 160px", padding: "10px 22px", borderBottom: "1px solid #F3F4F6" }}>
-              {["Business", "Type", "Amount", "Due Date", "Repaid", "Health", "Originated by"].map(h => (
-                <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-              ))}
+      {/* Summary metric cards */}
+      {!loading && records.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+          {[
+            { label: "Active Deals",    value: String(counts.active),             icon: <Banknote  size={15} />, accent: true  },
+            { label: "Total Deployed",  value: formatNGN(totalDeployed),           icon: <ArrowUpRight size={15} />, accent: false },
+            { label: "Total Repaid",    value: formatNGN(totalRepaid),             icon: <CheckCircle2 size={15} />, accent: false },
+            { label: "Settled Deals",   value: String(counts.settled),             icon: <CheckCircle2 size={15} />, accent: false },
+          ].map(m => (
+            <div key={m.label} style={{
+              background: m.accent ? "#0A2540" : "white",
+              border: "1px solid", borderColor: m.accent ? "#0A2540" : "#E5E7EB",
+              borderRadius: 12, padding: "14px 16px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, color: m.accent ? "#00D4FF" : "#9CA3AF" }}>
+                {m.icon}
+                <p style={{ fontSize: 11, fontWeight: 600, color: m.accent ? "#9CA3AF" : "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {m.label}
+                </p>
+              </div>
+              <p style={{
+                fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800,
+                color: m.accent ? "white" : "#0A2540", letterSpacing: "-0.03em",
+              }}>
+                {m.value}
+              </p>
             </div>
-            {active.map((rec, i) => {
-              const hc = healthConfig(rec.health);
-              return (
-                <div key={rec.id} style={{ display: "grid", gridTemplateColumns: "1fr 130px 90px 120px 90px 70px 160px", padding: "14px 22px", borderBottom: i < active.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center" }}>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ fontSize: 10, fontFamily: "monospace", color: "#9CA3AF", background: "#F3F4F6", padding: "1px 4px", borderRadius: 3 }}>{rec.business_cl_id}</span>
-                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.sector}</span>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: 12, color: "#6B7280" }}>{rec.capital_category}</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{rec.amount}</p>
-                  <p style={{ fontSize: 12, color: "#6B7280" }}>{rec.due}</p>
-                  <div>
-                    <div style={{ height: 6, borderRadius: 9999, background: "#F3F4F6", marginBottom: 3, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${rec.repaid_pct}%`, background: hc.color, borderRadius: 9999 }} />
-                    </div>
-                    <p style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF" }}>{rec.repaid_pct}%</p>
-                  </div>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: hc.color }}>{hc.label}</p>
-                  <div>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{rec.originated_by}</p>
-                    <p style={{ fontSize: 10, color: "#9CA3AF" }}>rec. {rec.recommended_at}</p>
-                    <p style={{ fontSize: 10, color: "#9CA3AF" }}>appr. by {rec.approved_by} · {rec.approved_at}</p>
-                  </div>
-                </div>
-              );
-            })}
-            </>
-          )}
+          ))}
         </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{ padding: "14px 18px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", fontSize: 13, color: "#B91C1C" }}>
+          {error}
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "6px 14px", borderRadius: 8,
+              border: filter === tab.key ? "1px solid #0A2540" : "1px solid #E5E7EB",
+              background: filter === tab.key ? "#0A2540" : "white",
+              color: filter === tab.key ? "white" : "#6B7280",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {tab.label}
+            <span style={{
+              minWidth: 18, height: 18, borderRadius: 9999, padding: "0 4px",
+              background: filter === tab.key ? "rgba(255,255,255,0.15)" : "#F3F4F6",
+              color: filter === tab.key ? "white" : "#6B7280",
+              fontSize: 10, fontWeight: 700,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {counts[tab.key]}
+            </span>
+          </button>
+        ))}
       </div>
 
-      {/* ── DISPUTED ── */}
-      {disputed.length > 0 && (
-        <div>
-          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 14 }}>
-            Disputes
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {disputed.map(rec => (
-              <div key={rec.id} style={{
-                display: "flex", alignItems: "center", gap: 14,
-                background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)",
-                borderRadius: 12, padding: "14px 20px",
-              }}>
-                <AlertCircle size={16} style={{ color: "#EF4444", flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#991B1B", marginBottom: 2 }}>{rec.business_name}</p>
-                  <p style={{ fontSize: 11, color: "#B91C1C" }}>
-                    {rec.capital_category} · {rec.amount} · Disbursed {rec.disbursed}
-                  </p>
-                </div>
-                <button style={{
-                  padding: "6px 14px", borderRadius: 7,
-                  border: "1px solid rgba(239,68,68,0.25)",
-                  background: "white", color: "#EF4444",
-                  fontSize: 12, fontWeight: 600, cursor: "pointer",
-                }}>
-                  Manage Dispute
-                </button>
-              </div>
+      {/* Table header — desktop only */}
+      {!loading && filtered.length > 0 && (
+        <>
+          <div
+            className="portfolio-desktop-header"
+            style={{ display: "grid", gridTemplateColumns: "1fr 120px 110px 100px 100px 130px 28px", gap: 12, padding: "0 20px 4px" }}
+          >
+            {["Deal", "Amount", "Repaid", "Disbursed", "Due", "Status", ""].map(h => (
+              <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
             ))}
           </div>
+          <style>{`
+            @media (max-width: 768px) { .portfolio-desktop-header { display: none !important; } }
+            @media (max-width: 768px) { .portfolio-row { grid-template-columns: 1fr 100px 130px 28px !important; } }
+          `}</style>
+        </>
+      )}
+
+      {/* Records */}
+      {loading ? (
+        <div style={{ padding: "60px 24px", textAlign: "center" as const, background: "white", borderRadius: 14, border: "1px solid #E5E7EB" }}>
+          <Loader2 size={28} style={{ color: "#D1D5DB", marginBottom: 12, animation: "spin 1s linear infinite" }} />
+          <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>Loading portfolio…</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: "60px 24px", textAlign: "center" as const, background: "white", borderRadius: 14, border: "1px solid #E5E7EB" }}>
+          <Banknote size={32} style={{ color: "#E5E7EB", marginBottom: 12 }} />
+          <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No deals yet</p>
+          <p style={{ fontSize: 13, color: "#9CA3AF" }}>
+            {filter === "all"
+              ? "Financing records will appear here once deals are created."
+              : `No ${filter} deals.`}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {filtered.map(r => (
+            <RecordRow
+              key={r.financing_id}
+              record={r}
+              expanded={expanded === r.financing_id}
+              onToggle={() => setExpanded(expanded === r.financing_id ? null : r.financing_id)}
+            />
+          ))}
         </div>
       )}
 
-      {/* ── SETTLED ── */}
-      {settled.length > 0 && (
-        <div>
-          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 14 }}>
-            Recently Settled
-          </p>
-          <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
-            {settled.map((rec, i) => (
-              <div key={rec.id} style={{
-                display: "flex", alignItems: "center", gap: 14,
-                padding: "14px 22px",
-                borderBottom: i < settled.length - 1 ? "1px solid #F3F4F6" : "none",
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, background: "#ECFDF5",
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>
-                  <CheckCircle2 size={14} color="#10B981" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{rec.business_name}</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "#9CA3AF", background: "#F3F4F6", padding: "1px 4px", borderRadius: 3 }}>{rec.business_cl_id}</span>
-                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>{rec.capital_category} · Disbursed {rec.disbursed}</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" as const }}>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", marginBottom: 2 }}>{rec.amount}</p>
-                  <p style={{ fontSize: 10, color: "#9CA3AF" }}>by {rec.originated_by} · appr. {rec.approved_by}</p>
-                </div>
-                <Badge variant="success" style={{ fontSize: 10 }}>Settled</Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

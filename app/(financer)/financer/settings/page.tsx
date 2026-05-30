@@ -1,20 +1,24 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Building2, Shield, Target, Save, Users,
   Plus, MoreHorizontal, Mail, ChevronDown,
   Crown, UserCheck, User, UserX, X, Check,
   AlertCircle, RefreshCw, GitBranch, Settings2,
+  Plug, Key, Copy, Trash2, CheckCircle2, Clock, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/lib/mobile-nav-context";
+import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/session-context";
+import { getMyInstitutionId } from "@/lib/institution";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────────────────── */
 type OrgRole = "owner" | "admin" | "team_lead" | "analyst";
-type Tab = "institution" | "criteria" | "workflow" | "security" | "team";
+type Tab = "institution" | "criteria" | "workflow" | "security" | "team" | "integrations";
 
 /* ─────────────────────────────────────────────────────────
    WORKFLOW CONFIG TYPES
@@ -42,17 +46,10 @@ type MemberWorkflowOverride = {
 };
 
 /* ─────────────────────────────────────────────────────────
-   MOCK DATA
-   Replace with Keycloak Groups/Roles API calls:
-     GET  /institution/members
-     POST /institution/members/invite        { email, role }
-     PUT  /institution/members/:id/role      { role }
-     PUT  /institution/members/:id/team-lead { team_lead_id }
-     DEL  /institution/members/:id
+   MOCK DATA — fallback only, real data loads from Supabase
 ───────────────────────────────────────────────────────── */
 
-// Simulates the logged-in user — in production, pull from Keycloak JWT claims
-const CURRENT_USER_ID = "u1";
+const CURRENT_USER_ID = "";
 
 const MEMBERS_INIT = [
   {
@@ -779,33 +776,67 @@ function MemberRow({
 /* ─────────────────────────────────────────────────────────
    TEAM TAB
 ───────────────────────────────────────────────────────── */
-function TeamTab({ currentUserId, currentRole }: { currentUserId: string; currentRole: OrgRole }) {
-  const [members, setMembers] = useState(MEMBERS_INIT);
+function TeamTab({ currentUserId, currentRole, institutionId }: { currentUserId: string; currentRole: OrgRole; institutionId: string | null }) {
+  const [members, setMembers] = useState<typeof MEMBERS_INIT>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+
+  useEffect(() => {
+    if (!institutionId) return;
+    async function loadMembers() {
+      const { data } = await supabase
+        .from("institution_members")
+        .select("id, user_id, full_name, email, role, team_lead_id, is_active, created_at")
+        .eq("institution_id", institutionId!)
+        .order("created_at", { ascending: true });
+      if (data && data.length > 0) {
+        setMembers(data.map(m => ({
+          id: m.id,
+          name: m.full_name ?? m.email ?? "Unknown",
+          email: m.email ?? "",
+          role: m.role as OrgRole,
+          team_lead_id: m.team_lead_id ?? null,
+          joined: new Date(m.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }),
+          active_requests: 0,
+          active_portfolio: "₦0",
+          is_active: m.is_active ?? true,
+          workflow_override: null,
+        })));
+      }
+      setLoadingMembers(false);
+    }
+    loadMembers();
+  }, [institutionId]);
   const [showInvite, setShowInvite] = useState(false);
   const [filter, setFilter] = useState<"all" | OrgRole>("all");
 
   const filtered = filter === "all" ? members : members.filter(m => m.role === filter);
 
-  const updateMember = (id: string, patch: Partial<typeof MEMBERS_INIT[0]>) => {
+  const updateMember = async (id: string, patch: Partial<typeof MEMBERS_INIT[0]>) => {
     setMembers(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
-    // TODO: PATCH /institution/members/:id via Keycloak admin API
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.role !== undefined) dbPatch.role = patch.role;
+    if (patch.team_lead_id !== undefined) dbPatch.team_lead_id = patch.team_lead_id;
+    if (patch.is_active !== undefined) dbPatch.is_active = patch.is_active;
+    if (Object.keys(dbPatch).length > 0) {
+      await supabase.from("institution_members").update(dbPatch).eq("id", id);
+    }
   };
 
-  const inviteMember = (email: string, role: OrgRole) => {
-    const newMember = {
-      id: `u${Date.now()}`,
-      name: email.split("@")[0],
+  const inviteMember = async (email: string, role: OrgRole) => {
+    if (!institutionId) return;
+    const tempId = `pending_${Date.now()}`;
+    setMembers(prev => [...prev, {
+      id: tempId, name: email.split("@")[0], email, role,
+      team_lead_id: null, joined: "Pending",
+      active_requests: 0, active_portfolio: "₦0",
+      is_active: false, workflow_override: null,
+    }]);
+    await supabase.from("institution_invitations").insert({
+      institution_id: institutionId,
       email,
       role,
-      team_lead_id: null,
-      joined: "Pending",
-      active_requests: 0,
-      active_portfolio: "₦0",
-      is_active: false,
-      workflow_override: null,
-    };
-    setMembers(prev => [...prev, newMember]);
-    // TODO: POST /institution/members/invite { email, role } → Keycloak invitation
+      invited_by: (await supabase.auth.getUser()).data.user?.id,
+    });
   };
 
   const active   = members.filter(m => m.is_active).length;
@@ -959,44 +990,630 @@ function TeamTab({ currentUserId, currentRole }: { currentUserId: string; curren
 }
 
 /* ─────────────────────────────────────────────────────────
+   INTEGRATIONS TAB
+───────────────────────────────────────────────────────── */
+type DevAccount = {
+  id: string;
+  status: string;
+  api_key_count: number;
+  api_calls_30d: number;
+  created_at: string;
+};
+
+type ApiKey = {
+  id: string;
+  label: string;
+  key_prefix: string;
+  environment: "live" | "test";
+  is_active: boolean;
+  last_used_at: string | null;
+  created_at: string;
+};
+
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      title="Copy"
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 28, height: 28, borderRadius: 6,
+        border: "1px solid #E5E7EB", background: "white",
+        cursor: "pointer", color: copied ? "#10B981" : "#9CA3AF",
+        transition: "all 0.12s",
+      }}
+    >
+      {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+    </button>
+  );
+}
+
+function KeyRow({ apiKey, onRevoke, onDelete }: {
+  apiKey: ApiKey;
+  onRevoke: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const isRevoked = !apiKey.is_active;
+  const masked = apiKey.key_prefix + "•".repeat(24);
+
+  return (
+    <div style={{
+      padding: "14px 20px", borderBottom: "1px solid #F3F4F6",
+      opacity: isRevoked ? 0.55 : 1, transition: "opacity 0.2s",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+          background: isRevoked ? "#F3F4F6" : "rgba(0,212,255,0.06)",
+          border: `1px solid ${isRevoked ? "#E5E7EB" : "rgba(0,212,255,0.2)"}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: isRevoked ? "#9CA3AF" : "#0A5060",
+        }}>
+          <Key size={14} strokeWidth={1.8} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{apiKey.label}</span>
+            <Badge variant={apiKey.environment === "test" ? "warning" : "success"} style={{ fontSize: 9, padding: "1px 6px" }}>
+              {apiKey.environment}
+            </Badge>
+            {isRevoked && <Badge variant="destructive" style={{ fontSize: 9, padding: "1px 6px" }}>Revoked</Badge>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+            <code style={{
+              fontSize: 12, fontFamily: "var(--font-mono, 'Courier New', monospace)",
+              color: "#374151", background: "#F3F4F6",
+              padding: "3px 8px", borderRadius: 5, letterSpacing: "0.04em", wordBreak: "break-all",
+            }}>
+              {masked}
+            </code>
+            {!isRevoked && <CopyBtn text={apiKey.key_prefix} />}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 4 }}>
+              <Clock size={10} /> Created {new Date(apiKey.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
+            {apiKey.last_used_at
+              ? <span style={{ fontSize: 11, color: "#9CA3AF", display: "flex", alignItems: "center", gap: 4 }}><CheckCircle2 size={10} /> Last used {new Date(apiKey.last_used_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+              : !isRevoked && <span style={{ fontSize: 11, color: "#D1D5DB" }}>Never used</span>
+            }
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {!isRevoked && (
+            <button
+              disabled={busy}
+              onClick={async () => { setBusy(true); await onRevoke(apiKey.id); setBusy(false); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 10px", borderRadius: 7,
+                border: "1px solid #FCA5A5", background: "white", color: "#EF4444",
+                fontSize: 12, fontWeight: 600, cursor: busy ? "default" : "pointer",
+                opacity: busy ? 0.6 : 1, transition: "all 0.12s",
+              }}
+              onMouseEnter={e => { if (!busy) (e.currentTarget as HTMLElement).style.background = "#FEF2F2"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "white"; }}
+            >
+              {busy ? <Loader2 size={11} style={{ animation: "spin 0.8s linear infinite" }} /> : <Trash2 size={11} />}
+              {busy ? "Revoking…" : "Revoke"}
+            </button>
+          )}
+          {isRevoked && (
+            <button
+              disabled={busy}
+              onClick={async () => {
+                if (!confirm(`Permanently delete "${apiKey.label}"?`)) return;
+                setBusy(true); await onDelete(apiKey.id); setBusy(false);
+              }}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 10px", borderRadius: 7,
+                border: "1px solid #E5E7EB", background: "white", color: "#6B7280",
+                fontSize: 12, fontWeight: 600, cursor: busy ? "default" : "pointer",
+                opacity: busy ? 0.6 : 1, transition: "all 0.12s",
+              }}
+              onMouseEnter={e => { if (!busy) { const el = e.currentTarget as HTMLElement; el.style.background = "#FEF2F2"; el.style.color = "#EF4444"; el.style.borderColor = "#FCA5A5"; } }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "white"; el.style.color = "#6B7280"; el.style.borderColor = "#E5E7EB"; }}
+            >
+              {busy ? <Loader2 size={11} style={{ animation: "spin 0.8s linear infinite" }} /> : <Trash2 size={11} />}
+              {busy ? "Deleting…" : "Delete"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NewKeyModal({ fullKey, onDismiss }: { fullKey: string; onDismiss: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 300,
+      background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <div style={{
+        background: "white", borderRadius: 18,
+        boxShadow: "0 32px 80px rgba(0,0,0,0.22)",
+        width: "100%", maxWidth: 500, margin: "0 16px", overflow: "hidden",
+      }}>
+        <div style={{ padding: "22px 24px 16px", borderBottom: "1px solid #F3F4F6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <CheckCircle2 size={17} style={{ color: "#10B981" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 800, color: "#0A2540", letterSpacing: "-0.02em" }}>API Key Created</p>
+              <p style={{ fontSize: 12, color: "#6B7280" }}>Copy it now — it will not be shown again</p>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "20px 24px" }}>
+          <div style={{ padding: "14px 16px", background: "#F8FAFC", border: "1px solid #E5E7EB", borderRadius: 10, marginBottom: 12 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" as const }}>Your API Key</p>
+            <code style={{ display: "block", fontSize: 13, fontFamily: "var(--font-mono, 'Courier New', monospace)", color: "#0A2540", wordBreak: "break-all", lineHeight: 1.6 }}>
+              {fullKey}
+            </code>
+          </div>
+          <button
+            onClick={() => { navigator.clipboard.writeText(fullKey); setCopied(true); setTimeout(() => setCopied(false), 2500); }}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              padding: "10px 16px", borderRadius: 9,
+              border: `1px solid ${copied ? "rgba(16,185,129,0.3)" : "#D1D5DB"}`,
+              background: copied ? "#ECFDF5" : "white",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              color: copied ? "#10B981" : "#374151", transition: "all 0.15s",
+            }}
+          >
+            {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+            {copied ? "Copied!" : "Copy Key"}
+          </button>
+          <div style={{ marginTop: 14, padding: "12px 14px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 9, display: "flex", gap: 10 }}>
+            <AlertCircle size={14} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: "#92400E", lineHeight: 1.6 }}>This key will <strong>not</strong> be shown again. If you lose it, revoke it and generate a new one.</p>
+          </div>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 16, cursor: "pointer" }}>
+            <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} style={{ marginTop: 2, accentColor: "#0A2540", width: 15, height: 15 }} />
+            <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>I have copied and saved my API key in a secure location</span>
+          </label>
+        </div>
+        <div style={{ padding: "0 24px 22px" }}>
+          <button
+            onClick={onDismiss} disabled={!confirmed}
+            style={{
+              width: "100%", padding: "11px 16px", borderRadius: 9, border: "none",
+              background: confirmed ? "#0A2540" : "#E5E7EB",
+              color: confirmed ? "white" : "#9CA3AF",
+              fontSize: 14, fontWeight: 700, cursor: confirmed ? "pointer" : "default", transition: "all 0.15s",
+            }}
+          >Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateKeyModal({ onClose, onCreate }: {
+  onClose: () => void;
+  onCreate: (label: string) => Promise<void>;
+}) {
+  const [label, setLabel] = useState("");
+  const [saving, setSaving] = useState(false);
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "white", borderRadius: 16, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", width: "100%", maxWidth: 440, overflow: "hidden", margin: "0 16px" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ padding: "22px 24px 16px", borderBottom: "1px solid #F3F4F6" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 4 }}>Create API Key</h2>
+          <p style={{ fontSize: 13, color: "#6B7280" }}>Scoped to institutional endpoints only. Environment is determined by the host.</p>
+        </div>
+        <div style={{ padding: "20px 24px" }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>Key label</label>
+          <input
+            value={label} onChange={e => setLabel(e.target.value)}
+            placeholder="e.g. Core Banking Integration"
+            style={{ width: "100%", padding: "9px 12px", border: "1px solid #D1D5DB", borderRadius: 8, fontSize: 14, color: "#0A2540", outline: "none", boxSizing: "border-box" as const }}
+            onFocus={e => (e.currentTarget.style.borderColor = "#0A2540")}
+            onBlur={e => (e.currentTarget.style.borderColor = "#D1D5DB")}
+          />
+        </div>
+        <div style={{ padding: "14px 24px 20px", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button onClick={onClose} style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
+          <button
+            disabled={!label.trim() || saving}
+            onClick={async () => { if (!label.trim()) return; setSaving(true); await onCreate(label.trim()); setSaving(false); onClose(); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 16px", borderRadius: 8, border: "none",
+              background: label.trim() && !saving ? "#0A2540" : "#E5E7EB",
+              color: label.trim() && !saving ? "white" : "#9CA3AF",
+              fontSize: 13, fontWeight: 600, cursor: label.trim() && !saving ? "pointer" : "default",
+            }}
+          >
+            {saving ? <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> : <Key size={13} />}
+            {saving ? "Creating…" : "Create Key"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IntegrationsTab() {
+  const { user } = useSession();
+  const [institutionId,   setInstitutionId]   = useState<string | null>(null);
+  const [institutionName, setInstitutionName] = useState<string>("");
+  const [devAccount,   setDevAccount]   = useState<DevAccount | null>(null);
+  const [keys,         setKeys]         = useState<ApiKey[]>([]);
+  const [loadingAcct,  setLoadingAcct]  = useState(true);
+  const [loadingKeys,  setLoadingKeys]  = useState(false);
+  const [enabling,     setEnabling]     = useState(false);
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [newKeyFull,   setNewKeyFull]   = useState<string | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
+
+  /* ── load institution + developer account in one sequential shot ──
+     Both steps run in the same effect so loadingAcct is always cleared,
+     even if the institution query returns no data or an error.
+  ── */
+  useEffect(() => {
+    if (!user) return;
+
+    async function load() {
+      // Step 1: resolve institution
+      const instId = await getMyInstitutionId(user!.id);
+      if (!instId) {
+        setError("No institution is linked to your account. Contact your administrator.");
+        setLoadingAcct(false);
+        return;
+      }
+
+      const { data: inst, error: instErr } = await supabase
+        .from("institutions")
+        .select("institution_id, name")
+        .eq("institution_id", instId)
+        .maybeSingle();
+
+      if (instErr) {
+        setError(instErr.message);
+        setLoadingAcct(false);
+        return;
+      }
+
+      if (!inst) {
+        setError("No institution is linked to your account. Contact your administrator.");
+        setLoadingAcct(false);
+        return;
+      }
+
+      setInstitutionId(inst.institution_id);
+      setInstitutionName(inst.name);
+
+      // Step 2: check for existing developer account
+      const { data: devAcct, error: devErr } = await supabase
+        .from("developer_accounts")
+        .select("id, status, api_key_count, api_calls_30d, created_at")
+        .eq("institution_id", inst.institution_id)
+        .eq("account_type", "institutional")
+        .maybeSingle();
+
+      if (devErr) setError(devErr.message);
+      else setDevAccount(devAcct ?? null);
+      setLoadingAcct(false);
+    }
+
+    load();
+  }, [user]);
+
+  /* ── load keys once developer account is known ── */
+  const loadKeys = useCallback(async (devId: string) => {
+    setLoadingKeys(true);
+    const { data, error } = await supabase
+      .from("developer_api_keys")
+      .select("id, label, key_prefix, environment, is_active, last_used_at, created_at")
+      .eq("developer_id", devId)
+      .order("created_at", { ascending: false });
+    if (error) setError(error.message);
+    else setKeys(data ?? []);
+    setLoadingKeys(false);
+  }, []);
+
+  useEffect(() => {
+    if (devAccount) loadKeys(devAccount.id);
+  }, [devAccount, loadKeys]);
+
+  /* ── enable API access — creates developer_accounts row ── */
+  async function handleEnable() {
+    setEnabling(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from("developer_accounts")
+      .insert({
+        name: institutionName,
+        email: user?.email ?? "",
+        status: "active",
+        tier: "read",
+        account_type: "institutional",
+        institution_id: institutionId,
+      })
+      .select("id, status, api_key_count, api_calls_30d, created_at")
+      .single();
+    if (error) { setError(error.message); setEnabling(false); return; }
+    setDevAccount(data);
+    setEnabling(false);
+  }
+
+  /* ── create key ── */
+  async function handleCreate(label: string) {
+    if (!devAccount) return;
+    setError(null);
+    const host = window.location.hostname;
+    const isSandbox = host.startsWith("sandbox.") || host === "localhost" || host.includes("127.0.0.1");
+    const environment: "test" | "live" = isSandbox ? "test" : "live";
+    const prefix_tag = environment === "test" ? "sk_test" : "sk_live";
+    const r1 = crypto.randomUUID().replace(/-/g, "");
+    const r2 = crypto.randomUUID().replace(/-/g, "");
+    const randomPart = (r1 + r2).slice(0, 40);
+    const raw = `${prefix_tag}_${randomPart}`;
+    const key_prefix = `${prefix_tag}_${randomPart.slice(0, 8)}`;
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(raw));
+    const key_hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+    const { error: insertError } = await supabase.from("developer_api_keys").insert({
+      developer_id: devAccount.id,
+      key_prefix, key_hash, environment, label, is_active: true,
+    });
+    if (insertError) { setError(insertError.message); return; }
+    setNewKeyFull(raw);
+    await loadKeys(devAccount.id);
+  }
+
+  /* ── revoke ── */
+  async function handleRevoke(id: string) {
+    const { error } = await supabase.from("developer_api_keys").update({ is_active: false }).eq("id", id);
+    if (error) { setError(error.message); return; }
+    setKeys(prev => prev.map(k => k.id === id ? { ...k, is_active: false } : k));
+  }
+
+  /* ── delete ── */
+  async function handleDelete(id: string) {
+    const { error } = await supabase.from("developer_api_keys").delete().eq("id", id);
+    if (error) { setError(error.message); return; }
+    setKeys(prev => prev.filter(k => k.id !== id));
+  }
+
+  const activeKeys  = keys.filter(k =>  k.is_active);
+  const revokedKeys = keys.filter(k => !k.is_active);
+
+  /* ── loading state ── */
+  if (loadingAcct) {
+    return (
+      <div style={{ padding: "60px 0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 size={22} style={{ color: "#D1D5DB", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  /* ── locked / opt-in state ── */
+  if (!devAccount) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{
+          background: "white", border: "1px solid #E5E7EB", borderRadius: 14,
+          padding: "40px 32px", textAlign: "center" as const,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 16,
+            background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.2)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Plug size={24} style={{ color: "#0A5060" }} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 8 }}>
+              Connect your systems to Creditlinker
+            </p>
+            <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.7, maxWidth: 440 }}>
+              Enable API access to integrate Creditlinker directly into your credit workflow.
+              Query consented business scores, verify identities, and confirm settlements — all programmatically.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
+            {[
+              { label: "Institution Query", desc: "Read consented business data" },
+              { label: "Discovery Match",   desc: "Programmatic business discovery" },
+              { label: "Confirm Settlement",desc: "Record financing outcomes via API" },
+            ].map(item => (
+              <div key={item.label} style={{ textAlign: "center" as const }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 2 }}>{item.label}</p>
+                <p style={{ fontSize: 12, color: "#9CA3AF" }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+          {error && (
+            <div style={{ padding: "10px 16px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, fontSize: 13, color: "#DC2626", width: "100%", boxSizing: "border-box" as const }}>
+              {error}
+            </div>
+          )}
+          <button
+            onClick={handleEnable} disabled={enabling}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "11px 28px", borderRadius: 10, border: "none",
+              background: enabling ? "#E5E7EB" : "#0A2540",
+              color: enabling ? "#9CA3AF" : "white",
+              fontSize: 14, fontWeight: 700, cursor: enabling ? "default" : "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            {enabling
+              ? <><Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} /> Enabling…</>
+              : <><Plug size={14} /> Enable API Access</>
+            }
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── enabled state ── */
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {newKeyFull && <NewKeyModal fullKey={newKeyFull} onDismiss={() => setNewKeyFull(null)} />}
+      {showCreate && <CreateKeyModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
+
+      {/* Status strip */}
+      <div style={{
+        background: "white", border: "1px solid #E5E7EB", borderRadius: 14,
+        overflow: "hidden",
+      }}>
+        <div style={{
+          padding: "16px 22px",
+          display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+          borderBottom: "1px solid #F3F4F6",
+        }}>
+          {[
+            { label: "Status",        value: devAccount.status === "active" ? "Active" : devAccount.status, color: devAccount.status === "active" ? "#10B981" : "#F59E0B" },
+            { label: "Active Keys",   value: String(activeKeys.length), color: "#0A2540" },
+            { label: "API Calls (30d)",value: devAccount.api_calls_30d.toLocaleString(), color: "#0A2540" },
+          ].map((s, i, arr) => (
+            <div key={s.label} style={{ padding: "4px 0", borderRight: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", paddingRight: i < arr.length - 1 ? 20 : 0, paddingLeft: i > 0 ? 20 : 0 }}>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: s.color, letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 4 }}>{s.value}</p>
+              <p style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600 }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ padding: "12px 16px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, fontSize: 13, color: "#DC2626" }}>
+          {error}
+        </div>
+      )}
+
+      {/* Active keys */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "16px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Shield size={14} style={{ color: "#0A2540" }} />
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Active Keys</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Badge variant="secondary">{activeKeys.length} key{activeKeys.length !== 1 ? "s" : ""}</Badge>
+            <button
+              onClick={() => setShowCreate(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", borderRadius: 7, border: "none",
+                background: "#0A2540", color: "white",
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              <Plus size={12} /> New Key
+            </button>
+          </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          {loadingKeys ? (
+            <div style={{ padding: "32px", textAlign: "center" as const }}>
+              <Loader2 size={20} style={{ color: "#D1D5DB", animation: "spin 0.8s linear infinite" }} />
+            </div>
+          ) : activeKeys.length === 0 ? (
+            <div style={{ padding: "32px", textAlign: "center" as const }}>
+              <Key size={24} style={{ color: "#D1D5DB", marginBottom: 8 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No active keys</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>Create your first API key to start integrating.</p>
+            </div>
+          ) : (
+            activeKeys.map(k => <KeyRow key={k.id} apiKey={k} onRevoke={handleRevoke} onDelete={handleDelete} />)
+          )}
+        </div>
+      </div>
+
+      {/* Revoked keys */}
+      {revokedKeys.length > 0 && (
+        <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: "16px 22px 0" }}>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Revoked Keys</p>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            {revokedKeys.map(k => <KeyRow key={k.id} apiKey={k} onRevoke={handleRevoke} onDelete={handleDelete} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Endpoint reference */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "20px 22px" }}>
+        <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 14 }}>Available Endpoints</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { method: "GET",  path: "/institution/query",       desc: "Query consented business score, identity, and risk flags" },
+            { method: "GET",  path: "/institution/discovery",   desc: "Retrieve discovery matches for your institution" },
+            { method: "POST", path: "/institution/settlement",  desc: "Confirm and record a financing settlement" },
+          ].map(ep => (
+            <div key={ep.path} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 14px", background: "#F8FAFC", borderRadius: 8 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                color: ep.method === "GET" ? "#0891B2" : "#7C3AED",
+                background: ep.method === "GET" ? "rgba(8,145,178,0.08)" : "rgba(124,58,237,0.08)",
+                padding: "2px 7px", borderRadius: 5, flexShrink: 0, marginTop: 1,
+              }}>
+                {ep.method}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <code style={{ fontSize: 12, fontFamily: "var(--font-mono, 'Courier New', monospace)", color: "#0A2540", display: "block", marginBottom: 2 }}>{ep.path}</code>
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>{ep.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function FinancerSettings() {
+  const { user } = useSession();
   const [tab, setTab] = useState<Tab>("institution");
   const [savedTab, setSavedTab] = useState<Tab | null>(null);
-
-  function handleSave(t: Tab) {
-    setSavedTab(t);
-    setTimeout(() => setSavedTab(null), 2200);
-    // TODO: POST/PATCH to API
-  }
-
-  // In production, derive from Keycloak JWT
-  const currentUserRole: OrgRole = "owner";
+  const [saving, setSaving] = useState(false);
+  const [institutionId, setInstitutionId] = useState<string | null>(null);
+  const [currentMemberId, setCurrentMemberId] = useState<string>(CURRENT_USER_ID);
+  const [currentUserRole, setCurrentUserRole] = useState<OrgRole>("analyst");
+  const [loadingInst, setLoadingInst] = useState(true);
 
   const [profile, setProfile] = useState({
-    name: "Stanbic IBTC",
-    contact_name: "Tunde Adeyemi",
-    contact_email: "tunde@stanbicibtc.com",
-    contact_phone: "+234 801 234 5678",
-    website: "https://stanbicibtc.com",
-    description: "One of Nigeria's leading financial institutions offering a full range of financial services.",
+    name: "",
+    contact_name: "",
+    contact_email: "",
+    contact_phone: "",
+    website: "",
+    description: "",
   });
 
   const [criteria, setCriteria] = useState({
     min_score: "650",
-    min_data_months: "12",
-    selected_capital: ["Working Capital Loan", "Equipment Financing"] as string[],
-    selected_sectors: ["Retail", "Food & Beverage", "Manufacturing"] as string[],
-    max_exposure: "₦200M",
+    min_data_months: "6",
+    selected_capital: [] as string[],
+    selected_sectors: [] as string[],
+    max_exposure: "",
   });
-
-  const toggleItem = (key: "selected_capital" | "selected_sectors", val: string) => {
-    setCriteria(prev => ({
-      ...prev,
-      [key]: prev[key].includes(val) ? prev[key].filter(v => v !== val) : [...prev[key], val],
-    }));
-  };
 
   const [workflow, setWorkflow] = useState<WorkflowConfig>({
     approval_chain: "analyst_to_lead",
@@ -1006,11 +1623,106 @@ export default function FinancerSettings() {
     analyst_can_self_approve_below: 0,
   });
 
+  // Load institution + current member on mount
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      // 1. institution row
+      const instId = await getMyInstitutionId(user!.id);
+      if (!instId) { setLoadingInst(false); return; }
+      setInstitutionId(instId);
+
+      const { data: inst } = await supabase
+        .from("institutions")
+        .select("institution_id, name, website, contact_name, contact_email, description, min_score, min_data_months, max_exposure, target_sectors, capital_categories, workflow_config")
+        .eq("institution_id", instId)
+        .maybeSingle();
+
+      if (inst) {
+        setProfile({
+          name: inst.name ?? "",
+          contact_name: inst.contact_name ?? "",
+          contact_email: inst.contact_email ?? (user!.email ?? ""),
+          contact_phone: "",
+          website: inst.website ?? "",
+          description: inst.description ?? "",
+        });
+        setCriteria({
+          min_score: String(inst.min_score ?? 650),
+          min_data_months: String(inst.min_data_months ?? 6),
+          selected_capital: inst.capital_categories ?? [],
+          selected_sectors: inst.target_sectors ?? [],
+          max_exposure: inst.max_exposure ? String(inst.max_exposure) : "",
+        });
+        if (inst.workflow_config && Object.keys(inst.workflow_config).length > 0) {
+          setWorkflow(wf => ({ ...wf, ...inst.workflow_config }));
+        }
+      }
+
+      // 2. current member row
+      const { data: member } = await supabase
+        .from("institution_members")
+        .select("id, role")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+
+      if (member) {
+        setCurrentMemberId(member.id);
+        setCurrentUserRole(member.role as OrgRole);
+      } else {
+        // owner hasn't been added as a member yet — treat as owner
+        setCurrentUserRole("owner");
+      }
+
+      setLoadingInst(false);
+    }
+    load();
+  }, [user]);
+
+  async function handleSave(t: Tab) {
+    if (!institutionId) return;
+    setSaving(true);
+    if (t === "institution") {
+      await supabase.from("institutions").update({
+        name: profile.name,
+        website: profile.website,
+        contact_name: profile.contact_name,
+        contact_email: profile.contact_email,
+        description: profile.description,
+      }).eq("institution_id", institutionId);
+    }
+    if (t === "criteria") {
+      await supabase.from("institutions").update({
+        min_score: parseInt(criteria.min_score) || null,
+        min_data_months: parseInt(criteria.min_data_months) || null,
+        max_exposure: criteria.max_exposure ? parseInt(criteria.max_exposure.replace(/[^0-9]/g, "")) : null,
+        capital_categories: criteria.selected_capital,
+        target_sectors: criteria.selected_sectors,
+      }).eq("institution_id", institutionId);
+    }
+    if (t === "workflow") {
+      await supabase.from("institutions").update({
+        workflow_config: workflow,
+      }).eq("institution_id", institutionId);
+    }
+    setSaving(false);
+    setSavedTab(t);
+    setTimeout(() => setSavedTab(null), 2200);
+  }
+
+  const toggleItem = (key: "selected_capital" | "selected_sectors", val: string) => {
+    setCriteria(prev => ({
+      ...prev,
+      [key]: prev[key].includes(val) ? prev[key].filter(v => v !== val) : [...prev[key], val],
+    }));
+  };
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "institution", label: "Institution",       icon: <Building2 size={14} /> },
     { key: "criteria",    label: "Matching Criteria", icon: <Target    size={14} /> },
     { key: "workflow",    label: "Workflow",           icon: <RefreshCw size={14} /> },
     { key: "team",        label: "Team",              icon: <Users     size={14} /> },
+    { key: "integrations", label: "Integrations",      icon: <Plug      size={14} /> },
     { key: "security",    label: "Security",          icon: <Shield    size={14} /> },
   ];
 
@@ -1172,7 +1884,7 @@ export default function FinancerSettings() {
 
       {/* ── TEAM ── */}
       {tab === "team" && (
-        <TeamTab currentUserId={CURRENT_USER_ID} currentRole={currentUserRole} />
+        <TeamTab currentUserId={currentMemberId} currentRole={currentUserRole} institutionId={institutionId} />
       )}
 
       {/* ── WORKFLOW ── */}
@@ -1312,6 +2024,11 @@ export default function FinancerSettings() {
             {savedTab === "workflow" ? "Saved" : "Save Workflow"}
           </button>
         </div>
+      )}
+
+      {/* ── INTEGRATIONS ── */}
+      {tab === "integrations" && (
+        <IntegrationsTab />
       )}
 
       {/* ── SECURITY ── */}

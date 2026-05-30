@@ -1,764 +1,270 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  CheckCircle2, AlertCircle, Clock, ArrowUpRight,
-  ChevronDown, X, Info, Building2, Banknote,
-  FileText, Shield, TrendingUp,
-  ReceiptText, MessageSquare, AlertTriangle,
+  FileText, Download, CheckCircle2, Clock, AlertCircle,
+  Building2, Loader2, ArrowUpRight, BarChart2, Banknote,
+  ChevronDown, ChevronRight, RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/session-context";
+import { getMyInstitutionId } from "@/lib/institution";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────────────────── */
 type FinancingStatus = "active" | "settled" | "disputed" | "withdrawn";
-type DisputeStatus   = "pending" | "resolved" | "rejected";
 
-interface RepaymentSchedule {
-  due_date:  string;
-  amount:    number;
-  status:    "paid" | "due" | "overdue" | "upcoming";
-  paid_at?:  string;
-  tx_ref?:   string;
-}
-
-interface DisputeRecord {
-  dispute_id:        string;
-  initiated_by:      "business" | "institution";
-  opened_at:         string;
-  reason:            string;
-  resolution:        DisputeStatus;
-  resolved_at?:      string;
-  resolution_notes?: string;
-  platform_verified: boolean;
-}
-
-interface FinancingRecord {
-  financing_id:          string;
-  business_id:           string;
-  business_name:         string;
-  financial_identity_id: string;
-  sector:                string;
-  capital_category:      string;
-  amount_raw:            number;
-  amount:                string;
-  interest_rate:         string;
-  tenor:                 string;
-  disbursed_at:          string;
-  due_at:                string;
-  status:                FinancingStatus;
-  health:                "on_track" | "watch" | "overdue";
-  repaid_pct:            number;
-  repaid_amount:         string;
-  outstanding:           string;
-  consent_id:            string;
-  consent_expiry:        string;
-  originated_by:         string;
-  approved_by:           string;
-  schedule:              RepaymentSchedule[];
-  disputes:              DisputeRecord[];
-  settlement_proof?: {
-    submitted_at: string;
-    notes:        string;
-    tx_refs:      string[];
+type FinancingRecord = {
+  financing_id:     string;
+  capital_category: string;
+  status:           FinancingStatus;
+  granted_at:       string | null;
+  institution_id:   string;
+  terms: {
+    amount?:   number;
+    rate?:     string | number;
+    tenure?:   string;
+    due_date?: string;
   };
-}
+  settlement_proof: {
+    total_paid?: number;
+    installments?: { paid_at: string; amount: number }[];
+  };
+  institution_name?: string;
+  business_name?:    string;
+  anonymized_id?:    string;
+};
 
-/* ─────────────────────────────────────────────────────────
-   MOCK DATA
-   Replace with:
-     GET  /institution/financing → FinancingRecord[]
-     POST /institution/financing/:id/confirm-settlement
-     POST /institution/financing/:id/dispute { reason }
-───────────────────────────────────────────────────────── */
-const RECORDS: FinancingRecord[] = [
-  {
-    financing_id:          "FIN-001",
-    business_id:           "BIZ-1R8T",
-    business_name:         "Kemi Superstores Ltd",
-    financial_identity_id: "fid_1r8t",
-    sector:                "Retail",
-    capital_category:      "Working Capital Loan",
-    amount_raw:            15_000_000,
-    amount:                "₦15M",
-    interest_rate:         "18% p.a.",
-    tenor:                 "6 months",
-    disbursed_at:          "Oct 15, 2024",
-    due_at:                "Apr 15, 2025",
-    status:                "active",
-    health:                "on_track",
-    repaid_pct:            42,
-    repaid_amount:         "₦6.3M",
-    outstanding:           "₦8.7M",
-    consent_id:            "con_001",
-    consent_expiry:        "Mar 31, 2025",
-    originated_by:         "Bola Fashola",
-    approved_by:           "Chidi Eze",
-    schedule: [
-      { due_date: "Nov 15, 2024", amount: 2_500_000, status: "paid",     paid_at: "Nov 14, 2024", tx_ref: "ZEN-9214-B" },
-      { due_date: "Dec 15, 2024", amount: 2_500_000, status: "paid",     paid_at: "Dec 13, 2024", tx_ref: "ZEN-0033-A" },
-      { due_date: "Jan 15, 2025", amount: 2_500_000, status: "paid",     paid_at: "Jan 15, 2025", tx_ref: "ZEN-1122-C" },
-      { due_date: "Feb 15, 2025", amount: 2_500_000, status: "due" },
-      { due_date: "Mar 15, 2025", amount: 2_500_000, status: "upcoming" },
-      { due_date: "Apr 15, 2025", amount: 4_500_000, status: "upcoming" },
-    ],
-    disputes: [],
-  },
-  {
-    financing_id:          "FIN-002",
-    business_id:           "BIZ-3K2M",
-    business_name:         "Nonso Logistics",
-    financial_identity_id: "fid_3k2m",
-    sector:                "Logistics",
-    capital_category:      "Asset Financing",
-    amount_raw:            42_000_000,
-    amount:                "₦42M",
-    interest_rate:         "16% p.a.",
-    tenor:                 "24 months",
-    disbursed_at:          "Sep 1, 2024",
-    due_at:                "Sep 1, 2026",
-    status:                "active",
-    health:                "watch",
-    repaid_pct:            18,
-    repaid_amount:         "₦7.5M",
-    outstanding:           "₦34.5M",
-    consent_id:            "con_002",
-    consent_expiry:        "Sep 1, 2025",
-    originated_by:         "Amaka Nwosu",
-    approved_by:           "Tunde Adeyemi",
-    schedule: [
-      { due_date: "Oct 1, 2024",  amount: 2_500_000, status: "paid",    paid_at: "Sep 30, 2024", tx_ref: "GTB-5521-K" },
-      { due_date: "Nov 1, 2024",  amount: 2_500_000, status: "paid",    paid_at: "Nov 1, 2024",  tx_ref: "GTB-6612-L" },
-      { due_date: "Dec 1, 2024",  amount: 2_500_000, status: "paid",    paid_at: "Dec 2, 2024",  tx_ref: "GTB-7723-M" },
-      { due_date: "Jan 1, 2025",  amount: 2_500_000, status: "overdue" },
-      { due_date: "Feb 1, 2025",  amount: 2_500_000, status: "due" },
-      { due_date: "Mar 1, 2025",  amount: 2_500_000, status: "upcoming" },
-    ],
-    disputes: [],
-  },
-  {
-    financing_id:          "FIN-003",
-    business_id:           "BIZ-9P4L",
-    business_name:         "Bright Pharma",
-    financial_identity_id: "fid_9p4l",
-    sector:                "Healthcare",
-    capital_category:      "Invoice Financing",
-    amount_raw:            8_000_000,
-    amount:                "₦8M",
-    interest_rate:         "3.5% flat",
-    tenor:                 "60 days",
-    disbursed_at:          "Dec 1, 2024",
-    due_at:                "Jan 30, 2025",
-    status:                "active",
-    health:                "on_track",
-    repaid_pct:            0,
-    repaid_amount:         "₦0",
-    outstanding:           "₦8M",
-    consent_id:            "con_003",
-    consent_expiry:        "Feb 28, 2025",
-    originated_by:         "Amaka Nwosu",
-    approved_by:           "Chidi Eze",
-    schedule: [
-      { due_date: "Jan 30, 2025", amount: 8_280_000, status: "due" },
-    ],
-    disputes: [],
-  },
-  {
-    financing_id:          "FIN-004",
-    business_id:           "BIZ-2B7R",
-    business_name:         "Delta Textiles",
-    financial_identity_id: "fid_2b7r",
-    sector:                "Manufacturing",
-    capital_category:      "Term Loan",
-    amount_raw:            22_000_000,
-    amount:                "₦22M",
-    interest_rate:         "20% p.a.",
-    tenor:                 "12 months",
-    disbursed_at:          "Aug 5, 2024",
-    due_at:                "Aug 5, 2025",
-    status:                "disputed",
-    health:                "watch",
-    repaid_pct:            30,
-    repaid_amount:         "₦6.6M",
-    outstanding:           "₦15.4M",
-    consent_id:            "con_004",
-    consent_expiry:        "Aug 5, 2025",
-    originated_by:         "Bola Fashola",
-    approved_by:           "Chidi Eze",
-    schedule: [
-      { due_date: "Sep 5, 2024",  amount: 2_200_000, status: "paid",    paid_at: "Sep 4, 2024",  tx_ref: "UBA-3312-D" },
-      { due_date: "Oct 5, 2024",  amount: 2_200_000, status: "paid",    paid_at: "Oct 5, 2024",  tx_ref: "UBA-4423-E" },
-      { due_date: "Nov 5, 2024",  amount: 2_200_000, status: "paid",    paid_at: "Nov 6, 2024",  tx_ref: "UBA-5534-F" },
-      { due_date: "Dec 5, 2024",  amount: 2_200_000, status: "overdue" },
-      { due_date: "Jan 5, 2025",  amount: 2_200_000, status: "overdue" },
-      { due_date: "Feb 5, 2025",  amount: 2_200_000, status: "due" },
-    ],
-    disputes: [
-      {
-        dispute_id:        "DIS-001",
-        initiated_by:      "institution",
-        opened_at:         "Jan 8, 2025",
-        reason:            "Two consecutive missed repayments in December 2024 and January 2025. Business has not responded to messages. Requesting platform intervention and settlement enforcement.",
-        resolution:        "pending",
-        platform_verified: false,
-      },
-    ],
-    settlement_proof: undefined,
-  },
-  {
-    financing_id:          "FIN-005",
-    business_id:           "BIZ-4F9T",
-    business_name:         "Aduke Bakeries Ltd",
-    financial_identity_id: "fid_4f9t",
-    sector:                "Food & Beverage",
-    capital_category:      "Working Capital Loan",
-    amount_raw:            12_000_000,
-    amount:                "₦12M",
-    interest_rate:         "18% p.a.",
-    tenor:                 "6 months",
-    disbursed_at:          "Jun 10, 2024",
-    due_at:                "Dec 10, 2024",
-    status:                "settled",
-    health:                "on_track",
-    repaid_pct:            100,
-    repaid_amount:         "₦12M",
-    outstanding:           "₦0",
-    consent_id:            "con_005",
-    consent_expiry:        "Dec 10, 2024",
-    originated_by:         "Amaka Nwosu",
-    approved_by:           "Chidi Eze",
-    schedule: [
-      { due_date: "Jul 10, 2024",  amount: 2_160_000, status: "paid", paid_at: "Jul 9, 2024",  tx_ref: "ZEN-1001-A" },
-      { due_date: "Aug 10, 2024",  amount: 2_160_000, status: "paid", paid_at: "Aug 8, 2024",  tx_ref: "ZEN-1002-B" },
-      { due_date: "Sep 10, 2024",  amount: 2_160_000, status: "paid", paid_at: "Sep 10, 2024", tx_ref: "ZEN-1003-C" },
-      { due_date: "Oct 10, 2024",  amount: 2_160_000, status: "paid", paid_at: "Oct 9, 2024",  tx_ref: "ZEN-1004-D" },
-      { due_date: "Nov 10, 2024",  amount: 2_160_000, status: "paid", paid_at: "Nov 11, 2024", tx_ref: "ZEN-1005-E" },
-      { due_date: "Dec 10, 2024",  amount: 1_200_000, status: "paid", paid_at: "Dec 10, 2024", tx_ref: "ZEN-1006-F" },
-    ],
-    disputes: [],
-    settlement_proof: {
-      submitted_at: "Dec 10, 2024",
-      notes:        "Final repayment confirmed. Business settled all 6 instalments on or before due dates.",
-      tx_refs:      ["ZEN-1001-A", "ZEN-1002-B", "ZEN-1003-C", "ZEN-1004-D", "ZEN-1005-E", "ZEN-1006-F"],
-    },
-  },
-];
+type ConsentedBusiness = {
+  consent_id:       string;
+  business_id:      string;
+  anonymized_id:    string;
+  business_name?:   string;
+  granted_at:       string;
+  is_active:        boolean;
+  permissions:      Record<string, unknown>;
+};
 
 /* ─────────────────────────────────────────────────────────
    HELPERS
 ───────────────────────────────────────────────────────── */
-function fmt(n: number) {
-  if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `₦${(n / 1_000).toFixed(0)}K`;
-  return `₦${n}`;
+function formatNGN(n: number) {
+  if (n >= 1_000_000_000) return `₦${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000)     return `₦${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)         return `₦${(n / 1_000).toFixed(0)}K`;
+  return `₦${n.toLocaleString()}`;
 }
 
-function statusCfg(s: FinancingStatus) {
-  return {
-    active:    { label: "Active",    variant: "success"     as const },
-    settled:   { label: "Settled",   variant: "secondary"   as const },
-    disputed:  { label: "Disputed",  variant: "destructive" as const },
-    withdrawn: { label: "Withdrawn", variant: "outline"     as const },
-  }[s];
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function healthCfg(h: "on_track" | "watch" | "overdue") {
-  return {
-    on_track: { label: "On Track", color: "#10B981" },
-    watch:    { label: "Watch",    color: "#F59E0B" },
-    overdue:  { label: "Overdue",  color: "#EF4444" },
-  }[h];
+function repaidPct(r: FinancingRecord) {
+  const paid = r.settlement_proof?.total_paid ?? 0;
+  const amt  = r.terms?.amount ?? 0;
+  if (!amt) return 0;
+  return Math.min(100, Math.round((paid / amt) * 100));
 }
 
-function scheduleCfg(s: RepaymentSchedule["status"]) {
-  return {
-    paid:     { label: "Paid",     color: "#10B981", bg: "#ECFDF5", icon: <CheckCircle2 size={11} /> },
-    due:      { label: "Due",      color: "#F59E0B", bg: "#FFFBEB", icon: <Clock        size={11} /> },
-    overdue:  { label: "Overdue",  color: "#EF4444", bg: "#FEF2F2", icon: <AlertCircle  size={11} /> },
-    upcoming: { label: "Upcoming", color: "#9CA3AF", bg: "#F9FAFB", icon: <Clock        size={11} /> },
-  }[s];
+function healthConfig(r: FinancingRecord) {
+  if (r.status === "settled")  return { label: "Settled",  variant: "success"     as const, icon: <CheckCircle2 size={11} /> };
+  if (r.status === "disputed") return { label: "Disputed", variant: "destructive" as const, icon: <AlertCircle  size={11} /> };
+  const pct = repaidPct(r);
+  if (pct >= 50) return { label: "On Track", variant: "success" as const, icon: <CheckCircle2 size={11} /> };
+  return              { label: "Active",    variant: "warning" as const, icon: <Clock       size={11} /> };
 }
 
 /* ─────────────────────────────────────────────────────────
-   CARD
+   DOWNLOAD BUTTON — calls generate-report edge fn
 ───────────────────────────────────────────────────────── */
-function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, ...style }}>{children}</div>;
-}
-
-/* ─────────────────────────────────────────────────────────
-   CONFIRM SETTLEMENT MODAL
-───────────────────────────────────────────────────────── */
-function ConfirmSettlementModal({
-  record,
-  onClose,
-  onConfirm,
-}: {
-  record: FinancingRecord;
-  onClose: () => void;
-  onConfirm: () => void;
+function DownloadReportBtn({ businessId, reportType, label }: {
+  businessId: string;
+  reportType: "financial_identity" | "readiness" | "full";
+  label: string;
 }) {
-  const [step, setStep] = useState<"review" | "confirm">("review");
-  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  async function handleDownload() {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-report`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ business_id: businessId, report_type: reportType, format: "pdf" }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.download_url) throw new Error(json.error ?? "Failed to generate report");
+      window.open(json.download_url, "_blank");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 520, boxShadow: "0 24px 80px rgba(0,0,0,0.2)", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #F3F4F6", flexShrink: 0 }}>
-          <div>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540" }}>Confirm Settlement</p>
-            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{record.business_name} · {record.capital_category}</p>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF" }}><X size={16} /></button>
-        </div>
-
-        {/* Body */}
-        <div style={{ overflowY: "auto", flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {step === "review" ? (
-            <>
-              {/* Summary */}
-              <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "16px 18px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  {[
-                    { label: "Total Financed", value: record.amount },
-                    { label: "Total Repaid",   value: record.repaid_amount },
-                    { label: "Outstanding",    value: record.outstanding },
-                    { label: "Financing Type", value: record.capital_category },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{f.label}</p>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{f.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Schedule review */}
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Repayment History</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {record.schedule.map((s, i) => {
-                    const sc = scheduleCfg(s.status);
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: sc.bg, borderRadius: 8 }}>
-                        <span style={{ color: sc.color, flexShrink: 0 }}>{sc.icon}</span>
-                        <p style={{ flex: 1, fontSize: 12, color: "#374151" }}>{s.due_date}</p>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: "#0A2540" }}>{fmt(s.amount)}</p>
-                        {s.tx_ref && (
-                          <span style={{ fontSize: 10, fontFamily: "monospace", color: "#9CA3AF", background: "#F3F4F6", padding: "1px 5px", borderRadius: 4 }}>{s.tx_ref}</span>
-                        )}
-                        <span style={{ fontSize: 10, fontWeight: 700, color: sc.color }}>{sc.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Settlement proof if submitted */}
-              {record.settlement_proof && (
-                <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 10, padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
-                    <ReceiptText size={13} style={{ color: "#00A8CC" }} />
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#0A5060" }}>Settlement proof submitted by business</p>
-                  </div>
-                  <p style={{ fontSize: 12, color: "#0A5060", lineHeight: 1.6, marginBottom: 8 }}>{record.settlement_proof.notes}</p>
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-                    {record.settlement_proof.tx_refs.map(ref => (
-                      <span key={ref} style={{ fontSize: 10, fontFamily: "monospace", background: "rgba(0,212,255,0.1)", color: "#0891B2", padding: "2px 7px", borderRadius: 4 }}>{ref}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Notes */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
-                  Confirmation notes <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optional)</span>
-                </label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-                  placeholder="e.g. All repayments verified against bank data. Settlement confirmed."
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13, color: "#0A2540", resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                  onFocus={e => (e.target.style.borderColor = "#0A2540")}
-                  onBlur={e => (e.target.style.borderColor = "#E5E7EB")} />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8 }}>
-                <Info size={13} style={{ color: "#10B981", flexShrink: 0, marginTop: 1 }} />
-                <p style={{ fontSize: 12, color: "#065F46", lineHeight: 1.6 }}>
-                  Confirming settlement closes this financing record permanently. Both parties' reputation scores will be updated.
-                </p>
-              </div>
-            </>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "24px", textAlign: "center" as const }}>
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: "#D1FAE5", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                  <CheckCircle2 size={24} style={{ color: "#10B981" }} />
-                </div>
-                <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#065F46", marginBottom: 6 }}>Ready to confirm</p>
-                <p style={{ fontSize: 13, color: "#059669", lineHeight: 1.6 }}>
-                  Confirming full settlement for <strong>{record.business_name}</strong>. This closes the record and cannot be undone.
-                </p>
-              </div>
-              {notes && (
-                <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "12px 14px" }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Your notes</p>
-                  <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>{notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, flexShrink: 0 }}>
-          {step === "review" ? (
-            <>
-              <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
-              <button onClick={() => setStep("confirm")} style={{ flex: 2, height: 40, borderRadius: 8, border: "none", background: "#10B981", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <CheckCircle2 size={13} /> Review & Confirm →
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => setStep("review")} style={{ flex: 1, height: 40, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>← Back</button>
-              <button onClick={() => { onConfirm(); onClose(); }} style={{ flex: 2, height: 40, borderRadius: 8, border: "none", background: "#10B981", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <CheckCircle2 size={13} /> Confirm Settlement
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+    <div>
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "6px 12px", borderRadius: 7,
+          border: "1px solid #E5E7EB", background: loading ? "#F9FAFB" : "white",
+          color: loading ? "#9CA3AF" : "#0A2540",
+          fontSize: 12, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
+        }}
+      >
+        {loading
+          ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+          : <Download size={11} />}
+        {label}
+      </button>
+      {error && <p style={{ fontSize: 11, color: "#EF4444", marginTop: 4 }}>{error}</p>}
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────
-   OPEN DISPUTE MODAL
+   DEAL ROW
 ───────────────────────────────────────────────────────── */
-function OpenDisputeModal({
-  record,
-  onClose,
-  onSubmit,
-}: {
-  record: FinancingRecord;
-  onClose: () => void;
-  onSubmit: (reason: string) => void;
-}) {
-  const [reason, setReason] = useState("");
-
-  const PRESETS = [
-    "Missed repayment — business has not made payment on the due date.",
-    "Payment received but amount is incorrect.",
-    "Business is unresponsive to outreach and messages.",
-    "Settlement claimed by business but not reflected in bank data.",
-  ];
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 500, boxShadow: "0 24px 80px rgba(0,0,0,0.2)", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #F3F4F6", flexShrink: 0 }}>
-          <div>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540" }}>Open a Dispute</p>
-            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{record.business_name} · {record.financing_id}</p>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF" }}><X size={16} /></button>
-        </div>
-
-        <div style={{ overflowY: "auto", flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "12px 14px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 10 }}>
-            <AlertTriangle size={14} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 12, color: "#991B1B", lineHeight: 1.6 }}>
-              Opening a dispute flags this record for Creditlinker platform review. Both parties will be notified and the record placed under review.
-            </p>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>Select or describe the issue</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-              {PRESETS.map((p, i) => (
-                <button key={i} onClick={() => setReason(p)}
-                  style={{ padding: "10px 14px", border: `1.5px solid ${reason === p ? "#EF4444" : "#E5E7EB"}`, borderRadius: 9, background: reason === p ? "#FEF2F2" : "white", color: reason === p ? "#991B1B" : "#374151", fontSize: 12, textAlign: "left" as const, cursor: "pointer", lineHeight: 1.5, transition: "all 0.1s" }}>
-                  {p}
-                </button>
-              ))}
-            </div>
-            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
-              placeholder="Describe the issue in detail…"
-              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13, color: "#0A2540", resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-              onFocus={e => (e.target.style.borderColor = "#EF4444")}
-              onBlur={e => (e.target.style.borderColor = "#E5E7EB")} />
-          </div>
-        </div>
-
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, flexShrink: 0 }}>
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
-          <button disabled={!reason.trim()} onClick={() => { if (reason.trim()) { onSubmit(reason); onClose(); } }}
-            style={{ flex: 2, height: 40, borderRadius: 8, border: "none", background: reason.trim() ? "#EF4444" : "#E5E7EB", color: reason.trim() ? "white" : "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: reason.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <AlertCircle size={13} /> Open Dispute
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   RECORD ROW
-───────────────────────────────────────────────────────── */
-function RecordRow({
-  record, expanded, onToggle, onConfirmSettlement, onOpenDispute,
-}: {
+function DealRow({ record, expanded, onToggle }: {
   record: FinancingRecord;
   expanded: boolean;
   onToggle: () => void;
-  onConfirmSettlement: () => void;
-  onOpenDispute: () => void;
 }) {
-  const sc  = statusCfg(record.status);
-  const hc  = healthCfg(record.health);
-  const hasOpenDispute = record.disputes.some(d => d.resolution === "pending");
+  const hc      = healthConfig(record);
+  const pct     = repaidPct(record);
+  const shortId = `FIN-${record.financing_id.slice(0, 6).toUpperCase()}`;
+  const amount  = record.terms?.amount ? formatNGN(record.terms.amount) : "—";
 
   return (
-    <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", background: "white" }}>
-
-      {/* Summary row — mobile card / desktop grid */}
-      <div onClick={onToggle} style={{ cursor: "pointer" }}>
-
-      {/* Mobile card */}
-      <div className="fnc-fin-row-mobile" style={{ display: "none", padding: "14px 16px", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0, background: record.status === "settled" ? "#ECFDF5" : record.status === "disputed" ? "#FEF2F2" : "#0A2540", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: record.status === "settled" ? "#10B981" : record.status === "disputed" ? "#EF4444" : "#00D4FF" }}>
-              {record.business_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540" }}>{record.business_name}</p>
-                <Badge variant={sc.variant} style={{ fontSize: 9, padding: "1px 6px" }}>{sc.label}</Badge>
-                {hasOpenDispute && <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 9999 }}>Dispute open</span>}
-              </div>
-              <p style={{ fontSize: 11, color: "#9CA3AF" }}>{record.sector} · {record.capital_category}</p>
-            </div>
+    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+      <div
+        onClick={onToggle}
+        style={{
+          display: "grid", gridTemplateColumns: "1fr 110px 100px 110px 130px 24px",
+          gap: 12, padding: "14px 20px", alignItems: "center", cursor: "pointer",
+        }}
+        className="fin-row"
+      >
+        <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: "#0A2540", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Building2 size={14} color="#00D4FF" />
           </div>
-          <ChevronDown size={14} style={{ color: "#9CA3AF", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }} />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 1 }}>{shortId}</p>
+            <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+              {record.capital_category.replace(/_/g, " ")}
+              {" · "}{record.business_name ?? (record.anonymized_id ? `BIZ-${record.anonymized_id.slice(0,6).toUpperCase()}` : "—")}
+              {record.institution_name ? ` · ${record.institution_name}` : ""}
+            </p>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" as const }}>
-          <div><p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 1 }}>Amount</p><p style={{ fontSize: 15, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)" }}>{record.amount}</p></div>
-          <div><p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 1 }}>Health</p><p style={{ fontSize: 13, fontWeight: 700, color: hc.color }}>{hc.label}</p></div>
-          <div><p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 1 }}>Repaid</p><p style={{ fontSize: 13, fontWeight: 700, color: hc.color }}>{record.repaid_pct}% · {record.repaid_amount}</p></div>
-          <div><p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 1 }}>Due</p><p style={{ fontSize: 12, color: "#6B7280" }}>{record.due_at}</p></div>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{amount}</p>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+            <span style={{ fontSize: 10, color: "#9CA3AF" }}>Repaid</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#374151" }}>{pct}%</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: pct >= 50 ? "#10B981" : "#F59E0B", borderRadius: 9999 }} />
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: "#6B7280" }}>{fmtDate(record.granted_at)}</p>
+        <Badge variant={hc.variant} style={{ fontSize: 10, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          {hc.icon} {hc.label}
+        </Badge>
+        <div style={{ color: "#9CA3AF", display: "flex" }}>
+          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </div>
       </div>
 
-      {/* Desktop grid */}
-      <div className="fnc-fin-row-desktop" style={{ display: "grid", gridTemplateColumns: "36px 1fr 90px 110px 110px 80px 130px", gap: 12, padding: "14px 20px", alignItems: "center" }}>
-        <div style={{ width: 36, height: 36, borderRadius: 8, background: record.status === "settled" ? "#ECFDF5" : record.status === "disputed" ? "#FEF2F2" : "#0A2540", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: record.status === "settled" ? "#10B981" : record.status === "disputed" ? "#EF4444" : "#00D4FF" }}>
-          {record.business_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-        </div>
-
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{record.business_name}</p>
-            <Badge variant={sc.variant} style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>{sc.label}</Badge>
-            {hasOpenDispute && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 9999, flexShrink: 0 }}>Dispute open</span>
-            )}
-          </div>
-          <p style={{ fontSize: 11, color: "#9CA3AF" }}>{record.sector} · {record.capital_category} · {record.financing_id}</p>
-        </div>
-
-        <p style={{ fontSize: 13, fontWeight: 800, color: "#0A2540", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{record.amount}</p>
-        <p style={{ fontSize: 12, color: "#6B7280" }}>{record.disbursed_at}</p>
-        <p style={{ fontSize: 12, color: "#6B7280" }}>{record.due_at}</p>
-        <p style={{ fontSize: 11, fontWeight: 700, color: hc.color }}>{hc.label}</p>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" as const }}>
-          <div style={{ textAlign: "right" as const }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: hc.color }}>{record.repaid_pct}%</p>
-            <p style={{ fontSize: 10, color: "#9CA3AF" }}>{record.repaid_amount}</p>
-          </div>
-          <ChevronDown size={14} style={{ color: "#9CA3AF", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }} />
-        </div>
-      </div>
-
-      </div>{/* end onClick wrapper */}
-
-      {/* Progress bar */}
-      <div style={{ height: 3, background: "#F3F4F6", margin: "0 20px" }}>
-        <div style={{ height: "100%", width: `${record.repaid_pct}%`, background: hc.color, borderRadius: 9999 }} />
-      </div>
-
-      {/* Expanded panel */}
       {expanded && (
-        <div style={{ borderTop: "1px solid #F3F4F6", padding: "20px", background: "#FAFAFA" }}>
-          <div className="fnc-fin-panel-grid" style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20, alignItems: "start" }}>
-
-            {/* LEFT */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-              {/* Key metrics */}
-              <div className="fnc-fin-metrics" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                {[
-                  { label: "Total Financed", value: record.amount,         color: "#0A2540" },
-                  { label: "Total Repaid",   value: record.repaid_amount,  color: "#10B981" },
-                  { label: "Outstanding",    value: record.outstanding,    color: record.status === "settled" ? "#9CA3AF" : "#F59E0B" },
-                ].map(m => (
-                  <div key={m.label} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 10, padding: "12px 14px" }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{m.label}</p>
-                    <p style={{ fontSize: 16, fontWeight: 800, color: m.color, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{m.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Schedule */}
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Repayment Schedule</p>
-                <div className="fnc-fin-schedule-wrap" style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
-                  <div className="fnc-fin-schedule-inner">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 120px 100px 70px", gap: 10, padding: "8px 16px", borderBottom: "1px solid #F3F4F6" }}>
-                    {["Due Date", "Amount", "Tx Reference", "Paid On", "Status"].map(h => (
-                      <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-                    ))}
-                  </div>
-                  {record.schedule.map((s, i) => {
-                    const sc = scheduleCfg(s.status);
-                    return (
-                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 120px 100px 70px", gap: 10, padding: "10px 16px", borderBottom: i < record.schedule.length - 1 ? "1px solid #F3F4F6" : "none", alignItems: "center", background: s.status === "overdue" ? "rgba(239,68,68,0.02)" : "transparent" }}>
-                        <p style={{ fontSize: 12, color: "#374151" }}>{s.due_date}</p>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", fontFamily: "var(--font-display)" }}>{fmt(s.amount)}</p>
-                        <p style={{ fontSize: 10, fontFamily: "monospace", color: s.tx_ref ? "#0891B2" : "#D1D5DB" }}>{s.tx_ref ?? "—"}</p>
-                        <p style={{ fontSize: 11, color: "#6B7280" }}>{s.paid_at ?? "—"}</p>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, color: sc.color }}>
-                          {sc.icon}
-                          <span style={{ fontSize: 10, fontWeight: 700 }}>{sc.label}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  </div>
+        <div style={{ borderTop: "1px solid #F3F4F6", padding: "18px 20px", background: "#FAFAFA" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20 }}>
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px",
+              background: "white", border: "1px solid #E5E7EB", borderRadius: 10, padding: "14px 16px",
+            }}>
+              {[
+                { label: "Financing ID",  value: record.financing_id },
+                { label: "Business",       value: record.business_name ?? (record.anonymized_id ? `BIZ-${record.anonymized_id.slice(0,6).toUpperCase()}` : "—") },
+                { label: "Institution",   value: record.institution_name ?? "—" },
+                { label: "Capital Type",  value: record.capital_category.replace(/_/g, " ") },
+                { label: "Amount",        value: amount },
+                { label: "Rate",          value: record.terms?.rate ? String(record.terms.rate) : "—" },
+                { label: "Tenure",        value: record.terms?.tenure ? String(record.terms.tenure) : "—" },
+                { label: "Disbursed",     value: fmtDate(record.granted_at) },
+                { label: "Due Date",      value: record.terms?.due_date ? fmtDate(record.terms.due_date as string) : "—" },
+                { label: "Total Repaid",  value: record.settlement_proof?.total_paid ? formatNGN(record.settlement_proof.total_paid) : "—" },
+                { label: "Status",        value: hc.label },
+              ].map(r => (
+                <div key={r.label}>
+                  <p style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 2 }}>{r.label}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{r.value}</p>
                 </div>
-              </div>
-
-              {/* Open disputes */}
-              {record.disputes.length > 0 && (
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Disputes</p>
-                  {record.disputes.map(d => (
-                    <div key={d.dispute_id} style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <AlertCircle size={14} style={{ color: "#EF4444", flexShrink: 0 }} />
-                          <div>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: "#991B1B", marginBottom: 1 }}>Dispute {d.dispute_id}</p>
-                            <p style={{ fontSize: 11, color: "#B91C1C" }}>Opened {d.opened_at} · by {d.initiated_by === "institution" ? "You" : "Business"}</p>
-                          </div>
-                        </div>
-                        <Badge variant={d.resolution === "pending" ? "destructive" : d.resolution === "resolved" ? "success" : "outline"} style={{ fontSize: 9, flexShrink: 0 }}>
-                          {d.resolution === "pending" ? "Under Review" : d.resolution === "resolved" ? "Resolved" : "Rejected"}
-                        </Badge>
-                      </div>
-                      <p style={{ fontSize: 12, color: "#7F1D1D", lineHeight: 1.6 }}>{d.reason}</p>
-                      {d.platform_verified && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <Shield size={11} style={{ color: "#10B981" }} />
-                          <p style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>Platform verified</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Settlement proof */}
-              {record.settlement_proof && record.status !== "settled" && (
-                <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 10, padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
-                    <ReceiptText size={13} style={{ color: "#00A8CC" }} />
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#0A5060" }}>Business submitted settlement proof</p>
-                    <span style={{ fontSize: 10, color: "#9CA3AF" }}>{record.settlement_proof.submitted_at}</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: "#0A5060", marginBottom: 8, lineHeight: 1.6 }}>{record.settlement_proof.notes}</p>
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-                    {record.settlement_proof.tx_refs.map(ref => (
-                      <span key={ref} style={{ fontSize: 10, fontFamily: "monospace", background: "rgba(0,212,255,0.1)", color: "#0891B2", padding: "2px 7px", borderRadius: 4 }}>{ref}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
-
-            {/* RIGHT */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-              {/* Metadata */}
-              <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 10, padding: "14px 16px" }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Record Details</p>
-                {[
-                  { label: "Interest Rate",  value: record.interest_rate },
-                  { label: "Tenor",          value: record.tenor },
-                  { label: "Disbursed",      value: record.disbursed_at },
-                  { label: "Due",            value: record.due_at },
-                  { label: "Originated by",  value: record.originated_by },
-                  { label: "Approved by",    value: record.approved_by },
-                  { label: "Consent expiry", value: record.consent_expiry },
-                ].map(r => (
-                  <div key={r.label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F3F4F6" }}>
-                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>{r.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Actions */}
-              {record.status === "active" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <Link href={`/financer/business-profile?id=${record.business_id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
-                    <Building2 size={12} /> View Financial Identity
-                  </Link>
-                  <Link href="/financer/messages" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
-                    <MessageSquare size={12} /> Message Business
-                  </Link>
-                  <button onClick={onConfirmSettlement} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, border: "none", background: "#10B981", color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                    <CheckCircle2 size={12} /> Confirm Settlement
-                  </button>
-                  {!hasOpenDispute && (
-                    <button onClick={onOpenDispute} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, border: "1px solid rgba(239,68,68,0.25)", background: "white", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                      <AlertCircle size={12} /> Open Dispute
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {record.status === "disputed" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ padding: "12px 14px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 10 }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#991B1B", marginBottom: 3 }}>Under platform review</p>
-                    <p style={{ fontSize: 11, color: "#B91C1C", lineHeight: 1.5 }}>Creditlinker is reviewing this dispute. You'll be notified when a resolution is reached.</p>
-                  </div>
-                  <Link href="/financer/messages" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none" }}>
-                    <MessageSquare size={12} /> Message Business
-                  </Link>
-                </div>
-              )}
-
-              {record.status === "settled" && (
-                <div style={{ padding: "16px", background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, textAlign: "center" as const }}>
-                  <CheckCircle2 size={20} style={{ color: "#10B981", marginBottom: 6 }} />
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#065F46", marginBottom: 2 }}>Fully Settled</p>
-                  <p style={{ fontSize: 11, color: "#059669" }}>All repayments confirmed and recorded.</p>
-                </div>
-              )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 150 }}>
+              <Link
+                href={`/financer/portfolio/${record.financing_id}`}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "8px 16px", borderRadius: 8, background: "#0A2540", color: "white",
+                  fontSize: 12, fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                Full Record <ArrowUpRight size={12} />
+              </Link>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   CONSENTED BUSINESS ROW (for report generation)
+───────────────────────────────────────────────────────── */
+function ConsentedBizRow({ biz }: { biz: ConsentedBusiness }) {
+  return (
+    <div style={{
+      background: "white", border: "1px solid #E5E7EB", borderRadius: 12,
+      padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 8, background: "#0A2540", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Building2 size={14} color="#00D4FF" />
+        </div>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#0A2540", marginBottom: 1 }}>
+            {biz.business_name ?? `BIZ-${biz.anonymized_id.slice(0, 6).toUpperCase()}`}
+          </p>
+          <p style={{ fontSize: 11, color: "#9CA3AF" }}>Consent granted {fmtDate(biz.granted_at)}</p>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <DownloadReportBtn businessId={biz.business_id} reportType="financial_identity" label="Identity Report" />
+        <DownloadReportBtn businessId={biz.business_id} reportType="readiness"          label="Readiness Report" />
+        <DownloadReportBtn businessId={biz.business_id} reportType="full"               label="Full Report" />
+      </div>
     </div>
   );
 }
@@ -767,143 +273,321 @@ function RecordRow({
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function FinancerFinancing() {
-  const [records,    setRecords]    = useState(RECORDS);
-  const [expandedId, setExpanded]   = useState<string | null>(null);
-  const [filter,     setFilter]     = useState<"all" | FinancingStatus>("all");
-  const [settlementModal, setSettlementModal] = useState<FinancingRecord | null>(null);
-  const [disputeModal,    setDisputeModal]    = useState<FinancingRecord | null>(null);
+  const { user } = useSession();
 
-  const filtered = filter === "all" ? records : records.filter(r => r.status === filter);
-  const active          = records.filter(r => r.status === "active").length;
-  const disputed        = records.filter(r => r.status === "disputed").length;
-  const settled         = records.filter(r => r.status === "settled").length;
-  const overdueCount    = records.flatMap(r => r.schedule).filter(s => s.status === "overdue").length;
+  const [records,    setRecords]    = useState<FinancingRecord[]>([]);
+  const [consented,  setConsented]  = useState<ConsentedBusiness[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState<string | null>(null);
+  const [expanded,   setExpanded]   = useState<string | null>(null);
+  const [activeTab,  setActiveTab]  = useState<"deals" | "reports">("deals");
+  const [dealFilter, setDealFilter] = useState<"all" | FinancingStatus>("all");
 
-  function handleConfirmSettlement(id: string) {
-    setRecords(prev => prev.map(r =>
-      r.financing_id === id
-        ? { ...r, status: "settled" as const, repaid_pct: 100, health: "on_track" as const, outstanding: "₦0", repaid_amount: r.amount }
-        : r
-    ));
-  }
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+      setError(null);
 
-  function handleOpenDispute(id: string, reason: string) {
-    setRecords(prev => prev.map(r =>
-      r.financing_id === id
-        ? {
-            ...r,
-            status: "disputed" as const,
-            health: "watch" as const,
-            disputes: [...r.disputes, {
-              dispute_id:        `DIS-${Date.now()}`,
-              initiated_by:      "institution" as const,
-              opened_at:         "Today",
-              reason,
-              resolution:        "pending" as const,
-              platform_verified: false,
-            }],
-          }
-        : r
-    ));
-  }
+      // Resolve institution
+      const instId = await getMyInstitutionId(user.id);
+      if (!instId) { setError("No institution found."); setLoading(false); return; }
+
+      // Fetch financing records
+      const [recordsRes, consentedRes] = await Promise.all([
+        supabase
+          .from("financing_records")
+          .select(`
+            financing_id, capital_category, terms, status,
+            granted_at, settlement_proof, institution_id, business_id,
+            institutions ( name, category )
+          `)
+          .eq("institution_id", instId)
+          .order("granted_at", { ascending: false }),
+
+        // Businesses where we have active consent (for report generation)
+        supabase
+          .from("consent_records")
+          .select("consent_id, business_id, granted_at, is_active, permissions")
+          .eq("institution_id", instId)
+          .eq("is_active", true)
+          .order("granted_at", { ascending: false }),
+      ]);
+
+      if (recordsRes.error) {
+        setError(`Failed to load financing records: ${recordsRes.error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch business names separately for both financing records and consented businesses
+      const allBusinessIds = [...new Set([
+        ...(recordsRes.data ?? []).map((r: any) => r.business_id),
+        ...(consentedRes.data ?? []).map((c: any) => c.business_id),
+      ].filter(Boolean))];
+      let bizMap: Record<string, { name: string; financial_identity_id: string }> = {};
+      if (allBusinessIds.length > 0) {
+        const { data: bizRows } = await supabase
+          .from("businesses")
+          .select("business_id, name, financial_identity_id")
+          .in("business_id", allBusinessIds);
+        (bizRows ?? []).forEach((b: any) => { bizMap[b.business_id] = b; });
+      }
+
+      setRecords((recordsRes.data ?? []).map((r: any) => {
+        const t = r.terms ?? {};
+        const sp = r.settlement_proof ?? {};
+        const biz = bizMap[r.business_id];
+        return {
+          financing_id:     r.financing_id,
+          capital_category: r.capital_category,
+          terms: {
+            amount:   t.financing_amount ?? t.amount ?? undefined,
+            rate:     t.interest_rate    ?? t.rate   ?? undefined,
+            tenure:   t.tenure_months    != null ? `${t.tenure_months} months` : (t.tenure ?? undefined),
+            due_date: t.settlement_date  ?? t.due_date ?? undefined,
+          },
+          status:           r.status,
+          granted_at:       r.granted_at,
+          settlement_proof: {
+            total_paid:   sp.amount_paid   ?? sp.total_paid   ?? undefined,
+            installments: sp.installments  ?? undefined,
+          },
+          institution_id:   r.institution_id,
+          institution_name: r.institutions?.name ?? undefined,
+          business_name:    biz?.name ?? undefined,
+          anonymized_id:    biz?.financial_identity_id ?? undefined,
+        };
+      }));
+
+      setConsented((consentedRes.data ?? []).map((c: any) => {
+        const biz = bizMap[c.business_id];
+        return {
+          consent_id:    c.consent_id,
+          business_id:   c.business_id,
+          anonymized_id: biz?.financial_identity_id ?? c.business_id,
+          business_name: biz?.name ?? undefined,
+          granted_at:    c.granted_at,
+          is_active:     c.is_active,
+          permissions:   c.permissions ?? {},
+        };
+      }));
+
+      setLoading(false);
+    })();
+  }, [user]);
+
+  const filteredRecords = dealFilter === "all"
+    ? records
+    : records.filter(r => r.status === dealFilter);
+
+  const totalDeployed = records.filter(r => r.status === "active").reduce((s, r) => s + (r.terms?.amount ?? 0), 0);
+  const totalRepaid   = records.reduce((s, r) => s + (r.settlement_proof?.total_paid ?? 0), 0);
+
+  const counts = {
+    all:       records.length,
+    active:    records.filter(r => r.status === "active").length,
+    settled:   records.filter(r => r.status === "settled").length,
+    disputed:  records.filter(r => r.status === "disputed").length,
+    withdrawn: records.filter(r => r.status === "withdrawn").length,
+  };
+
+  const dealTabs: { key: "all" | FinancingStatus; label: string }[] = [
+    { key: "all",       label: "All" },
+    { key: "active",    label: "Active" },
+    { key: "settled",   label: "Settled" },
+    { key: "disputed",  label: "Disputed" },
+    { key: "withdrawn", label: "Withdrawn" },
+  ];
 
   return (
-    <>
-      {settlementModal && (
-        <ConfirmSettlementModal
-          record={settlementModal}
-          onClose={() => setSettlementModal(null)}
-          onConfirm={() => handleConfirmSettlement(settlementModal.financing_id)}
-        />
-      )}
-      {disputeModal && (
-        <OpenDisputeModal
-          record={disputeModal}
-          onClose={() => setDisputeModal(null)}
-          onSubmit={reason => handleOpenDispute(disputeModal.financing_id, reason)}
-        />
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Header */}
+      <div>
+        <h2 style={{
+          fontFamily: "var(--font-display)", fontWeight: 800,
+          fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4,
+        }}>
+          Financing
+        </h2>
+        <p style={{ fontSize: 13, color: "#6B7280" }}>
+          {loading ? "Loading…" : (
+            <>
+              {counts.active} active deal{counts.active !== 1 ? "s" : ""}
+              {totalDeployed > 0 && <> · <span style={{ fontWeight: 600, color: "#0A2540" }}>{formatNGN(totalDeployed)} deployed</span></>}
+              {totalRepaid   > 0 && <> · <span style={{ color: "#10B981", fontWeight: 600 }}>{formatNGN(totalRepaid)} repaid</span></>}
+            </>
+          )}
+        </p>
+      </div>
 
-        {/* Header */}
-        <div>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Financing
-          </h2>
-          <p style={{ fontSize: 13, color: "#6B7280" }}>
-            {records.length} financing records · {active} active · {settled} settled
-            {disputed > 0 && <> · <span style={{ color: "#EF4444", fontWeight: 600 }}>{disputed} disputed</span></>}
-            {overdueCount > 0 && <> · <span style={{ color: "#F59E0B", fontWeight: 600 }}>{overdueCount} overdue payment{overdueCount !== 1 ? "s" : ""}</span></>}
-          </p>
+      {/* Error */}
+      {error && (
+        <div style={{ padding: "14px 18px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", fontSize: 13, color: "#B91C1C" }}>
+          {error}
         </div>
+      )}
 
-        {/* Metrics */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 14 }}>
+      {/* Metric cards */}
+      {!loading && records.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))", gap: 12 }}>
           {[
-            { label: "Total Deployed",   value: "₦248M",           sub: "Across all records",   icon: <Banknote      size={16} />, accent: true,  alert: false },
-            { label: "Active",           value: String(active),     sub: "Currently open",       icon: <TrendingUp    size={16} />, accent: false, alert: false },
-            { label: "Total Repaid",     value: "₦102M",           sub: "Across all records",   icon: <CheckCircle2  size={16} />, accent: false, alert: false },
-            { label: "Overdue Payments", value: String(overdueCount), sub: "Need attention",     icon: <AlertCircle   size={16} />, accent: false, alert: overdueCount > 0 },
+            { label: "Active Deals",   value: String(counts.active),        accent: true  },
+            { label: "Total Deployed", value: formatNGN(totalDeployed),      accent: false },
+            { label: "Total Repaid",   value: formatNGN(totalRepaid),        accent: false },
+            { label: "Settled Deals",  value: String(counts.settled),        accent: false },
           ].map(m => (
-            <Card key={m.label} style={{ padding: "20px 22px" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, marginBottom: 14, background: m.accent ? "#0A2540" : m.alert ? "#FEF2F2" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: m.accent ? "#00D4FF" : m.alert ? "#EF4444" : "#6B7280" }}>
-                {m.icon}
+            <div key={m.label} style={{
+              background: m.accent ? "#0A2540" : "white",
+              border: "1px solid", borderColor: m.accent ? "#0A2540" : "#E5E7EB",
+              borderRadius: 12, padding: "14px 16px",
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: m.accent ? "#6B7280" : "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 6 }}>
+                {m.label}
+              </p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800, color: m.accent ? "white" : "#0A2540", letterSpacing: "-0.03em" }}>
+                {m.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab switcher */}
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #E5E7EB", paddingBottom: 0 }}>
+        {([
+          { key: "deals"   as const, label: "Deals",           icon: <Banknote  size={13} /> },
+          { key: "reports" as const, label: "Generate Reports", icon: <FileText  size={13} /> },
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 16px", border: "none", background: "none",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              color: activeTab === tab.key ? "#0A2540" : "#9CA3AF",
+              borderBottom: `2px solid ${activeTab === tab.key ? "#0A2540" : "transparent"}`,
+              marginBottom: -1,
+              transition: "all 0.12s",
+            }}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* DEALS TAB */}
+      {activeTab === "deals" && (
+        <>
+          {/* Filter tabs */}
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {dealTabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setDealFilter(tab.key)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "5px 12px", borderRadius: 7,
+                  border: dealFilter === tab.key ? "1px solid #0A2540" : "1px solid #E5E7EB",
+                  background: dealFilter === tab.key ? "#0A2540" : "white",
+                  color: dealFilter === tab.key ? "white" : "#6B7280",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                {tab.label}
+                <span style={{
+                  minWidth: 16, height: 16, padding: "0 3px", borderRadius: 9999,
+                  background: dealFilter === tab.key ? "rgba(255,255,255,0.15)" : "#F3F4F6",
+                  color: dealFilter === tab.key ? "white" : "#6B7280",
+                  fontSize: 10, fontWeight: 700,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {counts[tab.key]}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Table header */}
+          {!loading && filteredRecords.length > 0 && (
+            <>
+              <div className="fin-desktop-header" style={{ display: "grid", gridTemplateColumns: "1fr 110px 100px 110px 130px 24px", gap: 12, padding: "0 20px 4px" }}>
+                {["Deal", "Amount", "Repaid", "Disbursed", "Status", ""].map(h => (
+                  <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
+                ))}
               </div>
-              <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: m.alert ? "#EF4444" : "#0A2540", letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 4 }}>{m.value}</p>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", marginBottom: 2 }}>{m.label}</p>
-              <p style={{ fontSize: 11, color: "#9CA3AF" }}>{m.sub}</p>
-            </Card>
-          ))}
-        </div>
+              <style>{`@media (max-width: 768px) { .fin-desktop-header, .fin-row { grid-template-columns: 1fr 100px 130px 24px !important; } }`}</style>
+            </>
+          )}
 
-        {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
-          {([
-            { key: "all",      label: "All",      count: records.length },
-            { key: "active",   label: "Active",   count: active },
-            { key: "disputed", label: "Disputed", count: disputed },
-            { key: "settled",  label: "Settled",  count: settled },
-          ] as const).map(tab => (
-            <button key={tab.key} onClick={() => setFilter(tab.key)}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: filter === tab.key ? "1px solid #0A2540" : "1px solid #E5E7EB", background: filter === tab.key ? "#0A2540" : "white", color: filter === tab.key ? "white" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.12s" }}>
-              {tab.label}
-              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 18, height: 18, borderRadius: 9999, background: filter === tab.key ? "rgba(255,255,255,0.15)" : tab.key === "disputed" && tab.count > 0 ? "#FEF2F2" : "#F3F4F6", color: filter === tab.key ? "white" : tab.key === "disputed" && tab.count > 0 ? "#EF4444" : "#6B7280", fontSize: 10, fontWeight: 700, padding: "0 4px" }}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Column headers — hidden on mobile via fnc-fin-col-headers */}
-        <div className="fnc-fin-col-headers" style={{ display: "grid", gridTemplateColumns: "36px 1fr 90px 110px 110px 80px 130px", gap: 12, padding: "0 20px 6px" }}>
-          {["", "Business", "Amount", "Disbursed", "Due", "Health", "Repaid"].map(h => (
-            <p key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</p>
-          ))}
-        </div>
-
-        {/* Records */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {filtered.length === 0 ? (
-            <div style={{ padding: "48px 24px", textAlign: "center" as const, background: "white", borderRadius: 12, border: "1px solid #E5E7EB" }}>
-              <FileText size={32} style={{ color: "#E5E7EB", marginBottom: 12 }} />
-              <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No records</p>
-              <p style={{ fontSize: 13, color: "#9CA3AF" }}>No financing records match the selected filter.</p>
+          {loading ? (
+            <div style={{ padding: "60px 24px", textAlign: "center" as const, background: "white", borderRadius: 14, border: "1px solid #E5E7EB" }}>
+              <Loader2 size={28} style={{ color: "#D1D5DB", marginBottom: 12, animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540" }}>Loading deals…</p>
+            </div>
+          ) : filteredRecords.length === 0 ? (
+            <div style={{ padding: "60px 24px", textAlign: "center" as const, background: "white", borderRadius: 14, border: "1px solid #E5E7EB" }}>
+              <Banknote size={32} style={{ color: "#E5E7EB", marginBottom: 12 }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No deals yet</p>
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>
+                {dealFilter === "all" ? "Financing records will appear here once deals are created." : `No ${dealFilter} deals.`}
+              </p>
             </div>
           ) : (
-            filtered.map(record => (
-              <RecordRow
-                key={record.financing_id}
-                record={record}
-                expanded={expandedId === record.financing_id}
-                onToggle={() => setExpanded(expandedId === record.financing_id ? null : record.financing_id)}
-                onConfirmSettlement={() => setSettlementModal(record)}
-                onOpenDispute={() => setDisputeModal(record)}
-              />
-            ))
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {filteredRecords.map(r => (
+                <DealRow
+                  key={r.financing_id}
+                  record={r}
+                  expanded={expanded === r.financing_id}
+                  onToggle={() => setExpanded(expanded === r.financing_id ? null : r.financing_id)}
+                />
+              ))}
+            </div>
           )}
-        </div>
-      </div>
-    </>
+        </>
+      )}
+
+      {/* REPORTS TAB */}
+      {activeTab === "reports" && (
+        <>
+          <div style={{
+            padding: "12px 16px", borderRadius: 10,
+            background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)",
+            fontSize: 13, color: "#0A5060",
+          }}>
+            Reports are generated from the business's latest financial identity snapshot.
+            They are available for any business that has granted your institution consent.
+          </div>
+
+          {loading ? (
+            <div style={{ padding: "60px 24px", textAlign: "center" as const, background: "white", borderRadius: 14, border: "1px solid #E5E7EB" }}>
+              <Loader2 size={28} style={{ color: "#D1D5DB", marginBottom: 12, animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540" }}>Loading…</p>
+            </div>
+          ) : consented.length === 0 ? (
+            <div style={{ padding: "60px 24px", textAlign: "center" as const, background: "white", borderRadius: 14, border: "1px solid #E5E7EB" }}>
+              <FileText size={32} style={{ color: "#E5E7EB", marginBottom: 12 }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No consented businesses</p>
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>
+                Request access to businesses on the{" "}
+                <Link href="/financer/businesses" style={{ color: "#0A2540", fontWeight: 600 }}>Businesses</Link>
+                {" "}page. Reports become available once consent is granted.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {consented.map(biz => (
+                <ConsentedBizRow key={biz.consent_id} biz={biz} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }

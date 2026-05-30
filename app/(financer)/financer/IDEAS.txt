@@ -1,8 +1,12 @@
-How do we enable Organizations to sign up as financers and then delegate profiles to employees, for example - a bank has 30 workers - the first one is tunde, another is kemi, both kemi and tunde have profiles but their profiles are under the organization, so while each can log in to their portal individually, the organization can log in and monitor all of them, also the organization can set tunde as team leader of some other workers and that gives tunde access to their profile, so that way we support organizational structures
+Financer Portal — API Key Management UI
+The core idea to keep in mind:
+A financer is not a developer by default. They become one by opting in. So the UI lives in the financer settings, not a separate developer portal. The flow is:
 
+Financer visits Settings → Integrations (or API Access)
+They see a locked state — "Connect your systems to CreditLinker via API" with a button to enable API access
+On enabling, a developer_accounts record is created behind the scenes with account_type = 'institutional' and institution_id linked to their institution — they never see or think about this
+They can now generate API keys — same UI as the standalone developer dashboard but scoped to institutional endpoints only
+Keys are prefixed sk_live_ / sk_test_ same as standalone developers
+The key management page shows only institution-scoped endpoints in the docs — institution-query, discovery-match, confirm-settlement — not partner endpoints
 
-Financers need to be able to message businesses directly and have a conversation 
-
-also businesses should be able to tag transactions and label them, sometimes a transaction could be for supplier or a contarct but have no narrative, so it makes sense for the business to be able to categorize it, so not just tag, but categorization which the system can pick up and develop into metrics, so the system needs a way to know how to use the tag for categorization, but you need to think deeply about this implementation because there are different types of businesses and relationships are not only based on supplies, there is more involved than that, how does this data help our insights, how is it normalized
-
-some businesses have multiple branches, franchises, some have different offices and more, id like businesses to be able to add branches franchises and the likes to the business profile, i need you to think of the best way to make this work in practice
+The key constraint: one institution = one developer account. When they generate keys, those keys inherit institution_id automatically. They can never query another institution's data.

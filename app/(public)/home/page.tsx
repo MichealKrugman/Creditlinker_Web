@@ -339,6 +339,16 @@ export default function HomePage() {
       </section>
 
 
+      {/* ══ TRUST CONTEXT STRIP ══════════════════════════════════ */}
+      <section style={{ padding: "32px 32px", background: "#F1F5F9", borderTop: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0" }}>
+        <p style={{ maxWidth: 760, margin: "0 auto", fontSize: 15, color: "#6B7280", lineHeight: 1.75, textAlign: "center" }}>
+          Whether it&apos;s an investor, a bank, a microfinance institution, a supplier in Lagos or a manufacturer in China,
+          every business partner wants to understand who you are, what your business does, how you operate, and whether
+          your business is performing well.{" "}
+          <strong style={{ color: "#0A2540", fontWeight: 600 }}>Creditlinker turns operational and financial data into clear, verifiable insights that inspire trust and open opportunities.</strong>
+        </p>
+      </section>
+
       {/* ══ THE PROBLEM (3 lines, no fluff) ═══════════════════════ */}
       <section
         aria-label="The problem"

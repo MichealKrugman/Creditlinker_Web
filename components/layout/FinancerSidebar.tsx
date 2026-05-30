@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMobileNav } from '@/lib/mobile-nav-context';
+import { useSession } from '@/lib/session-context';
+import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import {
   LayoutDashboard, Building2, Inbox, Tag,
@@ -119,11 +122,23 @@ function NavItem({
 export function FinancerSidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useMobileNav();
+  const { user } = useSession();
+  const [institutionName, setInstitutionName] = useState<string>('');
 
-  const BADGES: Record<string, number> = {
-    '/financer/requests': 3,
-    '/financer/messages': 1,
-  };
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('institutions')
+      .select('name')
+      .eq('owner_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setInstitutionName(data.name); });
+  }, [user]);
+
+  const instInitial = institutionName ? institutionName.charAt(0).toUpperCase() : (user?.initials?.charAt(0) ?? '?');
+  const instDisplay = institutionName || user?.fullName || 'Loading…';
+
+  const BADGES: Record<string, number> = {};
 
   return (
     <>
@@ -205,10 +220,10 @@ export function FinancerSidebar() {
           onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
         >
           <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.3))', border: '1px solid rgba(0,212,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#00D4FF' }}>
-            S
+            {instInitial}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Stanbic IBTC</p>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{instDisplay}</p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Capital provider</p>
           </div>
           <ChevronRight size={13} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />

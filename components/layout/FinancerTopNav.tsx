@@ -10,6 +10,8 @@ import {
   PieChart, BarChart2, Target,
 } from 'lucide-react';
 import { useMobileNav } from '@/lib/mobile-nav-context';
+import { useSession } from '@/lib/session-context';
+import { supabase } from '@/lib/supabase';
 
 /* ─────────────────────────────────────────────────────────
    ROUTE → TITLE MAP
@@ -56,6 +58,11 @@ export function FinancerTopNav() {
   const router    = useRouter();
   const title     = ROUTE_TITLES[pathname] ?? 'Capital Provider Portal';
   const { toggle } = useMobileNav();
+  const { user } = useSession();
+
+  const displayName = user?.fullName ?? 'Loading…';
+  const displayEmail = user?.email ?? '';
+  const initials = user?.initials ?? '?';
 
   const [open,       setOpen]       = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -256,10 +263,10 @@ export function FinancerTopNav() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700, color: '#0A5060', flexShrink: 0,
             }}>
-              S
+              {initials.charAt(0)}
             </div>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#0A2540' }}>
-              Stanbic IBTC
+              {displayName}
             </span>
             <ChevronDown
               size={13}
@@ -281,11 +288,11 @@ export function FinancerTopNav() {
               {/* Institution info */}
               <div style={{ padding: '14px 16px', borderBottom: '1px solid #F3F4F6' }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#0A2540', marginBottom: 2 }}>
-                  Tunde Adeyemi
+                  {displayName}
                 </p>
-                <p style={{ fontSize: 12, color: '#9CA3AF' }}>tunde@stanbicibtc.com</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF' }}>{displayEmail}</p>
                 <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
-                  Stanbic IBTC · Capital provider
+                  Capital provider
                 </p>
               </div>
 
@@ -323,7 +330,7 @@ export function FinancerTopNav() {
                   }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  // TODO: Keycloak logout → clear session → redirect to /login
+                  onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }}
                 >
                   <LogOut size={13} />
                   Sign out
