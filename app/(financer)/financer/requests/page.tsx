@@ -283,7 +283,7 @@ export default function FinancingRequests() {
         return;
       }
 
-      setMatches((data ?? []) as DiscoveryMatch[]);
+      setMatches((data ?? []) as unknown as DiscoveryMatch[]);
       setLoading(false);
     })();
   }, [user]);
