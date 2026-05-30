@@ -14,7 +14,7 @@ import { getMyInstitutionId } from "@/lib/institution";
 /* ─────────────────────────────────────────────────────────
    TYPES — exact discovery_matches schema
 ───────────────────────────────────────────────────────── */
-type MatchStatus = "access_requested" | "consented" | "denied";
+type MatchStatus = "access_requested" | "consented" | "denied" | "pending";
 
 type DiscoveryMatch = {
   match_id: string;
