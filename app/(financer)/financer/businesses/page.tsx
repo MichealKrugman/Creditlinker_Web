@@ -334,7 +334,7 @@ export default function FinancerBusinesses() {
         return;
       }
 
-      setMatches((data ?? []) as DiscoveryMatch[]);
+      setMatches((data ?? []) as unknown as DiscoveryMatch[]);
       setLoading(false);
     })();
   }, [user]);
