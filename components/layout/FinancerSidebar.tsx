@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import {
   LayoutDashboard, Building2, Inbox, Tag,
-  PieChart, BarChart2, Settings, Bell,
+  PieChart, Settings, Bell,
   ChevronRight, Target, MessageSquare, Banknote, TrendingUp,
 } from 'lucide-react';
 
@@ -25,7 +25,6 @@ const NAV_ITEMS = [
   { label: 'Financing',          route: '/financer/financing',          icon: Banknote },
   { label: 'Financial Analysis', route: '/financer/financial-analysis', icon: TrendingUp },
   { label: 'Portfolio',          route: '/financer/portfolio',          icon: PieChart },
-  { label: 'Reports',            route: '/financer/reports',            icon: BarChart2 },
   { label: 'Alerts',             route: '/financer/alerts',             icon: Target },
   { label: 'Notifications',      route: '/financer/notifications',      icon: Bell },
 ];

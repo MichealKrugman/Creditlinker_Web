@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   MessageSquare, Send, Search, X, ArrowLeft,
   Building2, ShieldCheck, Clock, CheckCheck, Loader2,
@@ -156,6 +157,8 @@ function MessageBubble({ msg }: { msg: Message }) {
 ───────────────────────────────────────────────────────── */
 export default function FinancerMessagesPage() {
   const { user } = useSession();
+  const searchParams = useSearchParams();
+  const consentParam = searchParams.get("consent");
 
   const [threads,      setThreads]      = useState<Thread[]>([]);
   const [instId,       setInstId]       = useState<string | null>(null);
@@ -181,66 +184,38 @@ export default function FinancerMessagesPage() {
       if (!resolvedInstId) { setError("No institution found."); setLoading(false); return; }
       setInstId(resolvedInstId);
 
-      // 1. Load consented businesses
-      const { data: consents, error: cErr } = await supabase
-        .from("consent_records")
-        .select("consent_id, business_id, granted_at, is_active")
-        .eq("institution_id", resolvedInstId)
-        .eq("is_active", true)
-        .order("granted_at", { ascending: false });
+      // Load all threads via edge function (service role — bypasses RLS)
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setError("Not authenticated"); setLoading(false); return; }
 
-      if (cErr) { setError(cErr.message); setLoading(false); return; }
-      if (!consents?.length) { setThreads([]); setLoading(false); return; }
+      const res = await fetch(`${supabaseUrl}/functions/v1/get-all-messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+        body: JSON.stringify({}),
+      });
 
-      // 2. Fetch business names separately (avoid RLS join issue)
-      const businessIds = consents.map((c: any) => c.business_id).filter(Boolean);
-      let bizMap: Record<string, { name: string; financial_identity_id: string }> = {};
-      if (businessIds.length > 0) {
-        const { data: bizRows } = await supabase
-          .from("businesses")
-          .select("business_id, name, financial_identity_id")
-          .in("business_id", businessIds);
-        (bizRows ?? []).forEach((b: any) => { bizMap[b.business_id] = b; });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setError(err.error ?? `Failed to load messages (${res.status})`);
+        setLoading(false);
+        return;
       }
 
-      // 3. Batch-fetch all messages for all consents in one query
-      const consentIds = consents.map((c: any) => c.consent_id);
-      const { data: allMsgs } = await supabase
-        .from("messages")
-        .select("message_id, consent_id, sender_type, body, created_at, read_at, is_read")
-        .in("consent_id", consentIds)
-        .eq("type", "financer_message")
-        .order("created_at", { ascending: true });
-
-      // Group messages by consent_id
-      const msgsByConsent: Record<string, RawMessage[]> = {};
-      (allMsgs ?? []).forEach((m: any) => {
-        if (!msgsByConsent[m.consent_id]) msgsByConsent[m.consent_id] = [];
-        msgsByConsent[m.consent_id].push(m);
-      });
-
-      // 4. Build threads
-      const allThreads: Thread[] = consents.map((c: any) => {
-        const raw: RawMessage[] = msgsByConsent[c.consent_id] ?? [];
-        const unread = raw.filter(m => m.sender_type === "business" && !m.is_read).length;
-        const last = raw[raw.length - 1];
-        const biz = bizMap[c.business_id];
-        return {
-          consent_id:       c.consent_id,
-          business_id:      c.business_id,
-          business_name:    biz?.name ?? "",
-          anonymized_id:    biz?.financial_identity_id ?? c.business_id,
-          granted_at:       c.granted_at,
-          messages:         raw.map(m => ({ message_id: m.message_id, sender_type: m.sender_type, content: m.body, sent_at: m.created_at, read_at: m.read_at })),
-          last_message:     last?.body ?? "",
-          last_message_at:  last?.created_at ?? c.granted_at,
-          unread_count:     unread,
-          financing_active: false,
-        };
-      });
+      const payload = await res.json();
+      const allThreads: Thread[] = (payload.threads ?? []);
 
       setThreads(allThreads);
-      if (allThreads.length > 0) setActiveId(allThreads[0].consent_id);
+      // Auto-open thread from ?consent= param only
+      if (consentParam && allThreads.some(t => t.consent_id === consentParam)) {
+        setActiveId(consentParam);
+        setMobileView("chat");
+      }
       setLoading(false);
     })();
   }, [user]);
@@ -284,23 +259,49 @@ export default function FinancerMessagesPage() {
     ));
     setCompose("");
 
-    // Insert into DB
-    const thread = threads.find(t => t.consent_id === activeId);
-    const { error: sendErr } = await supabase.from("messages").insert({
-      type:                  "financer_message",
-      sender_type:           "institution",
-      sender_institution_id: instId,
-      sender_business_id:    null,
-      recipient_business_id: thread?.business_id ?? null,
-      consent_id:            activeId,
-      subject:               "",
-      body:                  content,
-      metadata:              {},
-      is_read:               false,
-      created_at:            now,
-    });
+    try {
+      // Route through Edge Function — direct inserts are blocked by RLS
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
 
-    if (sendErr) {
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+        body: JSON.stringify({
+          consent_id:  activeId,
+          content,
+          sender_type: "institution",
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? err.message ?? `Send failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      // Replace temp with real message from server if returned
+      if (data?.message) {
+        const serverMsg: Message = {
+          message_id:  data.message.message_id ?? tempId,
+          sender_type: "institution",
+          content:     data.message.body ?? data.message.content ?? content,
+          sent_at:     data.message.created_at ?? data.message.sent_at ?? now,
+          read_at:     null,
+        };
+        setThreads(prev => prev.map(t =>
+          t.consent_id === activeId
+            ? { ...t, messages: t.messages.map(m => m.message_id === tempId ? serverMsg : m) }
+            : t
+        ));
+      }
+    } catch (err: any) {
       // Revert optimistic update
       setThreads(prev => prev.map(t =>
         t.consent_id === activeId
@@ -308,13 +309,16 @@ export default function FinancerMessagesPage() {
           : t
       ));
       setCompose(content);
+      console.error("Send failed:", err.message);
+    } finally {
+      setSending(false);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
+  }, [compose, activeId, instId, threads]);
 
-    setSending(false);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  }, [compose, activeId, instId]);
-
-  const filteredThreads = threads.filter(t => {
+  const filteredThreads = threads
+    .filter(t => t.messages.length > 0) // only show threads with at least one message
+    .filter(t => {
     const name = (t.business_name || `BIZ-${t.anonymized_id.slice(0, 6).toUpperCase()}`).toLowerCase();
     return name.includes(search.toLowerCase()) || t.last_message.toLowerCase().includes(search.toLowerCase());
   });

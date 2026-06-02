@@ -13,21 +13,25 @@ import { useSession } from "@/lib/session-context";
 import { getMyInstitutionId } from "@/lib/institution";
 
 /* ─────────────────────────────────────────────────────────
-   TYPES  — mirrors the real discovery_matches schema exactly
+   TYPES
 ───────────────────────────────────────────────────────── */
-type MatchStatus = "pending" | "access_requested" | "consented" | "denied";
+type MatchStatus = "pending" | "access_requested" | "consented" | "denied" | "unmatched";
 
 type DiscoveryMatch = {
   match_id: string;
   anonymized_id: string;
-  institution_id: string;
+  business_id: string;
+  institution_id: string | null;
   criteria_id: string | null;
-  capital_category: string;
-  match_score: number;          // 0–1 stored; ×100 for display
+  capital_category: string;         // primary category from discovery match
+  capital_types: string[];          // ALL eligible types from readiness assessments
+  match_score: number | null;
   status: MatchStatus;
-  matched_at: string;
+  matched_at: string | null;
   access_requested_at: string | null;
   access_responded_at: string | null;
+  business_name: string | null;
+  matched_elsewhere: boolean;
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -49,6 +53,7 @@ function statusConfig(s: MatchStatus) {
     access_requested: { label: "Request Sent",   variant: "warning"     as const, icon: <Clock size={9} /> },
     consented:        { label: "Access Granted", variant: "success"     as const, icon: <CheckCircle2 size={9} /> },
     denied:           { label: "Access Denied",  variant: "destructive" as const, icon: <XCircle size={9} /> },
+    unmatched:        { label: "Not Matched",    variant: "outline"     as const, icon: null },
   }[s] ?? { label: s, variant: "secondary" as const, icon: null };
 }
 
@@ -79,12 +84,17 @@ function BusinessCard({
 }) {
   const [requesting, setRequesting] = useState(false);
   const sc  = statusConfig(biz.status);
-  const pct = Math.round(biz.match_score * 100);
-  const shortId = `BIZ-${biz.anonymized_id.slice(0, 6).toUpperCase()}`;
+  const pct = biz.match_score !== null ? Math.round(biz.match_score * 100) : null;
+  // Show real name when consented, anonymized ID otherwise
+  const displayName = (biz.status === "consented" && biz.business_name)
+    ? biz.business_name
+    : `BIZ-${biz.anonymized_id.slice(0, 6).toUpperCase()}`;
 
-  const matchedDate = new Date(biz.matched_at).toLocaleDateString("en-GB", {
-    day: "numeric", month: "short", year: "numeric",
-  });
+  const matchedDate = biz.matched_at
+    ? new Date(biz.matched_at).toLocaleDateString("en-GB", {
+        day: "numeric", month: "short", year: "numeric",
+      })
+    : null;
   const requestedDate = biz.access_requested_at
     ? new Date(biz.access_requested_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
     : null;
@@ -115,7 +125,7 @@ function BusinessCard({
         padding: "16px 20px", borderBottom: "1px solid #F3F4F6",
         display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
       }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0, flex: 1 }}>
           {/* Anonymous avatar */}
           <div style={{
             width: 40, height: 40, borderRadius: 10, flexShrink: 0,
@@ -125,30 +135,45 @@ function BusinessCard({
             <Building2 size={17} color={biz.status === "consented" ? "#00D4FF" : "#9CA3AF"} />
           </div>
 
-          <div style={{ minWidth: 0 }}>
-            {/* ID + status */}
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4, flexWrap: "wrap" as const }}>
-              <p style={{
-                fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700,
-                color: "#0A2540", letterSpacing: "-0.01em",
-              }}>
-                {shortId}
-              </p>
-              <Badge variant={sc.variant} style={{ fontSize: 9, padding: "1px 6px", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                {sc.icon} {sc.label}
-              </Badge>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {/* ID + status + matched elsewhere tag */}
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4, flexWrap: "wrap" as const, justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" as const }}>
+                <p style={{
+                  fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700,
+                  color: "#0A2540", letterSpacing: "-0.01em",
+                }}>
+                  {displayName}
+                </p>
+                <Badge variant={sc.variant as any} style={{ fontSize: 9, padding: "1px 6px", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  {sc.icon} {sc.label}
+                </Badge>
+              </div>
+              {biz.matched_elsewhere && (
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+                  color: "#7C3AED", background: "#F5F3FF",
+                  border: "1px solid #DDD6FE",
+                  padding: "2px 7px", borderRadius: 5,
+                  whiteSpace: "nowrap" as const, flexShrink: 0,
+                }}>
+                  ACTIVE WITH OTHER LENDERS
+                </span>
+              )}
             </div>
 
-            {/* Meta */}
+            {/* Meta — hide raw anonymized_id once consented */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
-              <span style={{
-                fontSize: 10, fontWeight: 700, color: "#9CA3AF",
-                background: "#F3F4F6", padding: "1px 6px", borderRadius: 4,
-                fontFamily: "monospace", letterSpacing: "0.02em",
-              }}>
-                {biz.anonymized_id.slice(0, 12).toUpperCase()}
-              </span>
-              <span style={{ fontSize: 10, color: "#D1D5DB" }}>·</span>
+              {biz.status !== "consented" && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: "#9CA3AF",
+                  background: "#F3F4F6", padding: "1px 6px", borderRadius: 4,
+                  fontFamily: "monospace", letterSpacing: "0.02em",
+                }}>
+                  {biz.anonymized_id.slice(0, 12).toUpperCase()}
+                </span>
+              )}
+              {biz.status !== "consented" && <span style={{ fontSize: 10, color: "#D1D5DB" }}>·</span>}
               <span style={{ fontSize: 11, color: "#9CA3AF" }}>
                 {biz.capital_category.replace(/_/g, " ")}
               </span>
@@ -157,31 +182,39 @@ function BusinessCard({
         </div>
 
         {/* Match score */}
-        <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
-          <p style={{
-            fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, lineHeight: 1,
-            color: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444",
-            letterSpacing: "-0.04em",
-          }}>
-            {pct}%
-          </p>
-          <p style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600, marginTop: 2 }}>match score</p>
-        </div>
+        {pct !== null && (
+          <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+            <p style={{
+              fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800, lineHeight: 1,
+              color: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#EF4444",
+              letterSpacing: "-0.04em",
+            }}>
+              {pct}%
+            </p>
+            <p style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600, marginTop: 2 }}>match score</p>
+          </div>
+        )}
       </div>
 
       {/* Score bar + dates */}
       <div style={{ padding: "14px 20px", borderBottom: "1px solid #F3F4F6" }}>
-        <ScoreBar pct={pct} />
-        <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
-          <span style={{ fontSize: 11, color: "#9CA3AF" }}>
-            Matched: <span style={{ color: "#374151", fontWeight: 500 }}>{matchedDate}</span>
-          </span>
-          {requestedDate && (
-            <span style={{ fontSize: 11, color: "#9CA3AF" }}>
-              Requested: <span style={{ color: "#374151", fontWeight: 500 }}>{requestedDate}</span>
-            </span>
-          )}
-        </div>
+        {pct !== null ? (
+          <>
+            <ScoreBar pct={pct} />
+            <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+              <span style={{ fontSize: 11, color: "#9CA3AF" }}>
+                Matched: <span style={{ color: "#374151", fontWeight: 500 }}>{matchedDate}</span>
+              </span>
+              {requestedDate && (
+                <span style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  Requested: <span style={{ color: "#374151", fontWeight: 500 }}>{requestedDate}</span>
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          <p style={{ fontSize: 11, color: "#9CA3AF" }}>Not yet matched by the discovery pipeline.</p>
+        )}
       </div>
 
       {/* Privacy notice + action */}
@@ -215,6 +248,10 @@ function BusinessCard({
         ) : biz.status === "denied" ? (
           <span style={{ fontSize: 12, color: "#EF4444", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
             <XCircle size={12} /> Access denied
+          </span>
+        ) : biz.status === "unmatched" ? (
+          <span style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 500 }}>
+            Awaiting match
           </span>
         ) : (
           <button
@@ -316,25 +353,121 @@ export default function FinancerBusinesses() {
 
       setInstitutionId(instId);
 
-      // Fetch only the columns that actually exist
-      const { data, error: fetchErr } = await supabase
+      // ── 1. Fetch ALL businesses ──────────────────────────────────
+      const { data: bizRows, error: bizErr } = await supabase
+        .from("businesses")
+        .select("business_id, name, financial_identity_id");
+
+      if (bizErr) {
+        console.error("businesses error:", bizErr);
+        setError(`Failed to load businesses: ${bizErr.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // ── 2. Fetch discovery_matches for this institution ──────────
+      const { data: matchRows, error: matchErr } = await supabase
         .from("discovery_matches")
         .select(
           "match_id, anonymized_id, institution_id, criteria_id, " +
           "capital_category, match_score, status, matched_at, " +
           "access_requested_at, access_responded_at"
         )
-        .eq("institution_id", instId)
-        .order("match_score", { ascending: false });
+        .eq("institution_id", instId);
 
-      if (fetchErr) {
-        console.error("discovery_matches error:", fetchErr);
-        setError(`Failed to load discovery matches: ${fetchErr.message}`);
+      if (matchErr) {
+        console.error("discovery_matches error:", matchErr);
+        setError(`Failed to load discovery matches: ${matchErr.message}`);
         setLoading(false);
         return;
       }
 
-      setMatches((data ?? []) as unknown as DiscoveryMatch[]);
+      // ── 3. Fetch ALL matches across ALL institutions (for "matched elsewhere" tag)
+      const { data: allMatchRows } = await supabase
+        .from("discovery_matches")
+        .select("anonymized_id, institution_id");
+
+      const matchedElsewhereIds = new Set<string>();
+      (allMatchRows ?? []).forEach((m: any) => {
+        if (m.institution_id !== instId) matchedElsewhereIds.add(m.anonymized_id);
+      });
+
+      // ── 4. Fetch readiness assessments for ALL businesses ────────
+      //    finance_type (e.g. "revenue_advance") is the real product key.
+      //    status "ready" | "almost_ready" = eligible / conditional.
+      //    We only care about ready/almost_ready to populate the filter.
+      const { data: readinessRows } = await supabase
+        .from("financing_readiness_assessments")
+        .select("business_id, finance_type, capital_category, status")
+        .in("status", ["ready", "almost_ready"]);
+
+      // Build lookup: business_id → Set of normalised capital type strings
+      // Normalise: underscores→spaces, lowercase — matches CAPITAL_CATS comparison
+      const readinessByBiz: Record<string, Set<string>> = {};
+      (readinessRows ?? []).forEach((r: any) => {
+        if (!readinessByBiz[r.business_id]) readinessByBiz[r.business_id] = new Set();
+        // Add both finance_type and capital_category (normalised) so either works
+        if (r.finance_type)      readinessByBiz[r.business_id].add(r.finance_type.replace(/_/g, " ").toLowerCase());
+        if (r.capital_category)  readinessByBiz[r.business_id].add(r.capital_category.replace(/_/g, " ").toLowerCase());
+      });
+
+      // ── 5. Build lookup: financial_identity_id → this institution's match
+      const matchByAnonId: Record<string, any> = {};
+      (matchRows ?? []).forEach((m: any) => { matchByAnonId[m.anonymized_id] = m; });
+
+      // ── 6. Merge every business with its match + readiness types ─
+      const shaped: DiscoveryMatch[] = (bizRows ?? []).map((b: any) => {
+        const match            = b.financial_identity_id ? matchByAnonId[b.financial_identity_id] : null;
+        const matchedElsewhere = matchedElsewhereIds.has(b.financial_identity_id ?? b.business_id);
+        const capitalTypes     = Array.from(readinessByBiz[b.business_id] ?? []);
+
+        if (match) {
+          return {
+            match_id:             match.match_id,
+            anonymized_id:        b.financial_identity_id ?? match.anonymized_id,
+            business_id:          b.business_id,
+            institution_id:       match.institution_id,
+            criteria_id:          match.criteria_id,
+            capital_category:     match.capital_category,
+            capital_types:        capitalTypes,
+            match_score:          match.match_score,
+            status:               match.status as MatchStatus,
+            matched_at:           match.matched_at,
+            access_requested_at:  match.access_requested_at,
+            access_responded_at:  match.access_responded_at,
+            business_name:        match.status === "consented" ? b.name : null,
+            matched_elsewhere:    matchedElsewhere,
+          };
+        }
+
+        return {
+          match_id:             `unmatched-${b.business_id}`,
+          anonymized_id:        b.financial_identity_id ?? b.business_id,
+          business_id:          b.business_id,
+          institution_id:       null,
+          criteria_id:          null,
+          capital_category:     "Unknown",
+          capital_types:        capitalTypes,
+          match_score:          null,
+          status:               "unmatched" as MatchStatus,
+          matched_at:           null,
+          access_requested_at:  null,
+          access_responded_at:  null,
+          business_name:        null,
+          matched_elsewhere:    matchedElsewhere,
+        };
+      });
+
+      // Sort: matched (by score desc) first, unmatched at end
+      shaped.sort((a, b) => {
+        if (a.match_score !== null && b.match_score !== null)
+          return b.match_score - a.match_score;
+        if (a.match_score !== null) return -1;
+        if (b.match_score !== null) return 1;
+        return 0;
+      });
+
+      setMatches(shaped);
       setLoading(false);
     })();
   }, [user]);
@@ -378,15 +511,26 @@ export default function FinancerBusinesses() {
     .filter(b => {
       const matchQ = query === "" ||
         b.anonymized_id.toLowerCase().includes(query.toLowerCase()) ||
-        b.capital_category.toLowerCase().includes(query.toLowerCase());
+        b.capital_category.toLowerCase().includes(query.toLowerCase()) ||
+        (b.business_name ?? "").toLowerCase().includes(query.toLowerCase());
+      // Normalize both sides to lowercase+spaces for comparison
       const matchC = capCat === "All Types" ||
-        b.capital_category.replace(/_/g, " ") === capCat;
+        b.capital_types.some(t => t === capCat.toLowerCase()) ||
+        b.capital_category.replace(/_/g, " ").toLowerCase() === capCat.toLowerCase();
       const matchSt = statusFilter === "All" || b.status === statusFilter;
       return matchQ && matchC && matchSt;
     })
     .sort((a, b) => {
-      if (sortBy === "Best Match")         return b.match_score - a.match_score;
-      if (sortBy === "Recently Matched")   return new Date(b.matched_at).getTime() - new Date(a.matched_at).getTime();
+      if (sortBy === "Best Match") {
+        if (a.match_score !== null && b.match_score !== null) return b.match_score - a.match_score;
+        if (a.match_score !== null) return -1;
+        if (b.match_score !== null) return 1;
+        return 0;
+      }
+      if (sortBy === "Recently Matched") {
+        const at = (x: DiscoveryMatch) => x.matched_at ? new Date(x.matched_at).getTime() : 0;
+        return at(b) - at(a);
+      }
       if (sortBy === "Recently Requested") {
         const at = (x: DiscoveryMatch) => x.access_requested_at ? new Date(x.access_requested_at).getTime() : 0;
         return at(b) - at(a);
@@ -397,8 +541,9 @@ export default function FinancerBusinesses() {
   const consentedCount  = matches.filter(b => b.status === "consented").length;
   const requestedCount  = matches.filter(b => b.status === "access_requested").length;
   const pendingCount    = matches.filter(b => b.status === "pending").length;
+  const unmatchedCount  = matches.filter(b => b.status === "unmatched").length;
 
-  const STATUS_FILTERS = ["All", "pending", "access_requested", "consented", "denied"];
+  const STATUS_FILTERS = ["All", "pending", "access_requested", "consented", "denied", "unmatched"];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -415,10 +560,11 @@ export default function FinancerBusinesses() {
           <p style={{ fontSize: 13, color: "#6B7280" }}>
             {loading ? "Loading…" : (
               <>
-                {matches.length} {matches.length === 1 ? "match" : "matches"} total
+                {matches.length} {matches.length === 1 ? "business" : "businesses"} total
                 {pendingCount > 0 && <> · <span style={{ color: "#6B7280" }}>{pendingCount} new</span></>}
                 {requestedCount > 0 && <> · <span style={{ color: "#F59E0B", fontWeight: 600 }}>{requestedCount} pending response</span></>}
                 {consentedCount > 0 && <> · <span style={{ color: "#10B981", fontWeight: 600 }}>{consentedCount} with access</span></>}
+                {unmatchedCount > 0 && <> · <span style={{ color: "#D1D5DB" }}>{unmatchedCount} unmatched</span></>}
               </>
             )}
           </p>

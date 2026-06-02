@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ShieldCheck, ArrowUpRight, Building2, TrendingUp,
   ArrowDownLeft, ChevronRight, AlertCircle, Info, Loader2,
-  CheckCircle2,
+  CheckCircle2, MessageSquare, Send, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
@@ -32,17 +32,20 @@ type Transaction = {
 };
 
 type ProfileData = {
-  anonymized_id: string;
-  sector: string | null;
-  kyc_status: string | null;
+  business_id:         string;
+  consent_id:          string;       // needed to open the right message thread
+  business_name:       string | null;
+  anonymized_id:       string;      // financial_identity_id slug
+  sector:              string | null;
+  kyc_status:          string | null;
   registration_number: string | null;
-  data_months: number;
-  coverage: string;
-  consent_expiry: string | null;
-  overall_score: number | null;
-  risk_level: string | null;
-  data_quality_score: number | null;
-  dimensions: DimensionScore[];
+  data_months:         number;
+  coverage:            string;
+  consent_expiry:      string | null;
+  overall_score:       number | null;
+  risk_level:          string | null;
+  data_quality_score:  number | null;
+  dimensions:          DimensionScore[];
   recent_transactions: Transaction[];
 };
 
@@ -86,11 +89,19 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
 export default function FinancerBusinessProfile() {
   const { user } = useSession();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const anonymizedId = searchParams.get("id");
 
   const [data,    setData]    = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+
+  // Compose modal state
+  const [msgOpen,   setMsgOpen]   = useState(false);
+  const [msgBody,   setMsgBody]   = useState("");
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError,  setMsgError]  = useState<string | null>(null);
+  const [instId,    setInstId]    = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !anonymizedId) return;
@@ -100,8 +111,10 @@ export default function FinancerBusinessProfile() {
       setError(null);
 
       // 1. Resolve institution
-      const instId = await getMyInstitutionId(user.id);
-      if (!instId) { setError("No institution found."); setLoading(false); return; }
+      const resolvedInstId = await getMyInstitutionId(user.id);
+      if (!resolvedInstId) { setError("No institution found."); setLoading(false); return; }
+      setInstId(resolvedInstId);
+      const instId = resolvedInstId;
 
       // 2. Resolve business_id from financial_identity_id.
       //    PostgREST cannot filter a parent table via a joined column,
@@ -128,6 +141,7 @@ export default function FinancerBusinessProfile() {
           is_active,
           permissions,
           businesses (
+            name,
             financial_identity_id,
             sector,
             kyc_status,
@@ -148,11 +162,12 @@ export default function FinancerBusinessProfile() {
         setLoading(false);
         return;
       }
-
-      // 4. Fetch latest score from creditlinker_scores
+      // 4. Fetch latest score — table is creditlinker_scores, all fields are top-level columns
       const { data: score } = await supabase
         .from("creditlinker_scores")
-        .select("composite_score, lender_risk, data_quality_score, data_months_analyzed, dimensions, computed_at")
+        .select(
+          "composite_score, lender_risk, data_quality_score, data_months_analyzed, dimensions, computed_at"
+        )
         .eq("business_id", bizRow.business_id)
         .order("computed_at", { ascending: false })
         .limit(1)
@@ -160,42 +175,120 @@ export default function FinancerBusinessProfile() {
 
       const biz = (consent as any).businesses;
 
-      const computedAt = score?.computed_at
-        ? new Date(score.computed_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" })
-        : "—";
+      const compositeScore = score?.composite_score ?? null;
+      const lenderRisk     = score?.lender_risk     ?? null;
+      const dataMonths     = score?.data_months_analyzed ?? 0;
+      const dataQuality    = score?.data_quality_score   ?? null;
+
+      const computedAt = score?.computed_at ? new Date(score.computed_at) : null;
+
+      // Build "MMM YYYY - MMM YYYY" coverage range from end date minus months
+      let coverageStr = "No data";
+      if (computedAt && dataMonths > 0) {
+        const endDate   = computedAt;
+        const startDate = new Date(endDate);
+        startDate.setMonth(startDate.getMonth() - (dataMonths - 1));
+        const fmt = (d: Date) => d.toLocaleDateString("en-GB", { month: "short", year: "numeric" }).toUpperCase();
+        coverageStr = `${fmt(startDate)} - ${fmt(endDate)}`;
+      }
 
       const expiryRaw = (consent.permissions as Record<string, unknown> | null)?.expires_at as string | undefined;
       const expiryStr = expiryRaw
         ? new Date(expiryRaw).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
         : null;
 
-      // dimensions[key].raw_score is already 0–100
-      const dimScores = (score?.dimensions ?? {}) as Record<string, { raw_score?: number }>;
-      const dimensions: DimensionScore[] = Object.entries(DIM_META).map(([key, meta]) => ({
-        key,
-        label: meta.label,
-        color: meta.color,
-        value: Math.round(dimScores[key]?.raw_score ?? 0),
+      // dimensions — each key is either a raw number or { raw_score, grade, signal, trend }
+      const rawDims = (score?.dimensions ?? {}) as Record<string, number | { raw_score?: number } | null>;
+      const dimensions: DimensionScore[] = Object.entries(DIM_META).map(([key, meta]) => {
+        const val = rawDims[key];
+        const numeric =
+          typeof val === "number" ? val
+          : (typeof val === "object" && val !== null) ? (val.raw_score ?? 0)
+          : 0;
+        return { key, label: meta.label, color: meta.color, value: Math.round(numeric) };
+      });
+
+      // Recent transactions — no description column; use counterparty_cluster
+      const { data: txRows } = await supabase
+        .from("normalized_transactions")
+        .select("id, date, amount, direction, category, counterparty_cluster")
+        .eq("business_id", bizRow.business_id)
+        .order("date", { ascending: false })
+        .limit(6);
+
+      const recentTx: Transaction[] = (txRows ?? []).map((tx: any) => ({
+        description: tx.counterparty_cluster ?? "Transaction",
+        amount:      tx.amount ?? 0,
+        direction:   tx.direction as "credit" | "debit",
+        date:        tx.date
+          ? new Date(tx.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+          : "—",
+        category: tx.category ?? "Other",
       }));
 
       setData({
-        anonymized_id:      anonymizedId,
-        sector:             biz?.sector ?? null,
-        kyc_status:         biz?.kyc_status ?? null,
+        business_id:         bizRow.business_id,
+        consent_id:          consent.consent_id,
+        business_name:       biz?.name ?? null,
+        anonymized_id:       anonymizedId,
+        sector:              biz?.sector ?? null,
+        kyc_status:          biz?.kyc_status ?? null,
         registration_number: biz?.registration_number ?? null,
-        data_months:        score?.data_months_analyzed ?? 0,
-        coverage:           score ? `as of ${computedAt}` : "No data",
-        consent_expiry:     expiryStr,
-        overall_score:      score?.composite_score ?? null,
-        risk_level:         score?.lender_risk ?? null,
-        data_quality_score: score?.data_quality_score ?? null,
+        data_months:         dataMonths,
+        coverage:            coverageStr,
+        consent_expiry:      expiryStr,
+        overall_score:       compositeScore,
+        risk_level:          lenderRisk,
+        data_quality_score:  dataQuality,
         dimensions,
-        recent_transactions: [],
+        recent_transactions: recentTx,
       });
 
       setLoading(false);
     })();
   }, [user, anonymizedId]);
+
+  /* ── Send opening message ── */
+  async function sendMessage() {
+    if (!msgBody.trim() || !data || !instId) return;
+    setMsgSending(true);
+    setMsgError(null);
+
+    try {
+      // Use the Edge Function — direct Supabase inserts are blocked by RLS
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+        body: JSON.stringify({
+          consent_id:   data.consent_id,
+          content:      msgBody.trim(),
+          sender_type:  "institution",
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? err.message ?? `Send failed (${res.status})`);
+      }
+
+      setMsgOpen(false);
+      setMsgBody("");
+      router.push(`/financer/messages?consent=${data.consent_id}`);
+    } catch (e: any) {
+      setMsgError(e.message ?? "Failed to send message");
+    } finally {
+      setMsgSending(false);
+    }
+  }
 
   /* ── Loading ── */
   if (loading) return (
@@ -233,11 +326,75 @@ export default function FinancerBusinessProfile() {
 
   if (!data) return null;
 
-  const shortId = `BIZ-${data.anonymized_id.slice(0, 6).toUpperCase()}`;
+  // Show real business name if available; fall back to anonymized slug
+  const displayName = data.business_name ?? `BIZ-${data.anonymized_id.slice(0, 6).toUpperCase()}`;
+  const shortId = displayName;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
+      {/* ── Compose message modal ── */}
+      {msgOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 80px rgba(0,0,0,0.2)", overflow: "hidden" }}>
+            {/* Modal header */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #F3F4F6" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "#0A2540", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <MessageSquare size={15} color="#00D4FF" />
+                </div>
+                <div>
+                  <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", letterSpacing: "-0.02em", marginBottom: 2 }}>
+                    Message {displayName}
+                  </p>
+                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>This will open a message thread under active consent.</p>
+                </div>
+              </div>
+              <button onClick={() => { setMsgOpen(false); setMsgBody(""); setMsgError(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 4 }}>
+                <X size={16} />
+              </button>
+            </div>
+            {/* Modal body */}
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              {msgError && (
+                <div style={{ padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, fontSize: 12, color: "#B91C1C" }}>
+                  {msgError}
+                </div>
+              )}
+              <textarea
+                autoFocus
+                value={msgBody}
+                onChange={e => setMsgBody(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder={`Hi ${displayName}, I\'d like to discuss a financing opportunity…`}
+                rows={5}
+                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E5E7EB", fontSize: 13, color: "#0A2540", outline: "none", resize: "none", lineHeight: 1.6, boxSizing: "border-box" as const, fontFamily: "inherit" }}
+                onFocus={e => (e.target.style.borderColor = "#0A2540")}
+                onBlur={e => (e.target.style.borderColor = "#E5E7EB")}
+              />
+              <p style={{ fontSize: 11, color: "#9CA3AF" }}>Press Enter to send · Shift+Enter for a new line</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => { setMsgOpen(false); setMsgBody(""); setMsgError(null); }}
+                  style={{ flex: 1, height: 42, borderRadius: 9, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendMessage}
+                  disabled={!msgBody.trim() || msgSending}
+                  style={{ flex: 2, height: 42, borderRadius: 9, border: "none", background: msgBody.trim() && !msgSending ? "#0A2540" : "#E5E7EB", fontSize: 13, fontWeight: 700, color: msgBody.trim() && !msgSending ? "white" : "#9CA3AF", cursor: msgBody.trim() && !msgSending ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.12s" }}
+                >
+                  {msgSending
+                    ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Sending…</>
+                    : <><Send size={13} /> Send Message</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
@@ -255,7 +412,7 @@ export default function FinancerBusinessProfile() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" as const }}>
               <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#0A2540", letterSpacing: "-0.03em", margin: 0 }}>
-                {shortId}
+                {displayName}
               </h2>
               <Badge variant="success" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10 }}>
                 <ShieldCheck size={9} /> Consent active
@@ -265,7 +422,8 @@ export default function FinancerBusinessProfile() {
               )}
             </div>
             <p style={{ fontSize: 12, color: "#9CA3AF" }}>
-              {data.sector ?? "Sector not disclosed"} · {data.data_months}mo data · {data.coverage}
+              {data.sector ?? "Sector not disclosed"}
+              {data.data_months > 0 ? ` · ${data.data_months}mo data · ${data.coverage}` : " · No pipeline data yet"}
               {data.consent_expiry && <> · Access expires <strong>{data.consent_expiry}</strong></>}
             </p>
           </div>
@@ -392,12 +550,12 @@ export default function FinancerBusinessProfile() {
               </div>
               <div style={{ padding: "14px 18px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
                 {[
-                  { label: "Identity",       value: shortId },
-                  { label: "Sector",         value: data.sector ?? "Not disclosed" },
-                  { label: "KYC Status",     value: data.kyc_status ?? "Unknown" },
-                  { label: "Reg. Number",    value: data.registration_number ?? "Not disclosed" },
-                  { label: "Data Coverage",  value: data.coverage },
-                  { label: "Months of Data", value: `${data.data_months} months` },
+                  { label: "Business Name",  value: data.business_name ?? "Anonymized" },
+                  { label: "Sector",          value: data.sector ?? "Not disclosed" },
+                  { label: "KYC Status",      value: data.kyc_status ?? "Unknown" },
+                  { label: "Reg. Number",     value: data.registration_number ?? "Not disclosed" },
+                  { label: "Data Coverage",   value: data.coverage },
+                  { label: "Months of Data",  value: data.data_months > 0 ? `${data.data_months} months` : "None yet" },
                 ].map(r => (
                   <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <p style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600 }}>{r.label}</p>
@@ -411,11 +569,25 @@ export default function FinancerBusinessProfile() {
             <Card style={{ padding: "16px 18px" }}>
               <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540", marginBottom: 12 }}>Actions</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Link href="/financer/financial-analysis" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                <button
+                  onClick={() => { setMsgOpen(true); setMsgError(null); }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, background: "#0A2540", color: "white", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", width: "100%" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#0D3060")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#0A2540")}
+                >
+                  <MessageSquare size={13} /> Send Message
+                </button>
+                <Link href="/financer/financial-analysis" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
                   <TrendingUp size={13} /> View Full Analysis
                 </Link>
                 <Link href="/financer/requests" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
                   <ArrowUpRight size={13} /> View Request
+                </Link>
+                <Link
+                  href={`/financer/messages?consent=${data.consent_id}`}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+                >
+                  <MessageSquare size={13} /> View All Messages
                 </Link>
               </div>
             </Card>
