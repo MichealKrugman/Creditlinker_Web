@@ -14,7 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session-context";
 import { getMyInstitutionId } from "@/lib/institution";
 
-const API_BASE = "https://api.creditlinker.com.ng";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1";
 const PAGE_SIZE = 20;
 
 /* ─────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ export default function FinancerBusinessProfile() {
       if (txTo)        params.set("to",        txTo);
 
       const res = await fetch(
-        `${API_BASE}/functions/v1/get-business-profile?${params.toString()}`,
+        `${API_BASE}/get-business-profile?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -310,8 +310,12 @@ export default function FinancerBusinessProfile() {
       );
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `Request failed (${res.status})`);
+        let errMsg = `Request failed (${res.status})`;
+        try {
+          const errBody = await res.json();
+          errMsg = errBody.error ?? errBody.message ?? errMsg;
+        } catch { /* non-JSON body */ }
+        throw new Error(errMsg);
       }
 
       const json: TransactionsResponse = await res.json();
