@@ -22,6 +22,11 @@ type ScoreDimension = {
   grade:     string;
   signal:    string;
   signals:   string[];
+  breakdown: {
+    observed: string[];
+    lending:  string;
+    watch:    string;
+  } | null;
   trend:     "improving" | "stable" | "declining";
   color:     string;
   weight:    number;
@@ -120,13 +125,6 @@ const GRADE_META: Record<string, { label: string; color: string; bg: string }> =
 };
 
 
-/* ─────────────────────────────────────────────────────────
-   SIGNAL TRANSLATION
-   Converts legacy internal signal strings (stored in DB from
-   old engine runs) into plain English a financer can read.
-   New engine runs store signals[] directly — this map is the
-   fallback for existing rows.
-───────────────────────────────────────────────────────── */
 const SIGNAL_TRANSLATIONS: Record<string, string> = {
   // Revenue Stability
   "High revenue volatility detected":                                       "Revenue varies significantly month to month — income is unpredictable",
@@ -210,6 +208,7 @@ function shapeAnalysis(consent: any, biz: { name?: string; financial_identity_id
       signals:   Array.isArray(dim.signals)
         ? dim.signals.map(translateSignal)
         : (dim.signal ? [translateSignal(dim.signal)] : []),
+      breakdown: dim.breakdown ?? null,
       trend:     dim.trend ?? "stable",
       color:     meta.color,
       weight:    meta.weight,
@@ -261,11 +260,13 @@ function Card({ children, style={} }: { children: React.ReactNode; style?: React
 ───────────────────────────────────────────────────────── */
 function DimensionCard({ dim }: { dim: ScoreDimension }) {
   const [expanded, setExpanded] = useState(false);
-  const meta  = DIM_META[dim.key];
-  const grade = GRADE_META[dim.grade] ?? GRADE_META["F"];
+  const meta      = DIM_META[dim.key];
+  const grade     = GRADE_META[dim.grade] ?? GRADE_META["F"];
+  const breakdown = dim.breakdown;
 
   return (
     <Card style={{ overflow:"hidden" }}>
+      {/* Collapsed row */}
       <button
         onClick={() => setExpanded(e => !e)}
         style={{ width:"100%", padding:"16px 20px", display:"flex", alignItems:"center", gap:14, background:"none", border:"none", cursor:"pointer", textAlign:"left" as const }}
@@ -293,17 +294,51 @@ function DimensionCard({ dim }: { dim: ScoreDimension }) {
           <ChevronRight size={14} style={{ color:"#9CA3AF", transform: expanded ? "rotate(90deg)" : "none", transition:"transform 0.15s" }} />
         </div>
       </button>
+
+      {/* Expanded analyst panel */}
       {expanded && (
-        <div style={{ borderTop:"1px solid #F3F4F6", padding:"14px 20px 18px", display:"flex", flexDirection:"column", gap:8 }}>
-          {dim.signals && dim.signals.length > 0 ? (
-            dim.signals.map((s, i) => (
-              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:dim.color, flexShrink:0, marginTop:5 }} />
-                <p style={{ fontSize:13, color:"#374151", lineHeight:1.6 }}>{s}</p>
+        <div style={{ borderTop:"1px solid #F3F4F6" }}>
+          {breakdown ? (
+            <>
+              {/* What we observed */}
+              <div style={{ padding:"16px 20px", borderBottom:"1px solid #F9FAFB" }}>
+                <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>What the data shows</p>
+                <div style={{ display:"flex", flexDirection:"column" as const, gap:7 }}>
+                  {breakdown.observed.map((obs, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                      <div style={{ width:6, height:6, borderRadius:"50%", background: i === 0 ? dim.color : "#D1D5DB", flexShrink:0, marginTop:6 }} />
+                      <p style={{ fontSize:13, color: i === 0 ? "#111827" : "#374151", fontWeight: i === 0 ? 500 : 400, lineHeight:1.6 }}>{obs}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))
+
+              {/* Lending implication */}
+              <div style={{ padding:"14px 20px", borderBottom:"1px solid #F9FAFB", background: dim.raw_score >= 65 ? "#F0FDF4" : dim.raw_score >= 50 ? "#FFFBEB" : "#FFF7F7" }}>
+                <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:6 }}>Lending implication</p>
+                <p style={{ fontSize:13, color:"#1F2937", lineHeight:1.7 }}>{breakdown.lending}</p>
+              </div>
+
+              {/* What to watch */}
+              <div style={{ padding:"14px 20px" }}>
+                <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:6 }}>What to watch</p>
+                <p style={{ fontSize:13, color:"#374151", lineHeight:1.7 }}>{breakdown.watch}</p>
+              </div>
+            </>
           ) : (
-            <p style={{ fontSize:13, color:"#9CA3AF" }}>{dim.signal}</p>
+            /* Old DB row — no breakdown stored yet, show signals only */
+            <div style={{ padding:"16px 20px" }}>
+              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>Data signals</p>
+              <div style={{ display:"flex", flexDirection:"column" as const, gap:7 }}>
+                {dim.signals.map((s, i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                    <div style={{ width:6, height:6, borderRadius:"50%", background: i === 0 ? dim.color : "#D1D5DB", flexShrink:0, marginTop:6 }} />
+                    <p style={{ fontSize:13, color:"#374151", lineHeight:1.6 }}>{s}</p>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize:11, color:"#9CA3AF", marginTop:12 }}>Full breakdown available after next pipeline run.</p>
+            </div>
           )}
         </div>
       )}
