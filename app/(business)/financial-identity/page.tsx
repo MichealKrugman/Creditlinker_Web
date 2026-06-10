@@ -327,7 +327,7 @@ function DimensionCard({ d }: { d: ScoreDimension }) {
 function ShareIdentityModal({ onClose, businessName, score, dimensions, dataQuality, coverage, financialIdentityId }:
   { onClose: () => void; businessName: string; score: ScoreData; dimensions: ScoreDimension[]; dataQuality: number; coverage: string; financialIdentityId: string }) {
   const [copied, setCopied] = useState(false);
-  const shareUrl = `https://app.creditlinker.com/identity/${financialIdentityId}`;
+  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL}/identity/${financialIdentityId}`;
   const handleCopy = () => { navigator.clipboard.writeText(shareUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,37,64,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -421,12 +421,10 @@ export default function FinancialIdentityPage() {
   const [showShare, setShowShare] = useState(false);
   const [showFinancingGate, setShowFinancingGate] = useState(false);
 
-  useEffect(() => {
+  async function load() {
     if (!activeBusiness) return;
     const id = activeBusiness.business_id;
-
-    async function load() {
-      setLoading(true);
+    setLoading(true);
       const [businessRes, minDateRes, maxDateRes, scoreRes, accountsRes, snapshotsRes, metricsRes] = await Promise.all([
         supabase.from("businesses").select("last_pipeline_run_at").eq("business_id", id).single(),
         supabase.from("normalized_transactions").select("date").eq("business_id", id).order("date", { ascending: true }).limit(1).maybeSingle(),
@@ -503,9 +501,11 @@ export default function FinancialIdentityPage() {
         };
       }));
 
-      setLoading(false);
-    }
+    setLoading(false);
+  }
 
+  useEffect(() => {
+    if (!activeBusiness) return;
     load();
   }, [activeBusiness?.business_id]);
 
@@ -558,7 +558,7 @@ export default function FinancialIdentityPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 }}>
-              <button onClick={() => window.location.reload()} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <button onClick={() => load()} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <RefreshCw size={14} color="rgba(255,255,255,0.6)" />
               </button>
               {score && (

@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  Bell, CheckCircle2, ArrowUpRight, Tag,
-  ShieldCheck, AlertCircle, Building2, Clock, Loader2,
+  Bell, CheckCircle2, ArrowUpRight,
+  ShieldCheck, AlertCircle, Loader2, XCircle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session-context";
 import { getMyInstitutionId } from "@/lib/institution";
@@ -13,7 +12,11 @@ import { getMyInstitutionId } from "@/lib/institution";
 /* ─────────────────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────────────────── */
-type NotifType = "consent_granted" | "request_received" | "settlement_confirmed" | "dispute_opened" | "new_match";
+type NotifType =
+  | "consent_granted"
+  | "consent_denied"
+  | "settlement_confirmed"
+  | "dispute_opened";
 
 type Notification = {
   id: string;
@@ -22,111 +25,52 @@ type Notification = {
   body: string;
   time: string;
   read: boolean;
-  action_href: string;
-  action_label: string;
+  action_href: string | null;
+  action_label: string | null;
 };
 
 function typeConfig(t: NotifType) {
   return {
-    request_received:     { icon: <Building2    size={14} />, color: "#0A2540", bg: "#F3F4F6" },
     consent_granted:      { icon: <ShieldCheck  size={14} />, color: "#10B981", bg: "#ECFDF5" },
+    consent_denied:       { icon: <XCircle      size={14} />, color: "#EF4444", bg: "#FEF2F2" },
     settlement_confirmed: { icon: <CheckCircle2 size={14} />, color: "#10B981", bg: "#ECFDF5" },
     dispute_opened:       { icon: <AlertCircle  size={14} />, color: "#EF4444", bg: "#FEF2F2" },
-    new_match:            { icon: <Tag          size={14} />, color: "#818CF8", bg: "#F3F0FF" },
   }[t];
 }
 
 function fmtDate(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff  = Date.now() - new Date(iso).getTime();
   const hours = Math.floor(diff / 3_600_000);
   const days  = Math.floor(diff / 86_400_000);
   if (hours < 1)  return "Just now";
   if (hours < 24) return `${hours}h ago`;
-  if (days === 1) return "Yesterday";
+  if (days  === 1) return "Yesterday";
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-/* Build notifications from real Supabase data */
-function buildNotifications(
-  matches: { match_id: string; anonymized_id: string; status: string; capital_category: string; matched_at: string; access_requested_at: string | null; access_responded_at: string | null }[],
-  records: { financing_id: string; status: string; settled_at: string | null; capital_category: string }[],
-): Notification[] {
-  const notifs: Notification[] = [];
-
-  for (const m of matches) {
-    const shortId = `BIZ-${m.anonymized_id.slice(0, 6).toUpperCase()}`;
-    const cat = m.capital_category.replace(/_/g, " ");
-
-    notifs.push({
-      id: `${m.match_id}_match`,
-      type: "new_match",
-      title: "New match",
-      body: `${shortId} was matched to your criteria for ${cat}.`,
-      time: m.matched_at,
-      read: false,
-      action_href: "/financer/businesses",
-      action_label: "Browse businesses",
-    });
-
-    if (m.access_requested_at) {
-      notifs.push({
-        id: `${m.match_id}_requested`,
-        type: "request_received",
-        title: "Access request sent",
-        body: `You requested access to ${shortId}'s financial profile for ${cat}.`,
-        time: m.access_requested_at,
-        read: true,
-        action_href: "/financer/requests",
-        action_label: "View request",
-      });
-    }
-
-    if (m.access_responded_at && m.status === "consented") {
-      notifs.push({
-        id: `${m.match_id}_consented`,
-        type: "consent_granted",
-        title: "Access granted",
-        body: `${shortId} approved your access request. Their financial profile is now available.`,
-        time: m.access_responded_at,
-        read: false,
-        action_href: "/financer/businesses",
-        action_label: "View profile",
-      });
-    }
-  }
-
-  for (const r of records) {
-    const shortId = `FIN-${r.financing_id.slice(0, 6).toUpperCase()}`;
-    const cat = r.capital_category.replace(/_/g, " ");
-
-    if (r.status === "settled" && r.settled_at) {
-      notifs.push({
-        id: `${r.financing_id}_settled`,
-        type: "settlement_confirmed",
-        title: "Settlement confirmed",
-        body: `${shortId} (${cat}) has been fully settled.`,
-        time: r.settled_at,
-        read: true,
-        action_href: "/financer/portfolio",
-        action_label: "View record",
-      });
-    }
-
-    if (r.status === "disputed") {
-      notifs.push({
-        id: `${r.financing_id}_disputed`,
-        type: "dispute_opened",
-        title: "Dispute opened",
-        body: `A dispute has been raised on financing record ${shortId}. Platform review is underway.`,
-        time: r.settled_at ?? new Date().toISOString(),
-        read: false,
-        action_href: "/financer/portfolio",
-        action_label: "View dispute",
-      });
-    }
-  }
-
-  return notifs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+/* Map a notifications row to our local type */
+function mapRow(row: {
+  notification_id: string;
+  type: string;
+  title: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+  action_href: string | null;
+  action_label: string | null;
+}): Notification | null {
+  const allowed: NotifType[] = ["consent_granted", "consent_denied", "settlement_confirmed", "dispute_opened"];
+  if (!allowed.includes(row.type as NotifType)) return null;
+  return {
+    id:           row.notification_id,
+    type:         row.type as NotifType,
+    title:        row.title,
+    body:         row.body,
+    time:         row.created_at,
+    read:         row.is_read,
+    action_href:  row.action_href,
+    action_label: row.action_label,
+  };
 }
 
 export default function FinancerNotifications() {
@@ -141,32 +85,42 @@ export default function FinancerNotifications() {
       setLoading(true);
 
       const instId = await getMyInstitutionId(user.id);
-
       if (!instId) { setError("No institution found."); setLoading(false); return; }
 
-      const [matchRes, recordRes] = await Promise.all([
-        supabase
-          .from("discovery_matches")
-          .select("match_id, anonymized_id, status, capital_category, matched_at, access_requested_at, access_responded_at")
-          .eq("institution_id", instId)
-          .order("matched_at", { ascending: false })
-          .limit(100),
-        supabase
-          .from("financing_records")
-          .select("financing_id, status, capital_category, settled_at")
-          .eq("institution_id", instId)
-          .order("granted_at", { ascending: false })
-          .limit(50),
-      ]);
+      const { data, error: err } = await supabase
+        .from("notifications")
+        .select("notification_id, type, title, body, is_read, created_at, action_href, action_label")
+        .eq("institution_id", instId)
+        .eq("recipient_type", "institution")
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-      if (matchRes.error) { setError(matchRes.error.message); setLoading(false); return; }
-      setItems(buildNotifications(matchRes.data ?? [], recordRes.data ?? []));
+      if (err) { setError(err.message); setLoading(false); return; }
+
+      setItems((data ?? []).map(mapRow).filter(Boolean) as Notification[]);
       setLoading(false);
     })();
   }, [user]);
 
+  async function markRead(id: string) {
+    setItems(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("notification_id", id);
+  }
+
+  async function markAllRead() {
+    const unreadIds = items.filter(n => !n.read).map(n => n.id);
+    if (!unreadIds.length) return;
+    setItems(prev => prev.map(n => ({ ...n, read: true })));
+    await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .in("notification_id", unreadIds);
+  }
+
   const unread = items.filter(n => !n.read).length;
-  const markAllRead = () => setItems(prev => prev.map(n => ({ ...n, read: true })));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720 }}>
@@ -220,7 +174,7 @@ export default function FinancerNotifications() {
                   background: n.read ? "white" : "rgba(0,212,255,0.02)",
                   cursor: "pointer",
                 }}
-                onClick={() => setItems(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                onClick={() => { if (!n.read) markRead(n.id); }}
               >
                 <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: tc.bg, display: "flex", alignItems: "center", justifyContent: "center", color: tc.color }}>
                   {tc.icon}

@@ -458,7 +458,7 @@ export default function FinancerMessagesPage() {
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 <Link
-                  href={`/financer/business-profile?id=${activeThread.business_id}`}
+                  href={`/financer/business-profile?id=${activeThread.anonymized_id}`}
                   style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 7, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", whiteSpace: "nowrap" }}
                 >
                   View Profile
