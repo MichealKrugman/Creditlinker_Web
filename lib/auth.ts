@@ -28,20 +28,23 @@ export interface AuthUser {
 
 /**
  * Sign in with email + password.
- * Returns the user's account type so the caller can redirect correctly.
+ * If the account has a verified TOTP factor, returns mfaRequired: true
+ * and the factorId — the caller must then challenge + verify before redirecting.
  * Throws a plain error message string on failure.
  */
 export async function signIn(
   email: string,
   password: string
-): Promise<{ accountType: AccountType; redirectPath: string }> {
+): Promise<
+  | { mfaRequired: false; accountType: AccountType; redirectPath: string }
+  | { mfaRequired: true;  accountType: AccountType; redirectPath: string; factorId: string }
+> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
-    // Translate Supabase error messages into friendly ones
     if (error.message.includes("Invalid login credentials")) {
       throw new Error("Invalid email or password.");
     }
@@ -51,11 +54,20 @@ export async function signIn(
     throw new Error(error.message);
   }
 
-  const user = data.user;
-  const accountType = user.user_metadata?.account_type as AccountType;
+  const user         = data.user;
+  const accountType  = user.user_metadata?.account_type as AccountType;
   const redirectPath = getDashboardPath(accountType);
 
-  return { accountType, redirectPath };
+  // Check for a verified TOTP factor. If present, the session is aal1 and
+  // must be elevated to aal2 before the user is allowed into the dashboard.
+  const { data: factorsData } = await supabase.auth.mfa.listFactors();
+  const verifiedFactor = factorsData?.totp?.find(f => f.status === "verified");
+
+  if (verifiedFactor) {
+    return { mfaRequired: true, accountType, redirectPath, factorId: verifiedFactor.id };
+  }
+
+  return { mfaRequired: false, accountType, redirectPath };
 }
 
 /* ─────────────────────────────────────────────────────────

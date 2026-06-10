@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth";
-import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -33,6 +34,13 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
+  // MFA step state
+  const [mfaStep,       setMfaStep]       = useState(false);
+  const [mfaFactorId,   setMfaFactorId]   = useState("");
+  const [mfaCode,       setMfaCode]       = useState("");
+  const [mfaLoading,    setMfaLoading]    = useState(false);
+  const [redirectPath,  setRedirectPath]  = useState("");
+
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,12 +52,47 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const { redirectPath } = await signIn(email, password);
-      router.push(redirectPath);
+      const result = await signIn(email, password);
+      if (result.mfaRequired) {
+        // Password correct — pause and ask for TOTP code
+        setMfaFactorId(result.factorId);
+        setRedirectPath(result.redirectPath);
+        setMfaStep(true);
+      } else {
+        router.push(result.redirectPath);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (mfaCode.length !== 6) { setError("Please enter the 6-digit code from your authenticator app."); return; }
+    setMfaLoading(true);
+    try {
+      // Challenge the factor, then verify the code
+      const { data: challengeData, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+      if (challengeErr) throw new Error(challengeErr.message);
+      const { error: verifyErr } = await supabase.auth.mfa.verify({
+        factorId:    mfaFactorId,
+        challengeId: challengeData.id,
+        code:        mfaCode,
+      });
+      if (verifyErr) {
+        // Wrong code — clear and let them try again
+        setMfaCode("");
+        throw new Error("Incorrect code. Please try again.");
+      }
+      // Session is now aal2 — safe to redirect
+      router.push(redirectPath);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Verification failed. Please try again.");
+    } finally {
+      setMfaLoading(false);
     }
   };
 
@@ -278,22 +321,33 @@ export default function LoginPage() {
 
             {/* Heading */}
             <div className="login-a1" style={{ marginBottom: 36 }}>
-              <h1 className="login-h1" style={{
-                fontFamily: "var(--font-display)", fontWeight: 800,
-                fontSize: 30, color: "#0A2540", letterSpacing: "-0.04em",
-                lineHeight: 1.1, marginBottom: 10,
-              }}>
-                Sign in
-              </h1>
-              <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
-                No account yet?{" "}
-                <Link href="/register" style={{
-                  color: "#0A2540", fontWeight: 700,
-                  textDecoration: "underline", textUnderlineOffset: 3,
-                }}>
-                  Sign up
-                </Link>
-              </p>
+              {mfaStep ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <ShieldCheck size={18} style={{ color: "#0A5060" }} />
+                    </div>
+                    <h1 className="login-h1" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1.1, margin: 0 }}>
+                      Two-factor authentication
+                    </h1>
+                  </div>
+                  <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
+                    Open your authenticator app and enter the 6-digit code for your Creditlinker account.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="login-h1" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, color: "#0A2540", letterSpacing: "-0.04em", lineHeight: 1.1, marginBottom: 10 }}>
+                    Sign in
+                  </h1>
+                  <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
+                    No account yet?{" "}
+                    <Link href="/register" style={{ color: "#0A2540", fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                      Sign up
+                    </Link>
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Error */}
@@ -309,97 +363,132 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Form */}
-            <form
-              className="login-a2"
-              onSubmit={handleSubmit}
-              style={{ display: "flex", flexDirection: "column", gap: 18 }}
-            >
-              {/* Email */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                <label htmlFor="login-email" style={{
-                  fontSize: 12, fontWeight: 700, color: "#374151",
-                  letterSpacing: "0.04em", textTransform: "uppercase",
-                }}>
-                  Email
-                </label>
-                <div className="login-input-wrap">
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required autoFocus
-                    autoComplete="email"
-                    style={{ height: 44, fontSize: 14, borderRadius: 8 }}
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label htmlFor="login-password" style={{
-                    fontSize: 12, fontWeight: 700, color: "#374151",
-                    letterSpacing: "0.04em", textTransform: "uppercase",
-                  }}>
-                    Password
-                  </label>
-                  <Link href="/forgot-password" style={{
-                    fontSize: 12, color: "#6B7280",
-                    textDecoration: "underline", textUnderlineOffset: 3,
-                  }}>
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="login-input-wrap" style={{ position: "relative" }}>
-                  <Input
-                    id="login-password"
-                    type={showPass ? "text" : "password"}
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    style={{ height: 44, fontSize: 14, borderRadius: 8, paddingRight: 44 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass((v) => !v)}
-                    aria-label={showPass ? "Hide password" : "Show password"}
-                    style={{
-                      position: "absolute", right: 13, top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none", border: "none", cursor: "pointer",
-                      color: "#9CA3AF", display: "flex", alignItems: "center",
-                      padding: 0, lineHeight: 0,
-                    }}
-                  >
-                    {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={loading}
-                className="w-full"
-                style={{
-                  height: 48, fontSize: 15, fontWeight: 700,
-                  letterSpacing: "-0.01em", borderRadius: 10, marginTop: 4,
-                }}
+            {/* Form — step 1: password / step 2: MFA code */}
+            {mfaStep ? (
+              <form
+                className="login-a2"
+                onSubmit={handleMfaSubmit}
+                style={{ display: "flex", flexDirection: "column", gap: 18 }}
               >
-                {loading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Signing in</>
-                ) : (
-                  <>Sign in <ArrowRight size={15} /></>
-                )}
-              </Button>
-            </form>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <label htmlFor="mfa-code" style={{ fontSize: 12, fontWeight: 700, color: "#374151", letterSpacing: "0.04em", textTransform: "uppercase" as const }}>
+                    Authenticator code
+                  </label>
+                  <div className="login-input-wrap">
+                    <Input
+                      id="mfa-code"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      autoFocus
+                      autoComplete="one-time-code"
+                      style={{ height: 44, fontSize: 22, fontWeight: 700, letterSpacing: "0.25em", borderRadius: 8, textAlign: "center" as const }}
+                    />
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>The code refreshes every 30 seconds.</p>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  disabled={mfaLoading || mfaCode.length !== 6}
+                  className="w-full"
+                  style={{ height: 48, fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em", borderRadius: 10, marginTop: 4 }}
+                >
+                  {mfaLoading ? (
+                    <><Loader2 size={16} className="animate-spin" /> Verifying&hellip;</>
+                  ) : (
+                    <><ShieldCheck size={15} /> Verify &amp; sign in</>
+                  )}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => { setMfaStep(false); setMfaCode(""); setError(""); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#9CA3AF", textDecoration: "underline", textUnderlineOffset: 3, alignSelf: "center" as const }}
+                >
+                  Back to sign in
+                </button>
+              </form>
+            ) : (
+              <form
+                className="login-a2"
+                onSubmit={handleSubmit}
+                style={{ display: "flex", flexDirection: "column", gap: 18 }}
+              >
+                {/* Email */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <label htmlFor="login-email" style={{ fontSize: 12, fontWeight: 700, color: "#374151", letterSpacing: "0.04em", textTransform: "uppercase" as const }}>
+                    Email
+                  </label>
+                  <div className="login-input-wrap">
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="you@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required autoFocus
+                      autoComplete="email"
+                      style={{ height: 44, fontSize: 14, borderRadius: 8 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label htmlFor="login-password" style={{ fontSize: 12, fontWeight: 700, color: "#374151", letterSpacing: "0.04em", textTransform: "uppercase" as const }}>
+                      Password
+                    </label>
+                    <Link href="/forgot-password" style={{ fontSize: 12, color: "#6B7280", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="login-input-wrap" style={{ position: "relative" }}>
+                    <Input
+                      id="login-password"
+                      type={showPass ? "text" : "password"}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                      style={{ height: 44, fontSize: 14, borderRadius: 8, paddingRight: 44 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass((v) => !v)}
+                      aria-label={showPass ? "Hide password" : "Show password"}
+                      style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", display: "flex", alignItems: "center", padding: 0, lineHeight: 0 }}
+                    >
+                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  disabled={loading}
+                  className="w-full"
+                  style={{ height: 48, fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em", borderRadius: 10, marginTop: 4 }}
+                >
+                  {loading ? (
+                    <><Loader2 size={16} className="animate-spin" /> Signing in</>
+                  ) : (
+                    <>Sign in <ArrowRight size={15} /></>
+                  )}
+                </Button>
+              </form>
+            )}
 
             {/* Terms */}
             <p className="login-a3" style={{

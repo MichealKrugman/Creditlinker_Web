@@ -612,7 +612,6 @@ function MemberMenu({
                     report_routing: wfRouting === "inherit" ? null : wfRouting,
                     note: wfNote.trim(),
                   };
-                  // TODO: PATCH /institution/members/:id/workflow-override { override }
                   onWorkflowOverride(override);
                   onClose();
                 }}
@@ -773,6 +772,13 @@ function MemberRow({
   );
 }
 
+function formatSettingsNGN(amount: number): string {
+  if (amount >= 1_000_000_000) return `₦${(amount / 1_000_000_000).toFixed(1)}B`;
+  if (amount >= 1_000_000)     return `₦${(amount / 1_000_000).toFixed(0)}M`;
+  if (amount >= 1_000)         return `₦${(amount / 1_000).toFixed(0)}K`;
+  return `₦${amount.toLocaleString()}`;
+}
+
 /* ─────────────────────────────────────────────────────────
    TEAM TAB
 ───────────────────────────────────────────────────────── */
@@ -782,25 +788,47 @@ function TeamTab({ currentUserId, currentRole, institutionId }: { currentUserId:
 
   useEffect(() => {
     if (!institutionId) return;
+    setLoadingMembers(true);
     async function loadMembers() {
-      const { data } = await supabase
-        .from("institution_members")
-        .select("id, user_id, full_name, email, role, team_lead_id, is_active, created_at")
-        .eq("institution_id", institutionId!)
-        .order("created_at", { ascending: true });
-      if (data && data.length > 0) {
-        setMembers(data.map(m => ({
+      const [membersRes, recordsRes] = await Promise.all([
+        supabase
+          .from("institution_members")
+          .select("id, user_id, full_name, email, role, team_lead_id, is_active, workflow_override, created_at")
+          .eq("institution_id", institutionId!)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("financing_records")
+          .select("financing_id, created_by_member_id, terms, status")
+          .eq("institution_id", institutionId!),
+      ]);
+
+      if (membersRes.error) { console.error("TeamTab load error:", membersRes.error.message); }
+
+      const rawRecords = recordsRes.data ?? [];
+
+      const getPortfolio = (memberId: string) =>
+        rawRecords
+          .filter(r => r.created_by_member_id === memberId && (r.status === "active" || r.status === "settled"))
+          .reduce((s: number, r: any) => s + (r.terms?.financing_amount ?? r.terms?.amount ?? 0), 0);
+
+      const getRequests = (memberId: string) =>
+        rawRecords.filter(r => r.created_by_member_id === memberId && r.status === "active").length;
+
+      if (membersRes.data && membersRes.data.length > 0) {
+        setMembers(membersRes.data.map(m => ({
           id: m.id,
-          name: m.full_name ?? m.email ?? "Unknown",
+          name: m.full_name && m.full_name !== m.email ? m.full_name : (m.email?.split("@")[0] ?? "Member"),
           email: m.email ?? "",
           role: m.role as OrgRole,
           team_lead_id: m.team_lead_id ?? null,
           joined: new Date(m.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }),
-          active_requests: 0,
-          active_portfolio: "₦0",
+          active_requests: getRequests(m.id),
+          active_portfolio: getPortfolio(m.id) > 0 ? formatSettingsNGN(getPortfolio(m.id)) : "₦0",
           is_active: m.is_active ?? true,
-          workflow_override: null,
+          workflow_override: m.workflow_override ?? null,
         })));
+      } else {
+        setMembers([]);
       }
       setLoadingMembers(false);
     }
@@ -814,9 +842,10 @@ function TeamTab({ currentUserId, currentRole, institutionId }: { currentUserId:
   const updateMember = async (id: string, patch: Partial<typeof MEMBERS_INIT[0]>) => {
     setMembers(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
     const dbPatch: Record<string, unknown> = {};
-    if (patch.role !== undefined) dbPatch.role = patch.role;
-    if (patch.team_lead_id !== undefined) dbPatch.team_lead_id = patch.team_lead_id;
-    if (patch.is_active !== undefined) dbPatch.is_active = patch.is_active;
+    if (patch.role !== undefined)              dbPatch.role = patch.role;
+    if (patch.team_lead_id !== undefined)      dbPatch.team_lead_id = patch.team_lead_id;
+    if (patch.is_active !== undefined)         dbPatch.is_active = patch.is_active;
+    if (patch.workflow_override !== undefined) dbPatch.workflow_override = patch.workflow_override;
     if (Object.keys(dbPatch).length > 0) {
       await supabase.from("institution_members").update(dbPatch).eq("id", id);
     }
@@ -970,19 +999,24 @@ function TeamTab({ currentUserId, currentRole, institutionId }: { currentUserId:
 
         {/* Rows */}
         <div>
-          {filtered.map((m, i) => (
-            <div key={m.id} style={{
-              borderBottom: i < filtered.length - 1 ? "1px solid #F3F4F6" : "none",
-            }}>
-              <MemberRow
-                member={m}
-                members={members}
-                currentUserId={currentUserId}
-                currentRole={currentRole}
-                onUpdate={updateMember}
-              />
+          {loadingMembers ? (
+            <div style={{ padding: "40px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={18} style={{ color: "#D1D5DB", animation: "spin 0.8s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading team members…</p>
             </div>
-          ))}
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center" as const }}>
+              <Users size={24} style={{ color: "#E5E7EB", marginBottom: 8 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No members found</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>Invite your first team member to get started.</p>
+            </div>
+          ) : (
+            filtered.map((m, i) => (
+              <div key={m.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                <MemberRow member={m} members={members} currentUserId={currentUserId} currentRole={currentRole} onUpdate={updateMember} />
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -1586,6 +1620,222 @@ function IntegrationsTab() {
 }
 
 /* ─────────────────────────────────────────────────────────
+   SECURITY TAB
+───────────────────────────────────────────────────────── */
+function SecurityTab({ user }: { user: { email?: string } | null }) {
+  // ─ Change Password ─
+  const [showPwForm,  setShowPwForm]  = useState(false);
+  const [currentPw,   setCurrentPw]   = useState("");
+  const [newPw,        setNewPw]        = useState("");
+  const [confirmPw,    setConfirmPw]    = useState("");
+  const [pwSaving,     setPwSaving]     = useState(false);
+  const [pwMsg,        setPwMsg]        = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handleChangePassword() {
+    if (!currentPw)          { setPwMsg({ ok: false, text: "Please enter your current password." }); return; }
+    if (newPw !== confirmPw) { setPwMsg({ ok: false, text: "Passwords do not match." }); return; }
+    if (newPw.length < 8)    { setPwMsg({ ok: false, text: "New password must be at least 8 characters." }); return; }
+    if (newPw === currentPw) { setPwMsg({ ok: false, text: "New password must be different from your current password." }); return; }
+    setPwSaving(true); setPwMsg(null);
+    // Verify current password by re-authenticating first
+    const email = user?.email ?? "";
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: currentPw });
+    if (signInErr) {
+      setPwMsg({ ok: false, text: "Current password is incorrect." });
+      setPwSaving(false);
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    if (error) { setPwMsg({ ok: false, text: error.message }); }
+    else       { setPwMsg({ ok: true, text: "Password updated successfully." }); setCurrentPw(""); setNewPw(""); setConfirmPw(""); setShowPwForm(false); }
+    setPwSaving(false);
+  }
+
+  // ─ 2FA ─
+  const [show2FA,      setShow2FA]      = useState(false);
+  const [mfaFactors,   setMfaFactors]   = useState<{ id: string; type: string; status: string; friendly_name?: string }[]>([]);
+  const [mfaLoading,   setMfaLoading]   = useState(false);
+  const [mfaEnrolling, setMfaEnrolling] = useState(false);
+  const [mfaQR,        setMfaQR]        = useState<{ qr: string; secret: string; factorId: string } | null>(null);
+  const [mfaCode,      setMfaCode]      = useState("");
+  const [mfaMsg,       setMfaMsg]       = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function loadFactors() {
+    setMfaLoading(true);
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (!error && data) setMfaFactors([...data.totp, ...data.phone]);
+    setMfaLoading(false);
+  }
+
+  async function startEnroll() {
+    setMfaEnrolling(true); setMfaMsg(null);
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Authenticator app" });
+    if (error || !data) { setMfaMsg({ ok: false, text: error?.message ?? "Could not start 2FA setup." }); setMfaEnrolling(false); return; }
+    setMfaQR({ qr: data.totp.qr_code, secret: data.totp.secret, factorId: data.id });
+    setMfaEnrolling(false);
+  }
+
+  async function verifyEnroll() {
+    if (!mfaQR) return;
+    setMfaEnrolling(true); setMfaMsg(null);
+    const challengeRes = await supabase.auth.mfa.challenge({ factorId: mfaQR.factorId });
+    if (challengeRes.error) { setMfaMsg({ ok: false, text: challengeRes.error.message }); setMfaEnrolling(false); return; }
+    const verifyRes = await supabase.auth.mfa.verify({ factorId: mfaQR.factorId, challengeId: challengeRes.data.id, code: mfaCode });
+    if (verifyRes.error) { setMfaMsg({ ok: false, text: verifyRes.error.message }); setMfaEnrolling(false); return; }
+    setMfaMsg({ ok: true, text: "Two-factor authentication enabled." });
+    setMfaQR(null); setMfaCode("");
+    await loadFactors();
+    setMfaEnrolling(false);
+  }
+
+  async function unenrollFactor(id: string) {
+    setMfaMsg(null);
+    const { error } = await supabase.auth.mfa.unenroll({ factorId: id });
+    if (error) { setMfaMsg({ ok: false, text: error.message }); return; }
+    setMfaMsg({ ok: true, text: "2FA removed." });
+    await loadFactors();
+  }
+
+  // ─ Sessions ─
+  const [showSessions,   setShowSessions]   = useState(false);
+  const [sessionMsg,     setSessionMsg]     = useState<{ ok: boolean; text: string } | null>(null);
+  const [signingOut,     setSigningOut]     = useState(false);
+
+  async function revokeOtherSessions() {
+    setSigningOut(true); setSessionMsg(null);
+    const { error } = await supabase.auth.signOut({ scope: "others" });
+    if (error) setSessionMsg({ ok: false, text: error.message });
+    else       setSessionMsg({ ok: true, text: "All other sessions have been signed out." });
+    setSigningOut(false);
+  }
+
+  const btnStyle = (danger = false): React.CSSProperties => ({
+    padding: "6px 14px", borderRadius: 8,
+    border: danger ? "1px solid #FCA5A5" : "1px solid #E5E7EB",
+    background: "white",
+    fontSize: 12, fontWeight: 600,
+    color: danger ? "#EF4444" : "#0A2540",
+    cursor: "pointer",
+  });
+
+  const msgBanner = (msg: { ok: boolean; text: string }) => (
+    <p style={{ fontSize: 12, color: msg.ok ? "#059669" : "#DC2626", marginTop: 8,
+      background: msg.ok ? "#ECFDF5" : "#FEF2F2", padding: "8px 12px", borderRadius: 7,
+      border: `1px solid ${msg.ok ? "rgba(5,150,105,0.2)" : "rgba(220,38,38,0.2)"}` }}>
+      {msg.text}
+    </p>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Change Password */}
+      <SectionCard title="Change Password" sub="Update your Creditlinker account password.">
+        {!showPwForm ? (
+          <button style={btnStyle()} onClick={() => setShowPwForm(true)}>Change password</button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 380 }}>
+            <Field label="Current password" value={currentPw} onChange={setCurrentPw} type="password" placeholder="Enter your current password" />
+            <Field label="New password"     value={newPw}     onChange={setNewPw}     type="password" placeholder="Min. 8 characters" />
+            <Field label="Confirm new password" value={confirmPw} onChange={setConfirmPw} type="password" placeholder="Repeat new password" />
+            {pwMsg && msgBanner(pwMsg)}
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button style={btnStyle()} onClick={() => { setShowPwForm(false); setPwMsg(null); setCurrentPw(""); setNewPw(""); setConfirmPw(""); }}>Cancel</button>
+              <button
+                disabled={pwSaving || !currentPw || !newPw || !confirmPw}
+                onClick={handleChangePassword}
+                style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: pwSaving || !currentPw || !newPw || !confirmPw ? "#E5E7EB" : "#0A2540", color: pwSaving || !currentPw || !newPw || !confirmPw ? "#9CA3AF" : "white", fontSize: 12, fontWeight: 600, cursor: pwSaving || !currentPw || !newPw || !confirmPw ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                {pwSaving ? <><Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Saving…</> : "Update password"}
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 2FA */}
+      <SectionCard title="Two-Factor Authentication" sub="Add a second layer of security using an authenticator app.">
+        {!show2FA ? (
+          <button style={btnStyle()} onClick={() => { setShow2FA(true); loadFactors(); }}>Manage 2FA</button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {mfaLoading && <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</p>}
+
+            {/* Enrolled factors */}
+            {!mfaLoading && mfaFactors.filter(f => f.status === "verified").map(f => (
+              <div key={f.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#F9FAFB", borderRadius: 9, border: "1px solid #E5E7EB" }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 1 }}>{f.friendly_name ?? "Authenticator app"}</p>
+                  <p style={{ fontSize: 11, color: "#10B981" }}>Active</p>
+                </div>
+                <button style={btnStyle(true)} onClick={() => unenrollFactor(f.id)}>Remove</button>
+              </div>
+            ))}
+
+            {/* Enroll QR step */}
+            {mfaQR && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 340 }}>
+                <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>Scan this QR code with your authenticator app, then enter the 6-digit code below to confirm.</p>
+                <img src={mfaQR.qr} alt="2FA QR code" style={{ width: 160, height: 160, borderRadius: 8, border: "1px solid #E5E7EB" }} />
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>Or enter manually: <code style={{ fontSize: 11, color: "#0A2540" }}>{mfaQR.secret}</code></p>
+                <Field label="Verification code" value={mfaCode} onChange={setMfaCode} placeholder="6-digit code" />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={btnStyle()} onClick={() => { setMfaQR(null); setMfaCode(""); }}>Cancel</button>
+                  <button
+                    disabled={mfaEnrolling || mfaCode.length !== 6}
+                    onClick={verifyEnroll}
+                    style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: mfaEnrolling || mfaCode.length !== 6 ? "#E5E7EB" : "#0A2540", color: mfaEnrolling || mfaCode.length !== 6 ? "#9CA3AF" : "white", fontSize: 12, fontWeight: 600, cursor: mfaEnrolling || mfaCode.length !== 6 ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                    {mfaEnrolling ? <><Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Verifying…</> : "Verify & enable"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Start enroll button */}
+            {!mfaQR && !mfaLoading && mfaFactors.filter(f => f.status === "verified").length === 0 && (
+              <button
+                disabled={mfaEnrolling}
+                onClick={startEnroll}
+                style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: mfaEnrolling ? "#E5E7EB" : "#0A2540", color: mfaEnrolling ? "#9CA3AF" : "white", fontSize: 12, fontWeight: 600, cursor: mfaEnrolling ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
+                {mfaEnrolling ? <><Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Setting up…</> : "Set up authenticator app"}
+              </button>
+            )}
+
+            {mfaMsg && msgBanner(mfaMsg)}
+            <button style={{ ...btnStyle(), alignSelf: "flex-start" as const }} onClick={() => { setShow2FA(false); setMfaMsg(null); setMfaQR(null); }}>Done</button>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Active sessions */}
+      <SectionCard title="Active Sessions" sub="Your current session and the option to sign out everywhere else.">
+        {!showSessions ? (
+          <button style={btnStyle()} onClick={() => setShowSessions(true)}>Manage sessions</button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ padding: "12px 14px", background: "#F9FAFB", borderRadius: 9, border: "1px solid #E5E7EB" }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>Current session</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>{user?.email ?? "Unknown"} · This device</p>
+            </div>
+            <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>Signing out other sessions will immediately invalidate any other active logins on other devices or browsers.</p>
+            {sessionMsg && msgBanner(sessionMsg)}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={btnStyle()} onClick={() => { setShowSessions(false); setSessionMsg(null); }}>Close</button>
+              <button
+                disabled={signingOut}
+                onClick={revokeOtherSessions}
+                style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #FCA5A5", background: "white", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: signingOut ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6, opacity: signingOut ? 0.6 : 1 }}>
+                {signingOut ? <><Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Signing out…</> : "Sign out all other sessions"}
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────────────────── */
 export default function FinancerSettings() {
@@ -1891,6 +2141,14 @@ export default function FinancerSettings() {
       {tab === "workflow" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
+          {/* Permission gate — only owner/admin can edit workflow config */}
+          {(currentUserRole === "team_lead" || currentUserRole === "analyst") && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10 }}>
+              <AlertCircle size={14} style={{ color: "#F59E0B", flexShrink: 0 }} />
+              <p style={{ fontSize: 13, color: "#92400E" }}>Only Principals and Admins can change workflow settings. Contact your institution administrator.</p>
+            </div>
+          )}
+
           {/* Explainer */}
           <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 12, padding: "14px 18px" }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#0E7490", marginBottom: 4 }}>Approval Workflow</p>
@@ -1902,6 +2160,7 @@ export default function FinancerSettings() {
           </div>
 
           {/* Approval chain */}
+          <div style={{ opacity: (currentUserRole === "team_lead" || currentUserRole === "analyst") ? 0.5 : 1, pointerEvents: (currentUserRole === "team_lead" || currentUserRole === "analyst") ? "none" : "auto" }}>
           <SectionCard title="Approval Chain" sub="How does a financing recommendation move from origination to final approval?">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {([
@@ -2010,17 +2269,21 @@ export default function FinancerSettings() {
               </div>
             </div>
           </SectionCard>
+          </div>{/* end permission wrapper */}
 
           <button
+            disabled={savedTab === "workflow" || currentUserRole === "team_lead" || currentUserRole === "analyst"}
             onClick={() => handleSave("workflow")}
             style={{
               padding: "8px 20px", borderRadius: 8, border: "none",
-              background: savedTab === "workflow" ? "#059669" : "#0A2540", color: "white",
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              background: (savedTab === "workflow") ? "#059669" : (currentUserRole === "team_lead" || currentUserRole === "analyst") ? "#E5E7EB" : "#0A2540",
+              color: (currentUserRole === "team_lead" || currentUserRole === "analyst") ? "#9CA3AF" : "white",
+              fontSize: 13, fontWeight: 600,
+              cursor: (currentUserRole === "team_lead" || currentUserRole === "analyst") ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
               transition: "background 0.2s",
-            }}>
-            {savedTab === "workflow" ? <Check size={13} /> : <Save size={13} />}
+              }}>
+              {savedTab === "workflow" ? <Check size={13} /> : <Save size={13} />}
             {savedTab === "workflow" ? "Saved" : "Save Workflow"}
           </button>
         </div>
@@ -2033,32 +2296,7 @@ export default function FinancerSettings() {
 
       {/* ── SECURITY ── */}
       {tab === "security" && (
-        <SectionCard title="Security" sub="Manage your login credentials and session security.">
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {[
-              { label: "Change Password",          sub: "Update your Creditlinker account password." },
-              { label: "Two-Factor Authentication", sub: "Add an extra layer of security to your account." },
-              { label: "Active Sessions",           sub: "View and revoke active login sessions." },
-            ].map(item => (
-              <div key={item.label} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "14px 0", borderBottom: "1px solid #F3F4F6",
-              }}>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>{item.label}</p>
-                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>{item.sub}</p>
-                </div>
-                <button style={{
-                  padding: "6px 14px", borderRadius: 8,
-                  border: "1px solid #E5E7EB", background: "white",
-                  fontSize: 12, fontWeight: 600, color: "#0A2540", cursor: "pointer",
-                }}>
-                  Manage
-                </button>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <SecurityTab user={user} />
       )}
     </div>
   );

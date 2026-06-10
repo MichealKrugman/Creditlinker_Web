@@ -33,6 +33,19 @@ type ScoreDimension = {
   points:    number;
 };
 
+type LendingSignal = {
+  label:  string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+};
+
+type ScoreAnalysis = {
+  underwriting_summary: string;
+  confidence:           "high" | "medium" | "low";
+  confidence_reasons:   string[];
+  lending_signals:      LendingSignal[];
+};
+
 type BusinessAnalysis = {
   consent_id:         string;
   business_id:        string;
@@ -47,6 +60,48 @@ type BusinessAnalysis = {
   data_quality_score: number | null;
   engine_version:     string | null;
   dimensions:         ScoreDimension[];
+  metrics:            AggregatedMetricsSnapshot | null;
+  analysis:           ScoreAnalysis | null;
+};
+
+// The subset of AggregatedMetrics we fetch and display
+type AggregatedMetricsSnapshot = {
+  // Revenue
+  monthly_revenue:              Record<string, number>;
+  revenue_growth_rate_3m:       number | null;
+  revenue_sources_count:        number;
+  client_concentration_ratio:   number;
+  revenue_diversification_index:number;
+  // Cashflow
+  monthly_net_cashflow:         Record<string, number>;
+  positive_cashflow_ratio:      number;
+  cashflow_volatility_coefficient: number;
+  has_negative_cashflow_streak: boolean;
+  recurring_revenue_ratio:      number;
+  // Expenses
+  opex_to_revenue_ratio:        number;
+  expense_growth_vs_revenue_growth_delta: number;
+  // Liquidity
+  avg_closing_balance:          number;
+  liquidity_floor:              number;
+  inflow_to_expense_coverage_ratio: number;
+  cash_runway_days:             number;
+  // Consistency / risk
+  active_months_ratio:          number;
+  months_of_data:               number;
+  payroll_consistent:           boolean;
+  has_consistent_supplier_payments: boolean;
+  active_risk_flags:            Array<{ type: string; severity: string; description: string; score_impact: number }>;
+  // Lending capacity
+  debt_service_capacity:        number;
+  realistic_loan_capacity_range: {
+    min_loan_amount: number;
+    max_loan_amount: number;
+    min_monthly_installment: number;
+    max_monthly_installment: number;
+  };
+  withdrawal_pressure_ratio:    number;
+  minimum_monthly_coverage:     number;
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -177,7 +232,156 @@ function riskLabel(r: string | null) {
   return r.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function shapeAnalysis(consent: any, biz: { name?: string; financial_identity_id?: string } | null, score: any): BusinessAnalysis {
+/* ─────────────────────────────────────────────────────────
+   DRIVER TABLE + RAW METRIC ROWS per dimension
+───────────────────────────────────────────────────────── */
+type DriverImpact = "positive" | "negative" | "neutral";
+type DriverRow = { signal: string; impact: DriverImpact };
+
+function getDimDrivers(key: DimKey, m: AggregatedMetricsSnapshot): DriverRow[] {
+  switch (key) {
+    case "revenue_stability": {
+      const months = Object.values(m.monthly_revenue);
+      const avg = months.length ? months.reduce((a, b) => a + b, 0) / months.length : 0;
+      const cv  = avg > 0 ? Math.sqrt(months.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / months.length) / avg : 0;
+      const rows: DriverRow[] = [];
+      rows.push({ signal: `Revenue CV ${fmt(cv, 2)} — monthly earnings ${cv >= 0.5 ? "highly" : cv >= 0.3 ? "moderately" : "slightly"} volatile`, impact: cv >= 0.5 ? "negative" : cv >= 0.3 ? "neutral" : "positive" });
+      const conc = m.client_concentration_ratio;
+      rows.push({ signal: `${fmtPct(conc)} of inflows from single client — ${conc >= 0.6 ? "high concentration risk" : conc >= 0.4 ? "moderate concentration" : "well diversified"}`, impact: conc >= 0.6 ? "negative" : conc >= 0.4 ? "neutral" : "positive" });
+      rows.push({ signal: `${m.revenue_sources_count} distinct revenue source${m.revenue_sources_count !== 1 ? "s" : ""} detected`, impact: m.revenue_sources_count >= 4 ? "positive" : m.revenue_sources_count >= 2 ? "neutral" : "negative" });
+      if (m.revenue_growth_rate_3m != null) {
+        const g = m.revenue_growth_rate_3m;
+        rows.push({ signal: `3-month revenue trend ${g >= 0 ? "+" : ""}${(g * 100).toFixed(1)}% — ${g >= 0.1 ? "strong growth" : g >= 0 ? "slight growth" : "declining"}`, impact: g >= 0.1 ? "positive" : g >= 0 ? "neutral" : "negative" });
+      }
+      return rows;
+    }
+    case "cashflow_predictability": {
+      const rows: DriverRow[] = [];
+      rows.push({ signal: `${fmtPct(m.positive_cashflow_ratio)} of months cashflow-positive — inflows exceeded outflows`, impact: m.positive_cashflow_ratio >= 0.8 ? "positive" : m.positive_cashflow_ratio >= 0.6 ? "neutral" : "negative" });
+      rows.push({ signal: `${fmtPct(m.recurring_revenue_ratio)} recurring income ratio — ${m.recurring_revenue_ratio >= 0.5 ? "predictable revenue base" : "limited recurring income"}`, impact: m.recurring_revenue_ratio >= 0.5 ? "positive" : "neutral" });
+      rows.push({ signal: `Cashflow volatility ${fmt(m.cashflow_volatility_coefficient, 2)} — ${m.cashflow_volatility_coefficient <= 0.4 ? "stable" : m.cashflow_volatility_coefficient <= 0.7 ? "moderate" : "high"}`, impact: m.cashflow_volatility_coefficient <= 0.4 ? "positive" : m.cashflow_volatility_coefficient <= 0.7 ? "neutral" : "negative" });
+      if (m.has_negative_cashflow_streak) rows.push({ signal: "3+ consecutive months of negative net cashflow detected", impact: "negative" });
+      if (m.payroll_consistent)            rows.push({ signal: "Consistent payroll cycle detected — operational discipline signal", impact: "positive" });
+      return rows;
+    }
+    case "expense_discipline": {
+      const delta = m.expense_growth_vs_revenue_growth_delta;
+      return [
+        { signal: `OPEX-to-revenue ratio ${fmtPct(m.opex_to_revenue_ratio)} — ${m.opex_to_revenue_ratio <= 0.6 ? "healthy margins" : m.opex_to_revenue_ratio <= 0.8 ? "moderate cost load" : "expenses consuming most revenue"}`, impact: m.opex_to_revenue_ratio <= 0.6 ? "positive" : m.opex_to_revenue_ratio <= 0.8 ? "neutral" : "negative" },
+        { signal: delta <= 0 ? `Revenue growing ${fmt(Math.abs(delta) * 100, 1)}% faster than expenses — efficient scaling` : `Expenses growing ${fmt(delta * 100, 1)}% faster than revenue`, impact: delta <= -0.05 ? "positive" : delta <= 0.05 ? "neutral" : "negative" },
+      ];
+    }
+    case "liquidity_strength": {
+      const coverage = m.inflow_to_expense_coverage_ratio;
+      return [
+        { signal: `Avg closing balance ${fmtNgn(m.avg_closing_balance)} — ${m.cash_runway_days >= 90 ? "strong" : m.cash_runway_days >= 30 ? "adequate" : "thin"} cash position`, impact: m.cash_runway_days >= 90 ? "positive" : m.cash_runway_days >= 30 ? "neutral" : "negative" },
+        { signal: `Cash runway ${Math.round(m.cash_runway_days)} days if revenue stopped`, impact: m.cash_runway_days >= 90 ? "positive" : m.cash_runway_days >= 30 ? "neutral" : "negative" },
+        { signal: `Inflow/expense coverage ${fmt(coverage, 2)}× — ${coverage >= 2 ? "comfortable buffer" : coverage >= 1 ? "adequate" : "inflows barely covering expenses"}`, impact: coverage >= 2 ? "positive" : coverage >= 1 ? "neutral" : "negative" },
+        { signal: `Liquidity floor ${fmtNgn(m.liquidity_floor)} — lowest balance recorded`, impact: m.liquidity_floor > 0 ? "positive" : "negative" },
+      ];
+    }
+    case "financial_consistency": {
+      const rows: DriverRow[] = [];
+      rows.push({ signal: `${fmtPct(m.active_months_ratio)} of months active — ${m.active_months_ratio >= 0.9 ? "continuous trading" : m.active_months_ratio >= 0.7 ? "mostly active" : "notable dormant periods"}`, impact: m.active_months_ratio >= 0.9 ? "positive" : m.active_months_ratio >= 0.7 ? "neutral" : "negative" });
+      rows.push({ signal: `${m.months_of_data} months of transaction history`, impact: m.months_of_data >= 12 ? "positive" : m.months_of_data >= 6 ? "neutral" : "negative" });
+      if (m.payroll_consistent)               rows.push({ signal: "Consistent payroll cycle — regular operational behaviour", impact: "positive" });
+      if (m.has_consistent_supplier_payments) rows.push({ signal: "Consistent supplier payment pattern — reliable obligations management", impact: "positive" });
+      return rows;
+    }
+    case "risk_profile": {
+      if (m.active_risk_flags.length === 0) return [
+        { signal: "No active risk flags — clean baseline", impact: "positive" },
+      ];
+      return m.active_risk_flags.slice(0, 5).map(f => ({
+        signal: `${f.severity.charAt(0).toUpperCase() + f.severity.slice(1)} flag: ${f.type.replace(/_/g, " ")} (−${Math.abs(f.score_impact)} pts)`,
+        impact: f.severity === "critical" || f.severity === "high" ? "negative" : "neutral" as DriverImpact,
+      }));
+    }
+    default: return [];
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   RAW METRIC ROWS per dimension (for the data tile grid)
+───────────────────────────────────────────────────────── */
+type MetricRow = { label: string; value: string; note?: string };
+
+function fmt(n: number, decimals = 1): string {
+  return n.toFixed(decimals);
+}
+function fmtNgn(n: number): string {
+  if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `₦${(n / 1_000).toFixed(0)}K`;
+  return `₦${n.toFixed(0)}`;
+}
+function fmtPct(n: number): string {
+  return `${(n * 100).toFixed(0)}%`;
+}
+
+function getDimMetrics(key: DimKey, m: AggregatedMetricsSnapshot): MetricRow[] {
+  switch (key) {
+    case "revenue_stability": {
+      const months = Object.values(m.monthly_revenue);
+      const avg = months.length ? months.reduce((a, b) => a + b, 0) / months.length : 0;
+      const cv = avg > 0 ? Math.sqrt(months.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / months.length) / avg : 0;
+      return [
+        { label: "Revenue CV (volatility)", value: fmt(cv, 2), note: "Lower = more stable. >0.5 is high volatility." },
+        { label: "Avg monthly revenue",     value: fmtNgn(avg) },
+        { label: "Revenue sources",         value: `${m.revenue_sources_count}`, note: "Distinct client/counterparty clusters" },
+        { label: "Client concentration",    value: fmtPct(m.client_concentration_ratio), note: "Top client share of total revenue" },
+        { label: "3-month growth rate",      value: m.revenue_growth_rate_3m != null ? `${(m.revenue_growth_rate_3m * 100).toFixed(1)}%` : "Insufficient data" },
+      ];
+    }
+    case "cashflow_predictability": {
+      return [
+        { label: "Positive cashflow months",   value: fmtPct(m.positive_cashflow_ratio), note: "Months where inflows exceeded outflows" },
+        { label: "Recurring revenue ratio",     value: fmtPct(m.recurring_revenue_ratio), note: "Predictable, repeating income share" },
+        { label: "Cashflow volatility",         value: fmt(m.cashflow_volatility_coefficient, 2), note: "SD ÷ average net cashflow. <0.4 = stable." },
+        { label: "Negative cashflow streak",    value: m.has_negative_cashflow_streak ? "Yes — 3+ consecutive months" : "No", note: "3+ consecutive negative net months" },
+      ];
+    }
+    case "expense_discipline": {
+      const delta = m.expense_growth_vs_revenue_growth_delta;
+      return [
+        { label: "OPEX-to-revenue ratio",    value: fmtPct(m.opex_to_revenue_ratio), note: "Operating costs as share of revenue" },
+        { label: "Expense vs revenue growth", value: delta >= 0 ? `Expenses growing ${fmt(delta * 100, 1)}% faster` : `Revenue growing ${fmt(Math.abs(delta) * 100, 1)}% faster`, note: "Positive = costs outpacing revenue" },
+      ];
+    }
+    case "liquidity_strength": {
+      const coverageMultiple = m.opex_to_revenue_ratio > 0
+        ? m.avg_closing_balance / (m.avg_closing_balance * m.opex_to_revenue_ratio || 1)
+        : null;
+      return [
+        { label: "Avg closing balance",        value: fmtNgn(m.avg_closing_balance) },
+        { label: "Liquidity floor",             value: fmtNgn(m.liquidity_floor), note: "Lowest balance recorded in the period" },
+        { label: "Inflow/expense coverage",    value: fmt(m.inflow_to_expense_coverage_ratio, 2) + "×", note: "Total inflows ÷ fixed operating expenses" },
+        { label: "Cash runway",                 value: `${Math.round(m.cash_runway_days)} days`, note: "Days surviving if revenue stopped today" },
+      ];
+    }
+    case "financial_consistency": {
+      return [
+        { label: "Active months ratio",          value: fmtPct(m.active_months_ratio), note: "Months with at least one transaction" },
+        { label: "Total months of data",          value: `${m.months_of_data} months` },
+        { label: "Consistent payroll",            value: m.payroll_consistent ? "Detected" : "Not detected" },
+        { label: "Consistent supplier payments",  value: m.has_consistent_supplier_payments ? "Detected" : "Not detected" },
+      ];
+    }
+    case "risk_profile": {
+      const flags = m.active_risk_flags;
+      if (flags.length === 0) return [
+        { label: "Active risk flags", value: "None", note: "No anomalous patterns detected" },
+      ];
+      return flags.slice(0, 5).map(f => ({
+        label: f.severity.charAt(0).toUpperCase() + f.severity.slice(1) + " flag",
+        value: f.type.replace(/_/g, " "),
+        note: `Score impact: −${Math.abs(f.score_impact)} pts`,
+      }));
+    }
+    default: return [];
+  }
+}
+
+function shapeAnalysis(consent: any, biz: { name?: string; financial_identity_id?: string } | null, score: any, metricsRow: any): BusinessAnalysis {
   const rawDims   = (score?.dimensions ?? {}) as Record<string, any>;
   const computedAt = score?.computed_at ? new Date(score.computed_at) : null;
   const dataMonths = score?.data_months_analyzed ?? 0;
@@ -216,6 +420,39 @@ function shapeAnalysis(consent: any, biz: { name?: string; financial_identity_id
     };
   });
 
+  // Shape aggregated metrics snapshot
+  let metrics: AggregatedMetricsSnapshot | null = null;
+  if (metricsRow?.metrics) {
+    const m = metricsRow.metrics as any;
+    metrics = {
+      monthly_revenue:               m.monthly_revenue ?? {},
+      revenue_growth_rate_3m:        m.revenue_growth_rate_3m ?? null,
+      revenue_sources_count:         m.revenue_sources_count ?? 0,
+      client_concentration_ratio:    m.client_concentration_ratio ?? 0,
+      revenue_diversification_index: m.revenue_diversification_index ?? 0,
+      monthly_net_cashflow:          m.monthly_net_cashflow ?? {},
+      positive_cashflow_ratio:       m.positive_cashflow_ratio ?? 0,
+      cashflow_volatility_coefficient: m.cashflow_volatility_coefficient ?? 0,
+      has_negative_cashflow_streak:  m.has_negative_cashflow_streak ?? false,
+      recurring_revenue_ratio:       m.recurring_revenue_ratio ?? 0,
+      opex_to_revenue_ratio:         m.opex_to_revenue_ratio ?? 0,
+      expense_growth_vs_revenue_growth_delta: m.expense_growth_vs_revenue_growth_delta ?? 0,
+      avg_closing_balance:           m.avg_closing_balance ?? 0,
+      liquidity_floor:               m.liquidity_floor ?? 0,
+      inflow_to_expense_coverage_ratio: m.inflow_to_expense_coverage_ratio ?? 0,
+      cash_runway_days:              m.cash_runway_days ?? 0,
+      active_months_ratio:           m.active_months_ratio ?? 0,
+      months_of_data:                m.months_of_data ?? 0,
+      payroll_consistent:            m.payroll_consistent ?? false,
+      has_consistent_supplier_payments: m.has_consistent_supplier_payments ?? false,
+      active_risk_flags:             m.active_risk_flags ?? [],
+      debt_service_capacity:         m.debt_service_capacity ?? 0,
+      realistic_loan_capacity_range: m.realistic_loan_capacity_range ?? { min_loan_amount: 0, max_loan_amount: 0, min_monthly_installment: 0, max_monthly_installment: 0 },
+      withdrawal_pressure_ratio:     m.withdrawal_pressure_ratio ?? 0,
+      minimum_monthly_coverage:      m.minimum_monthly_coverage ?? 0,
+    };
+  }
+
   return {
     consent_id:         consent.consent_id,
     business_id:        consent.business_id,
@@ -230,6 +467,8 @@ function shapeAnalysis(consent: any, biz: { name?: string; financial_identity_id
     data_quality_score: score?.data_quality_score ?? null,
     engine_version:     score?.engine_version ?? null,
     dimensions,
+    metrics,
+    analysis: (score?.analysis as ScoreAnalysis) ?? null,
   };
 }
 
@@ -256,13 +495,75 @@ function Card({ children, style={} }: { children: React.ReactNode; style?: React
 }
 
 /* ─────────────────────────────────────────────────────────
+   ANALYSIS SUMMARY — underwriting summary + lending signals
+───────────────────────────────────────────────────────── */
+function AnalysisSummary({ analysis }: { analysis: ScoreAnalysis }) {
+  const SIGNAL_COLORS = {
+    pass: { bg: "#ECFDF5", color: "#059669", dot: "#10B981", label: "Pass" },
+    warn: { bg: "#FFFBEB", color: "#D97706", dot: "#F59E0B", label: "Review" },
+    fail: { bg: "#FEF2F2", color: "#DC2626", dot: "#EF4444", label: "Concern" },
+  };
+
+  const CONFIDENCE_COLORS = {
+    high:   { color: "#059669", bg: "#ECFDF5", label: "High confidence" },
+    medium: { color: "#D97706", bg: "#FFFBEB", label: "Medium confidence" },
+    low:    { color: "#DC2626", bg: "#FEF2F2", label: "Low confidence" },
+  };
+
+  const conf = CONFIDENCE_COLORS[analysis.confidence];
+
+  return (
+    <Card style={{ overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid #F3F4F6" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.07em", textTransform: "uppercase" as const }}>Underwriting Summary</p>
+          <span style={{ fontSize: 10, fontWeight: 700, color: conf.color, background: conf.bg, padding: "3px 9px", borderRadius: 9999 }}>
+            {conf.label}
+          </span>
+        </div>
+        <p style={{ fontSize: 14, color: "#1F2937", lineHeight: 1.75 }}>{analysis.underwriting_summary}</p>
+        {analysis.confidence_reasons.length > 0 && (
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column" as const, gap: 4 }}>
+            {analysis.confidence_reasons.map((r, i) => (
+              <p key={i} style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{r}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Lending signals checklist */}
+      <div style={{ padding: "14px 22px" }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.07em", textTransform: "uppercase" as const, marginBottom: 12 }}>Lending Signals</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
+          {analysis.lending_signals.map((sig, i) => {
+            const c = SIGNAL_COLORS[sig.status];
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: 10, background: c.bg, border: `1px solid ${c.dot}20` }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.dot, flexShrink: 0, marginTop: 4 }} />
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: c.color, marginBottom: 2 }}>{sig.label}</p>
+                  <p style={{ fontSize: 12, color: "#374151", lineHeight: 1.5 }}>{sig.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    DIMENSION CARD
 ───────────────────────────────────────────────────────── */
-function DimensionCard({ dim }: { dim: ScoreDimension }) {
+function DimensionCard({ dim, metrics }: { dim: ScoreDimension; metrics: AggregatedMetricsSnapshot | null }) {
   const [expanded, setExpanded] = useState(false);
   const meta      = DIM_META[dim.key];
   const grade     = GRADE_META[dim.grade] ?? GRADE_META["F"];
   const breakdown = dim.breakdown;
+  const rawMetrics: MetricRow[] = metrics ? getDimMetrics(dim.key, metrics) : [];
+  const drivers:    DriverRow[]  = metrics ? getDimDrivers(dim.key, metrics) : [];
 
   return (
     <Card style={{ overflow:"hidden" }}>
@@ -298,48 +599,88 @@ function DimensionCard({ dim }: { dim: ScoreDimension }) {
       {/* Expanded analyst panel */}
       {expanded && (
         <div style={{ borderTop:"1px solid #F3F4F6" }}>
-          {breakdown ? (
-            <>
-              {/* What we observed */}
-              <div style={{ padding:"16px 20px", borderBottom:"1px solid #F9FAFB" }}>
-                <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>What the data shows</p>
-                <div style={{ display:"flex", flexDirection:"column" as const, gap:7 }}>
-                  {breakdown.observed.map((obs, i) => (
-                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
-                      <div style={{ width:6, height:6, borderRadius:"50%", background: i === 0 ? dim.color : "#D1D5DB", flexShrink:0, marginTop:6 }} />
-                      <p style={{ fontSize:13, color: i === 0 ? "#111827" : "#374151", fontWeight: i === 0 ? 500 : 400, lineHeight:1.6 }}>{obs}</p>
-                    </div>
+
+          {/* ── Score drivers table ── */}
+          {drivers.length > 0 && (
+            <div style={{ padding:"16px 20px", borderBottom:"1px solid #F3F4F6" }}>
+              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>Score drivers</p>
+              <table style={{ width:"100%", borderCollapse:"collapse" as const }}>
+                <tbody>
+                  {drivers.map((d, i) => (
+                    <tr key={i} style={{ borderBottom: i < drivers.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+                      <td style={{ padding:"7px 0", fontSize:13, color:"#374151", lineHeight:1.5, paddingRight:12 }}>{d.signal}</td>
+                      <td style={{ padding:"7px 0", whiteSpace:"nowrap" as const, textAlign:"right" as const }}>
+                        <span style={{
+                          fontSize:10, fontWeight:700, letterSpacing:"0.04em", padding:"2px 8px", borderRadius:5,
+                          background: d.impact === "positive" ? "#ECFDF5" : d.impact === "negative" ? "#FEF2F2" : "#F3F4F6",
+                          color:      d.impact === "positive" ? "#059669" : d.impact === "negative" ? "#DC2626" : "#6B7280",
+                        }}>
+                          {d.impact === "positive" ? "Positive" : d.impact === "negative" ? "Negative" : "Neutral"}
+                        </span>
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </div>
+                </tbody>
+              </table>
+            </div>
+          )}
 
-              {/* Lending implication */}
-              <div style={{ padding:"14px 20px", borderBottom:"1px solid #F9FAFB", background: dim.raw_score >= 65 ? "#F0FDF4" : dim.raw_score >= 50 ? "#FFFBEB" : "#FFF7F7" }}>
-                <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:6 }}>Lending implication</p>
-                <p style={{ fontSize:13, color:"#1F2937", lineHeight:1.7 }}>{breakdown.lending}</p>
-              </div>
+          {/* ── Lending narrative (why this score) ── */}
+          {(breakdown?.lending || dim.signals.length > 0) && (
+            <div style={{ padding:"14px 20px", borderBottom:"1px solid #F3F4F6", background: dim.raw_score >= 65 ? "#F0FDF4" : dim.raw_score >= 50 ? "#FFFBEB" : "#FFF7F7" }}>
+              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:6 }}>Why this score</p>
+              <p style={{ fontSize:13, color:"#1F2937", lineHeight:1.75 }}>
+                {breakdown?.lending ?? dim.signals.join(" ")}
+              </p>
+            </div>
+          )}
 
-              {/* What to watch */}
-              <div style={{ padding:"14px 20px" }}>
-                <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:6 }}>What to watch</p>
-                <p style={{ fontSize:13, color:"#374151", lineHeight:1.7 }}>{breakdown.watch}</p>
-              </div>
-            </>
-          ) : (
-            /* Old DB row — no breakdown stored yet, show signals only */
-            <div style={{ padding:"16px 20px" }}>
-              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>Data signals</p>
+          {/* ── What we observed (observed[] list, only when breakdown exists) ── */}
+          {breakdown?.observed && breakdown.observed.length > 0 && (
+            <div style={{ padding:"14px 20px", borderBottom:"1px solid #F3F4F6" }}>
+              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>What the data shows</p>
               <div style={{ display:"flex", flexDirection:"column" as const, gap:7 }}>
-                {dim.signals.map((s, i) => (
+                {breakdown.observed.map((obs, i) => (
                   <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
                     <div style={{ width:6, height:6, borderRadius:"50%", background: i === 0 ? dim.color : "#D1D5DB", flexShrink:0, marginTop:6 }} />
-                    <p style={{ fontSize:13, color:"#374151", lineHeight:1.6 }}>{s}</p>
+                    <p style={{ fontSize:13, color: i === 0 ? "#111827" : "#374151", fontWeight: i === 0 ? 500 : 400, lineHeight:1.6 }}>{obs}</p>
                   </div>
                 ))}
               </div>
-              <p style={{ fontSize:11, color:"#9CA3AF", marginTop:12 }}>Full breakdown available after next pipeline run.</p>
             </div>
           )}
+
+          {/* ── What to watch ── */}
+          {breakdown?.watch && (
+            <div style={{ padding:"14px 20px", borderBottom: rawMetrics.length > 0 ? "1px solid #F3F4F6" : "none" }}>
+              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:6 }}>What to watch</p>
+              <p style={{ fontSize:13, color:"#374151", lineHeight:1.7 }}>{breakdown.watch}</p>
+            </div>
+          )}
+
+          {/* ── Raw metrics tiles ── */}
+          {rawMetrics.length > 0 && (
+            <div style={{ padding:"14px 20px", background:"#FAFAFA" }}>
+              <p style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", letterSpacing:"0.07em", textTransform:"uppercase" as const, marginBottom:10 }}>Derived metrics</p>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(190px, 1fr))", gap:8 }}>
+                {rawMetrics.map((row, i) => (
+                  <div key={i} style={{ padding:"8px 10px", background:"white", borderRadius:8, border:"1px solid #E5E7EB" }}>
+                    <p style={{ fontSize:10, color:"#9CA3AF", marginBottom:3 }}>{row.label}</p>
+                    <p style={{ fontSize:13, fontWeight:700, color:"#0A2540", letterSpacing:"-0.01em" }}>{row.value}</p>
+                    {row.note && <p style={{ fontSize:10, color:"#9CA3AF", marginTop:2, lineHeight:1.4 }}>{row.note}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Fallback when no metrics or breakdown yet ── */}
+          {drivers.length === 0 && rawMetrics.length === 0 && !breakdown && (
+            <div style={{ padding:"14px 20px" }}>
+              <p style={{ fontSize:11, color:"#9CA3AF" }}>Full breakdown available after next pipeline run.</p>
+            </div>
+          )}
+
         </div>
       )}
     </Card>
@@ -516,7 +857,7 @@ export default function FinancerFinancialAnalysis() {
       // Batch-fetch latest scores from creditlinker_scores
       const { data: scores } = await supabase
         .from("creditlinker_scores")
-        .select("business_id, composite_score, lender_risk, data_quality_score, data_months_analyzed, dimensions, computed_at")
+        .select("business_id, composite_score, lender_risk, data_quality_score, data_months_analyzed, dimensions, analysis, computed_at")
         .in("business_id", businessIds)
         .order("computed_at", { ascending: false });
 
@@ -524,6 +865,18 @@ export default function FinancerFinancialAnalysis() {
       const scoreMap: Record<string, any> = {};
       (scores ?? []).forEach((s: any) => {
         if (!scoreMap[s.business_id]) scoreMap[s.business_id] = s;
+      });
+
+      // Batch-fetch latest aggregated_metrics per business
+      const { data: metricsRows } = await supabase
+        .from("aggregated_metrics")
+        .select("business_id, metrics, computed_at")
+        .in("business_id", businessIds)
+        .order("computed_at", { ascending: false });
+
+      const metricsMap: Record<string, any> = {};
+      (metricsRows ?? []).forEach((m: any) => {
+        if (!metricsMap[m.business_id]) metricsMap[m.business_id] = m;
       });
 
       const shaped: BusinessAnalysis[] = consents.map((c: any) => {
@@ -537,6 +890,7 @@ export default function FinancerFinancialAnalysis() {
           },
           biz ?? null,
           scoreMap[c.business_id] ?? null,
+          metricsMap[c.business_id] ?? null,
         );
       });
 
@@ -652,7 +1006,7 @@ export default function FinancerFinancialAnalysis() {
           {/* Dimension breakdown cards */}
           <div style={{ display:"flex", flexDirection:"column" as const, gap:10 }}>
             {biz.dimensions.map(d => (
-              <DimensionCard key={d.key} dim={d} />
+              <DimensionCard key={d.key} dim={d} metrics={biz.metrics} />
             ))}
           </div>
         </>

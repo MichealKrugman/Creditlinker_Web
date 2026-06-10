@@ -365,7 +365,20 @@ export default function FinancerBusinesses() {
         return;
       }
 
-      // ── 2. Fetch discovery_matches for this institution ──────────
+      // ── 2. Fetch active consent_records for this institution ──────
+      const { data: consentRows, error: consentErr } = await supabase
+        .from("consent_records")
+        .select("business_id, granted_at, permissions")
+        .eq("institution_id", instId)
+        .eq("is_active", true);
+
+      if (consentErr) {
+        console.error("consent_records error:", consentErr);
+      }
+
+      const consentedBizIds = new Set((consentRows ?? []).map((c: any) => c.business_id as string));
+
+      // ── 3. Fetch discovery_matches for this institution ──────────
       const { data: matchRows, error: matchErr } = await supabase
         .from("discovery_matches")
         .select(
@@ -382,7 +395,7 @@ export default function FinancerBusinesses() {
         return;
       }
 
-      // ── 3. Fetch ALL matches across ALL institutions (for "matched elsewhere" tag)
+      // ── 4. Fetch ALL matches across ALL institutions (for "matched elsewhere" tag)
       const { data: allMatchRows } = await supabase
         .from("discovery_matches")
         .select("anonymized_id, institution_id");
@@ -392,7 +405,7 @@ export default function FinancerBusinesses() {
         if (m.institution_id !== instId) matchedElsewhereIds.add(m.anonymized_id);
       });
 
-      // ── 4. Fetch readiness assessments for ALL businesses ────────
+      // ── 5. Fetch readiness assessments for ALL businesses ────────
       //    finance_type (e.g. "revenue_advance") is the real product key.
       //    status "ready" | "almost_ready" = eligible / conditional.
       //    We only care about ready/almost_ready to populate the filter.
@@ -411,17 +424,20 @@ export default function FinancerBusinesses() {
         if (r.capital_category)  readinessByBiz[r.business_id].add(r.capital_category.replace(/_/g, " ").toLowerCase());
       });
 
-      // ── 5. Build lookup: financial_identity_id → this institution's match
+      // ── 6. Build lookup: financial_identity_id → this institution's match
       const matchByAnonId: Record<string, any> = {};
       (matchRows ?? []).forEach((m: any) => { matchByAnonId[m.anonymized_id] = m; });
 
-      // ── 6. Merge every business with its match + readiness types ─
+      // ── 7. Merge every business with its match + readiness types ─
       const shaped: DiscoveryMatch[] = (bizRows ?? []).map((b: any) => {
         const match            = b.financial_identity_id ? matchByAnonId[b.financial_identity_id] : null;
         const matchedElsewhere = matchedElsewhereIds.has(b.financial_identity_id ?? b.business_id);
         const capitalTypes     = Array.from(readinessByBiz[b.business_id] ?? []);
+        // consent_records is the source of truth — override status if an active consent exists
+        const hasConsent       = consentedBizIds.has(b.business_id);
 
         if (match) {
+          const effectiveStatus: MatchStatus = hasConsent ? "consented" : match.status as MatchStatus;
           return {
             match_id:             match.match_id,
             anonymized_id:        b.financial_identity_id ?? match.anonymized_id,
@@ -431,11 +447,31 @@ export default function FinancerBusinesses() {
             capital_category:     match.capital_category,
             capital_types:        capitalTypes,
             match_score:          match.match_score,
-            status:               match.status as MatchStatus,
+            status:               effectiveStatus,
             matched_at:           match.matched_at,
             access_requested_at:  match.access_requested_at,
             access_responded_at:  match.access_responded_at,
-            business_name:        match.status === "consented" ? b.name : null,
+            business_name:        effectiveStatus === "consented" ? b.name : null,
+            matched_elsewhere:    matchedElsewhere,
+          };
+        }
+
+        // No match row — but may still have a direct consent
+        if (hasConsent) {
+          return {
+            match_id:             `consented-${b.business_id}`,
+            anonymized_id:        b.financial_identity_id ?? b.business_id,
+            business_id:          b.business_id,
+            institution_id:       instId,
+            criteria_id:          null,
+            capital_category:     "Unknown",
+            capital_types:        capitalTypes,
+            match_score:          null,
+            status:               "consented" as MatchStatus,
+            matched_at:           null,
+            access_requested_at:  null,
+            access_responded_at:  null,
+            business_name:        b.name,
             matched_elsewhere:    matchedElsewhere,
           };
         }

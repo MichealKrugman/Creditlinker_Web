@@ -10,7 +10,7 @@ import { X } from 'lucide-react';
 import {
   LayoutDashboard, Building2, Inbox, Tag,
   PieChart, Settings, Bell,
-  ChevronRight, Target, MessageSquare, Banknote, TrendingUp,
+  Target, MessageSquare, Banknote, TrendingUp,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────
@@ -225,7 +225,6 @@ export function FinancerSidebar() {
             <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{instDisplay}</p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Capital provider</p>
           </div>
-          <ChevronRight size={13} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
         </Link>
       </div>
     </aside>

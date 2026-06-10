@@ -664,7 +664,8 @@ function PersonalDashboard({
   // Derived real metrics
   const activePortfolio  = portfolio.filter(r => r.status === "active");
   const settledPortfolio = portfolio.filter(r => r.status === "settled");
-  const totalDeployed    = activePortfolio.reduce((s, r) => s + getAmount(r.terms), 0);
+  const totalDeployed    = [...activePortfolio, ...settledPortfolio].reduce((s, r) => s + getAmount(r.terms), 0);
+  const totalActive      = activePortfolio.reduce((s, r) => s + getAmount(r.terms), 0);
   const totalSettled     = settledPortfolio.reduce((s, r) => s + getAmount(r.terms), 0);
 
   return (
@@ -690,7 +691,7 @@ function PersonalDashboard({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14 }}>
         {[
           { label: "Active Deployments",    value: loadingData ? "…" : String(activePortfolio.length),        sub: "Currently deployed",          icon: <Banknote   size={16} />, accent: true                          },
-          { label: "Capital Deployed",       value: loadingData ? "…" : (totalDeployed ? formatNGN(totalDeployed) : "₦0"), sub: totalSettled ? `${formatNGN(totalSettled)} settled` : "No settled deals yet", icon: <TrendingUp size={16} />, positive: totalDeployed > 0  },
+          { label: "Capital Deployed",       value: loadingData ? "…" : (totalDeployed ? formatNGN(totalDeployed) : "₦0"), sub: totalActive > 0 ? `${formatNGN(totalActive)} active · ${formatNGN(totalSettled)} settled` : totalSettled > 0 ? `${formatNGN(totalSettled)} settled` : "No deployments yet", icon: <TrendingUp size={16} />, positive: totalDeployed > 0  },
           { label: "Consented Businesses",   value: loadingData ? "…" : String(consentCount),                 sub: "Active data access grants",   icon: <ShieldCheck size={16} />                                       },
           { label: "Discovery Matches",      value: loadingData ? "…" : String(matches.length),               sub: "Pending your review",         icon: <Target     size={16} />, accent: matches.length > 0            },
         ].map(m => <MetricCard key={m.label} {...m} />)}
@@ -876,8 +877,8 @@ function PersonalDashboard({
 
           <PortfolioGlance rows={[
             { label: "Total deployed",   value: totalDeployed  ? formatNGN(totalDeployed)  : "₦0",                              color: "#00D4FF" },
+            { label: "Active capital",   value: totalActive    ? formatNGN(totalActive)    : "₦0",                              color: "#818CF8" },
             { label: "Total settled",    value: totalSettled   ? formatNGN(totalSettled)   : "₦0",                              color: "#10B981" },
-            { label: "Active deals",     value: activePortfolio.length  ? `${activePortfolio.length} deal${activePortfolio.length !== 1 ? "s" : ""}` : "None yet", color: "#818CF8" },
             { label: "Consented biz",    value: String(consentCount),                                                           color: "#F59E0B" },
           ]} />
         </div>
