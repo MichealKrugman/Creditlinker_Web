@@ -14,22 +14,9 @@ import { Button } from "@/components/ui/button";
 import { canView, canManage, isSuperAdmin } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn } from "@/lib/admin-api";
 
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-      "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
-}
+const callFn = callAdminFn;
 
 // ─────────────────────────────────────────────────────────────
 //  PRIMITIVE COMPONENTS
@@ -139,16 +126,7 @@ function MetricCard({
 //  PIPELINE HEALTH CARD
 // ─────────────────────────────────────────────────────────────
 
-function PipelineHealthCard() {
-  const [stages,  setStages]  = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    callFn({ action: "get-pipeline-health" })
-      .then(d => setStages(d.stage_health ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+function PipelineHealthCard({ stages, loading }: { stages: any[]; loading: boolean }) {
 
   const degraded = stages.filter(s => s.status === "degraded").length;
 
@@ -368,16 +346,7 @@ function VerificationQueueCard() {
 //  RECENT PIPELINE RUNS
 // ─────────────────────────────────────────────────────────────
 
-function PipelineRunsCard() {
-  const [runs,    setRuns]    = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    callFn({ action: "get-pipeline-health" })
-      .then(d => setRuns((d.recent_runs ?? []).slice(0, 2)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+function PipelineRunsCard({ runs, loading }: { runs: any[]; loading: boolean }) {
 
   return (
     <Card>
@@ -468,11 +437,23 @@ export default function AdminDashboard() {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics,       setMetrics]       = useState<any>(null);
+  const [pipelineData,   setPipelineData]   = useState<any>(null);
+  const [pipelineLoading, setPipelineLoading] = useState(true);
 
   useEffect(() => {
     callFn({ action: "get-platform-metrics" }).then(d => setMetrics(d)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    callFn({ action: "get-pipeline-health" })
+      .then(d => setPipelineData(d))
+      .catch(() => {})
+      .finally(() => setPipelineLoading(false));
+  }, []);
+
+  const pipelineStages = pipelineData?.stage_health ?? [];
+  const pipelineRuns   = (pipelineData?.recent_runs ?? []).slice(0, 2);
 
   const m = metrics ?? {};
   const pipelineRunsToday = m.pipeline_runs_today ?? 0;
@@ -586,14 +567,14 @@ export default function AdminDashboard() {
       }}>
         {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {canView(user, "financial_data") && <PipelineHealthCard />}
+          {canView(user, "financial_data") && <PipelineHealthCard stages={pipelineStages} loading={pipelineLoading} />}
           {canView(user, "audit_logs") && <AuditStrip />}
         </div>
 
         {/* RIGHT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {canView(user, "verifications") && <VerificationQueueCard />}
-          {canView(user, "financial_data") && <PipelineRunsCard />}
+          {canView(user, "financial_data") && <PipelineRunsCard runs={pipelineRuns} loading={pipelineLoading} />}
 
           {/* 5B — Quick-action shortcuts */}
           <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, padding: "16px 18px" }}>
