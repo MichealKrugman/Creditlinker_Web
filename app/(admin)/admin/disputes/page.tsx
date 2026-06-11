@@ -11,46 +11,10 @@ import { Button } from "@/components/ui/button";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn, callEdgeFn } from "@/lib/admin-api";
 
-// callFn — routes to the merged admin function
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
-
-// invokeFn — calls any other named edge function
-async function invokeFn(name: string, body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const callFn   = callAdminFn;
+const invokeFn = (name: string, body: object) => callEdgeFn(name, body);
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS
@@ -157,7 +121,7 @@ function ResolveModal({
 
 export default function AdminDisputesPage() {
   const { adminUser } = useAdminUser();
-  const canAct = canManage(adminUser, "verifications");
+  const canAct = canManage(adminUser, "disputes");
 
   const [disputes,    setDisputes]    = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -197,7 +161,8 @@ export default function AdminDisputesPage() {
           initiated_by, opened_at, reason, resolution, resolved_at,
           resolution_notes, platform_verified, direct_debit_triggered,
           businesses ( name ),
-          institutions ( name )
+          institutions ( name ),
+          financing_records ( terms )
         `)
         .order("opened_at", { ascending: false })
         .limit(200);
@@ -212,7 +177,7 @@ export default function AdminDisputesPage() {
         business_name:          d.businesses?.name   ?? "—",
         financer:               d.institutions?.name ?? "—",
         institution_name:       d.institutions?.name ?? "—",
-        amount_ngn:             0,
+        amount_ngn:             (d.financing_records?.terms as any)?.amount ?? 0,
         initiated_by:           d.initiated_by,
         initiator:              d.initiated_by,
         opened_at:              d.opened_at,
@@ -220,7 +185,7 @@ export default function AdminDisputesPage() {
         description:            d.reason,
         resolution:             d.resolution,
         status:                 d.resolution === "pending" ? "open" : "resolved",
-        severity:               "medium",
+        severity:               (() => { const a = (d.financing_records?.terms as any)?.amount ?? 0; return a >= 1_000_000 ? "high" : a >= 100_000 ? "medium" : "low"; })(),
         resolved_at:            d.resolved_at         ?? null,
         resolution_notes:       d.resolution_notes    ?? null,
         platform_verified:      d.platform_verified,

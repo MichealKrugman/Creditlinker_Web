@@ -8,22 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn } from "@/lib/admin-api";
 
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-      "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
-}
+const callFn = callAdminFn;
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS
@@ -160,10 +147,18 @@ export default function AdminReportsPage() {
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280" }}>
                     <Activity size={16} />
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <TrendingUp size={11} style={{ color: "#10B981" }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981" }}>{kpi.delta}</span>
-                  </div>
+                  {(() => {
+                    const isNeg = String(kpi.delta ?? "").trim().startsWith("-");
+                    const deltaColor = isNeg ? "#EF4444" : "#10B981";
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        {isNeg
+                          ? <TrendingDown size={11} style={{ color: deltaColor }} />
+                          : <TrendingUp   size={11} style={{ color: deltaColor }} />}
+                        <span style={{ fontSize: 11, fontWeight: 600, color: deltaColor }}>{kpi.delta}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.04em", marginBottom: 2 }}>{kpi.value}</p>
                 <p style={{ fontSize: 12, color: "#6B7280" }}>{kpi.label}</p>

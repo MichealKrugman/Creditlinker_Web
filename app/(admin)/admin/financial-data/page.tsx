@@ -9,25 +9,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn } from "@/lib/admin-api";
 
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const callFn = callAdminFn;
 
 // ─────────────────────────────────────────────────────────────
 //  DETAIL DRAWER
@@ -97,10 +81,11 @@ export default function AdminFinancialDataPage() {
   const [dqDist,      setDqDist]      = useState<any[]>([]);
   const [summary,     setSummary]     = useState<any>({});
   const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
   const [selectedRun, setSelectedRun] = useState<any | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const healthData = await callFn({ action: "get-pipeline-health" });
       setStages(healthData.stage_health ?? []);
@@ -111,6 +96,7 @@ export default function AdminFinancialDataPage() {
       console.error("[financial-data] load failed", e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -134,6 +120,14 @@ export default function AdminFinancialDataPage() {
               {summary.runs_today ?? 0} pipeline runs today · {totalErrors} errors
             </span>
           )}
+          <button
+            onClick={() => load(true)}
+            disabled={loading || refreshing}
+            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", cursor: loading || refreshing ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, color: "#374151", opacity: loading || refreshing ? 0.5 : 1 }}
+          >
+            <RefreshCw size={13} style={{ color: "#6B7280" }} className={refreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
         </div>
       </div>
 

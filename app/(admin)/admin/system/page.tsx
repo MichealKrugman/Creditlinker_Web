@@ -12,22 +12,9 @@ import { Button } from "@/components/ui/button";
 import { isSuperAdmin } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn } from "@/lib/admin-api";
 
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
-}
+const callFn = callAdminFn;
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS

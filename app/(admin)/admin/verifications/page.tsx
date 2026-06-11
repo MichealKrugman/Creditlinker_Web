@@ -10,26 +10,9 @@ import { Button } from "@/components/ui/button";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn } from "@/lib/admin-api";
 
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const callFn = callAdminFn;
 
 // ─────────────────────────────────────────────────────────────
 //  REVIEW MODAL
@@ -43,14 +26,34 @@ function ReviewModal({
   onReject: (reason: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"review" | "reject">("review");
-  const [notes,  setNotes]  = useState("");
-  const [reason, setReason] = useState("");
+  const [viewingDoc, setViewingDoc] = useState<string | null>(null);
+  const [saving,     setSaving]     = useState(false);
+  const [tab,        setTab]        = useState<"review" | "reject">("review");
+  const [notes,      setNotes]      = useState("");
+  const [reason,     setReason]     = useState("");
+
+  // A-R-07: Generate a 60-second signed URL and open in new tab
+  async function handleViewDoc(filePath: string) {
+    if (!filePath) return;
+    setViewingDoc(filePath);
+    try {
+      const { data, error } = await supabase.storage
+        .from("business-documents")
+        .createSignedUrl(filePath, 60);
+      if (error || !data?.signedUrl) throw new Error(error?.message ?? "Failed to generate URL");
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error("[verifications] signed URL error", e);
+    } finally {
+      setViewingDoc(null);
+    }
+  }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(10,37,64,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(10,37,64,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div style={{ background: "white", borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,0.18)", width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "auto" }}>
 
         {/* Header */}
@@ -58,6 +61,7 @@ function ReviewModal({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, color: "#0A2540", marginBottom: 4 }}>{item.name}</h3>
+              {/* A-R-06: item.type now populated from document category derivation */}
               <p style={{ fontSize: 13, color: "#9CA3AF" }}>{item.type} · {item.sector}</p>
             </div>
             {item.priority === "high" && <Badge variant="destructive">Urgent</Badge>}
@@ -65,12 +69,13 @@ function ReviewModal({
         </div>
 
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+
           {/* Business info */}
           <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             {[
-              { label: "Business ID",    value: item.business_id },
-              { label: "Current Score",  value: item.score_before > 0 ? String(item.score_before) : "No score" },
-              { label: "Data Months",    value: item.months_data > 0 ? `${item.months_data}mo` : "None" },
+              { label: "Business ID",   value: item.business_id },
+              { label: "Current Score", value: item.score_before > 0 ? String(item.score_before) : "No score" },
+              { label: "Data Months",   value: item.months_data > 0 ? `${item.months_data}mo` : "None" },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>{label}</p>
@@ -83,15 +88,32 @@ function ReviewModal({
           <div>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Submitted Documents</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {item.documents.map((doc: string) => (
-                <div key={doc} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #F3F4F6" }}>
-                  <FileText size={14} style={{ color: "#6B7280", flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: "#374151", flex: 1 }}>{doc}</span>
-                  <button style={{ fontSize: 11, fontWeight: 700, color: "#0A2540", background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
-                    View
-                  </button>
-                </div>
-              ))}
+              {(item.documents ?? []).map((doc: any) => {
+                const filePath  = doc?.file_path ?? "";
+                const label     = doc?.filename  ?? filePath;
+                const isViewing = viewingDoc === filePath;
+                return (
+                  <div key={doc?.document_id ?? label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #F3F4F6" }}>
+                    <FileText size={14} style={{ color: "#6B7280", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: "#374151", flex: 1 }}>{label}</span>
+                    {/* A-R-07: View button now generates a signed URL */}
+                    <button
+                      disabled={isViewing || !filePath}
+                      onClick={() => handleViewDoc(filePath)}
+                      style={{
+                        fontSize: 11, fontWeight: 700,
+                        color: isViewing ? "#9CA3AF" : "#0A2540",
+                        background: "none", border: "1px solid #E5E7EB",
+                        borderRadius: 6, padding: "4px 10px",
+                        cursor: isViewing || !filePath ? "not-allowed" : "pointer",
+                        opacity: isViewing || !filePath ? 0.5 : 1,
+                      }}
+                    >
+                      {isViewing ? "Opening…" : "View"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -107,17 +129,28 @@ function ReviewModal({
           <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 18 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
               {(["review", "reject"] as const).map((t) => (
-                <button key={t} onClick={() => setTab(t)} style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid", borderColor: tab === t ? "#0A2540" : "#E5E7EB", background: tab === t ? "#0A2540" : "white", color: tab === t ? "white" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" as const }}>{t === "review" ? "Approve" : "Reject"}</button>
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid", borderColor: tab === t ? "#0A2540" : "#E5E7EB", background: tab === t ? "#0A2540" : "white", color: tab === t ? "white" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" as const }}
+                >
+                  {t === "review" ? "Approve" : "Reject"}
+                </button>
               ))}
             </div>
 
             {tab === "review" ? (
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Reviewer notes (optional)</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any observations about this verification…" rows={3}
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any observations about this verification…"
+                  rows={3}
                   style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 13, color: "#0A2540", resize: "none", outline: "none", fontFamily: "var(--font-body)", boxSizing: "border-box" }}
                   onFocus={(e) => (e.target.style.borderColor = "#10B981")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")} />
+                  onBlur={(e)  => (e.target.style.borderColor = "#E5E7EB")}
+                />
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
                   <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
                   <Button variant="primary" size="sm" disabled={saving} onClick={async () => { setSaving(true); await onApprove(notes); setSaving(false); }} style={{ background: "#10B981" }}>
@@ -128,10 +161,15 @@ function ReviewModal({
             ) : (
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Rejection reason <span style={{ color: "#EF4444" }}>*</span></label>
-                <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Explain why this verification is being rejected (shown to business)…" rows={3}
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Explain why this verification is being rejected (shown to business)…"
+                  rows={3}
                   style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 13, color: "#0A2540", resize: "none", outline: "none", fontFamily: "var(--font-body)", boxSizing: "border-box" }}
                   onFocus={(e) => (e.target.style.borderColor = "#EF4444")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")} />
+                  onBlur={(e)  => (e.target.style.borderColor = "#E5E7EB")}
+                />
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
                   <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
                   <Button variant="primary" size="sm" disabled={!reason.trim() || saving} onClick={async () => { setSaving(true); await onReject(reason.trim()); setSaving(false); }} style={{ background: "#EF4444" }}>
@@ -155,10 +193,10 @@ export default function AdminVerificationsPage() {
   const { adminUser } = useAdminUser();
   const canAct = canManage(adminUser, "verifications");
 
-  const [queue,    setQueue]    = useState<any[]>([]);
-  const [resolved, setResolved] = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [selected, setSelected] = useState<any | null>(null);
+  const [queue,       setQueue]       = useState<any[]>([]);
+  const [resolved,    setResolved]    = useState<any[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [selected,    setSelected]    = useState<any | null>(null);
   const [actionError, setActionError] = useState("");
 
   const load = useCallback(async () => {
@@ -171,55 +209,84 @@ export default function AdminVerificationsPage() {
             business_id, name, sector, kyc_status, registration_number,
             data_coverage_start, data_coverage_end, created_at,
             creditlinker_scores ( composite_score, data_quality_score, computed_at ),
-            business_documents ( document_id, filename, category, status, uploaded_at )
+            business_documents ( document_id, filename, file_path, category, status, uploaded_at )
           `)
           .eq("kyc_status", "pending")
           .order("created_at", { ascending: true })
           .limit(50),
+
+        // A-R-05: filter resolved records by today's date, not just last 10 by created_at
         supabase
           .from("businesses")
-          .select("business_id, name, sector, kyc_status, created_at")
+          .select("business_id, name, sector, kyc_status, created_at, resolved_at")
           .in("kyc_status", ["verified", "flagged"])
-          .order("created_at", { ascending: false })
-          .limit(10),
+          .gte("resolved_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+          .order("resolved_at", { ascending: false }),
       ]);
 
+      // Build queue items
       const queueData = queueR.status === "fulfilled" ? (queueR.value.data ?? []) : [];
       setQueue(queueData.map((b: any) => {
         const latest = (b.creditlinker_scores ?? []).sort((a: any, x: any) =>
           new Date(x.computed_at).getTime() - new Date(a.computed_at).getTime()
         )[0] ?? null;
+
         let months = 0;
         if (b.data_coverage_start && b.data_coverage_end) {
-          months = Math.max(0, Math.round((new Date(b.data_coverage_end).getTime() - new Date(b.data_coverage_start).getTime()) / (1000 * 60 * 60 * 24 * 30)));
+          months = Math.max(0, Math.round(
+            (new Date(b.data_coverage_end).getTime() - new Date(b.data_coverage_start).getTime())
+            / (1000 * 60 * 60 * 24 * 30)
+          ));
         }
+
+        const docs = (b.business_documents ?? []).filter((d: any) => d.status !== "rejected");
+
+        // A-R-06: derive verification type from document categories
+        const cats = docs.map((d: any) => (d.category ?? "").toLowerCase());
+        const type = cats.some((c: string) => c.includes("cac") || c.includes("registration") || c.includes("incorporation"))
+          ? "CAC / Registration"
+          : cats.some((c: string) => c.includes("id") || c.includes("identity") || c.includes("ownership"))
+          ? "Identity Verification"
+          : cats.some((c: string) => c.includes("tax"))
+          ? "Tax Verification"
+          : "Business Verification";
+
         return {
-          id:          b.business_id,
-          business_id: b.business_id,
-          name:        b.name,
-          sector:      b.sector ?? "—",
-          kyc_status:  b.kyc_status,
-          rc_number:   b.registration_number ?? null,
-          months_data: months,
-          score_before:latest?.composite_score ?? 0,
-          data_quality:latest?.data_quality_score ?? 0,
-          submitted:   b.created_at,
-          priority:    (!latest || latest.composite_score < 100) ? "high" : "normal",
-          documents:   (b.business_documents ?? []).filter((d: any) => d.status !== "rejected").map((d: any) => ({
-            document_id: d.document_id, filename: d.filename,
-            category: d.category, status: d.status, uploaded_at: d.uploaded_at,
+          id:                b.business_id,
+          business_id:       b.business_id,
+          name:              b.name,
+          sector:            b.sector ?? "—",
+          kyc_status:        b.kyc_status,
+          rc_number:         b.registration_number ?? null,
+          months_data:       months,
+          score_before:      latest?.composite_score ?? 0,
+          data_quality:      latest?.data_quality_score ?? 0,
+          submitted:         b.created_at,
+          priority:          (!latest || latest.composite_score < 100) ? "high" : "normal",
+          type,
+          verification_type: type,
+          // A-R-07: include file_path so View button can generate signed URLs
+          documents: docs.map((d: any) => ({
+            document_id: d.document_id,
+            filename:    d.filename,
+            file_path:   d.file_path,
+            category:    d.category,
+            status:      d.status,
+            uploaded_at: d.uploaded_at,
           })),
         };
       }));
 
+      // Build resolved list (today only — A-R-05)
       const resolvedData = resolvedR.status === "fulfilled" ? (resolvedR.value.data ?? []) : [];
       setResolved(resolvedData.map((b: any) => ({
         business_id: b.business_id,
         name:        b.name,
         sector:      b.sector ?? "—",
         outcome:     b.kyc_status === "verified" ? "approved" : "rejected",
-        resolved_at: b.created_at,
+        resolved_at: b.resolved_at ?? b.created_at,
       })));
+
     } catch (e) {
       console.error("[verifications] load failed", e);
     } finally {
@@ -251,10 +318,10 @@ export default function AdminVerificationsPage() {
       {/* STATS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         {[
-          { label: "Pending",        value: queue.length,                                                    color: "#F59E0B" },
-          { label: "Urgent",         value: urgent,                                                          color: "#EF4444" },
-          { label: "Approved Today", value: resolved.filter((r: any) => r.outcome === "approved").length,   color: "#10B981" },
-          { label: "Rejected Today", value: resolved.filter((r: any) => r.outcome === "rejected").length,   color: "#EF4444" },
+          { label: "Pending",        value: queue.length,                                                  color: "#F59E0B" },
+          { label: "Urgent",         value: urgent,                                                        color: "#EF4444" },
+          { label: "Approved Today", value: resolved.filter((r: any) => r.outcome === "approved").length, color: "#10B981" },
+          { label: "Rejected Today", value: resolved.filter((r: any) => r.outcome === "rejected").length, color: "#EF4444" },
         ].map((s) => (
           <div key={s.label} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 18px" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: s.color, letterSpacing: "-0.03em", marginBottom: 2 }}>{s.value}</p>
@@ -282,7 +349,8 @@ export default function AdminVerificationsPage() {
                 <p style={{ fontSize: 13, color: "#9CA3AF" }}>All caught up — no pending verifications.</p>
               </div>
             ) : queue.map((item: any, i: number) => (
-              <div key={item.id ?? i}
+              <div
+                key={item.id ?? i}
                 style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 22px", borderBottom: i < queue.length - 1 ? "1px solid #F9FAFB" : "none", transition: "background 0.1s", cursor: "pointer" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFAFA")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -300,7 +368,7 @@ export default function AdminVerificationsPage() {
                       <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", padding: "1px 6px", borderRadius: 9999, textTransform: "uppercase", flexShrink: 0 }}>Urgent</span>
                     )}
                   </div>
-                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>{item.type ?? item.verification_type} · {item.submitted ?? (item.created_at ? new Date(item.created_at).toLocaleDateString() : "")}</p>
+                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>{item.type} · {item.submitted ? new Date(item.submitted).toLocaleDateString() : ""}</p>
                 </div>
 
                 {/* Docs count */}
@@ -331,29 +399,35 @@ export default function AdminVerificationsPage() {
           </div>
           <div>
             {resolved.length === 0 ? (
-              <div style={{ padding: "24px 22px", textAlign: "center" }}><p style={{ fontSize: 13, color: "#9CA3AF" }}>No resolved verifications yet.</p></div>
+              <div style={{ padding: "24px 22px", textAlign: "center" }}>
+                <p style={{ fontSize: 13, color: "#9CA3AF" }}>No resolved verifications today.</p>
+              </div>
             ) : resolved.map((r: any, i: number) => (
               <div key={i} style={{ padding: "12px 22px", borderBottom: i < resolved.length - 1 ? "1px solid #F9FAFB" : "none" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, marginRight: 8 }}>{r.name ?? r.business_name}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, marginRight: 8 }}>{r.name}</p>
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 9999,
-                    color: r.outcome === "approved" ? "#10B981" : "#EF4444",
-                    background: r.outcome === "approved" ? "#ECFDF5" : "#FEF2F2",
-                    border: `1px solid ${r.outcome === "approved" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
-                    textTransform: "capitalize", flexShrink: 0,
+                    color:       r.outcome === "approved" ? "#10B981" : "#EF4444",
+                    background:  r.outcome === "approved" ? "#ECFDF5" : "#FEF2F2",
+                    border:      `1px solid ${r.outcome === "approved" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+                    textTransform: "capitalize" as const, flexShrink: 0,
                   }}>
                     {r.outcome}
                   </span>
                 </div>
-                <p style={{ fontSize: 11, color: "#9CA3AF" }}>{r.type ?? r.verification_type} · {r.reviewer ?? r.reviewed_by ?? "Admin"} · {r.time ?? (r.created_at ? new Date(r.created_at).toLocaleDateString() : "")}</p>
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  {r.sector} · {r.resolved_at ? new Date(r.resolved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {actionError && <p style={{ fontSize: 13, color: "#EF4444", textAlign: "center", padding: "0 22px" }}>{actionError}</p>}
+      {actionError && (
+        <p style={{ fontSize: 13, color: "#EF4444", textAlign: "center", padding: "0 22px" }}>{actionError}</p>
+      )}
 
       {selected && (
         <ReviewModal

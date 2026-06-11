@@ -16,26 +16,9 @@ import {
 } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callAdminFn } from "@/lib/admin-api";
 
-async function callFn(body: object): Promise<any> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const url   = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin`;
-  const res   = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const callFn = callAdminFn;
 
 async function fetchAdminUsers(): Promise<any> {
   const { data, error } = await supabase.rpc("rpc_list_admin_users");
