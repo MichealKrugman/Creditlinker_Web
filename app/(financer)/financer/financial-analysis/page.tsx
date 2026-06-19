@@ -814,14 +814,32 @@ function BusinessPicker({ list, selected, onSelect }: {
 /* ─────────────────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────────────────── */
+// Thin consent row — just enough to populate the picker
+type ConsentStub = {
+  consent_id:   string;
+  business_id:  string;
+  granted_at:   string;
+  permissions:  unknown;
+  business_name:        string;
+  anonymized_id:        string;
+  data_months:          number;
+  consent_expiry:       string | null;
+};
+
 export default function FinancerFinancialAnalysis() {
   const { user } = useSession();
 
-  const [businesses, setBusinesses] = useState<BusinessAnalysis[]>([]);
-  const [selected,   setSelected]   = useState<BusinessAnalysis | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
+  // Lightweight list for the picker — loaded once on mount
+  const [stubs,    setStubs]    = useState<ConsentStub[]>([]);
+  // Full BusinessAnalysis for the selected business — lazy-loaded per selection
+  const [selected, setSelected] = useState<BusinessAnalysis | null>(null);
+  const [loading,  setLoading]  = useState(true);   // true while loading stubs
+  const [detailLoading, setDetailLoading] = useState(false); // true while loading score+metrics
+  const [error,    setError]    = useState<string | null>(null);
+  // Cache of already-loaded full analyses keyed by consent_id
+  const analysisCache = useRef<Record<string, BusinessAnalysis>>({});
 
+  // ── Phase 1: load consent list + business names only ──────────────────────
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -829,10 +847,8 @@ export default function FinancerFinancialAnalysis() {
       setError(null);
 
       const instId = await getMyInstitutionId(user.id);
-
       if (!instId) { setError("No institution found."); setLoading(false); return; }
 
-      // Load consented businesses
       const { data: consents, error: cErr } = await supabase
         .from("consent_records")
         .select("consent_id, business_id, granted_at, is_active, permissions")
@@ -841,9 +857,9 @@ export default function FinancerFinancialAnalysis() {
         .order("granted_at", { ascending: false });
 
       if (cErr) { setError(cErr.message); setLoading(false); return; }
-      if (!consents?.length) { setBusinesses([]); setLoading(false); return; }
+      if (!consents?.length) { setStubs([]); setLoading(false); return; }
 
-      // Fetch business names + anonymized IDs separately
+      // Fetch business names + anonymized IDs for the picker
       const businessIds = consents.map((c: any) => c.business_id).filter(Boolean);
       let bizMap: Record<string, { name: string; financial_identity_id: string }> = {};
       if (businessIds.length > 0) {
@@ -854,53 +870,68 @@ export default function FinancerFinancialAnalysis() {
         (bizRows ?? []).forEach((b: any) => { bizMap[b.business_id] = b; });
       }
 
-      // Batch-fetch latest scores from creditlinker_scores
-      const { data: scores } = await supabase
-        .from("creditlinker_scores")
-        .select("business_id, composite_score, lender_risk, data_quality_score, data_months_analyzed, dimensions, analysis, computed_at")
-        .in("business_id", businessIds)
-        .order("computed_at", { ascending: false });
-
-      // Keep only the latest score per business
-      const scoreMap: Record<string, any> = {};
-      (scores ?? []).forEach((s: any) => {
-        if (!scoreMap[s.business_id]) scoreMap[s.business_id] = s;
-      });
-
-      // Batch-fetch latest aggregated_metrics per business
-      const { data: metricsRows } = await supabase
-        .from("aggregated_metrics")
-        .select("business_id, metrics, computed_at")
-        .in("business_id", businessIds)
-        .order("computed_at", { ascending: false });
-
-      const metricsMap: Record<string, any> = {};
-      (metricsRows ?? []).forEach((m: any) => {
-        if (!metricsMap[m.business_id]) metricsMap[m.business_id] = m;
-      });
-
-      const shaped: BusinessAnalysis[] = consents.map((c: any) => {
+      const builtStubs: ConsentStub[] = consents.map((c: any) => {
         const biz = bizMap[c.business_id];
-        return shapeAnalysis(
-          {
-            consent_id:    c.consent_id,
-            business_id:   c.business_id,
-            granted_at:    c.granted_at,
-            permissions:   c.permissions,
-          },
-          biz ?? null,
-          scoreMap[c.business_id] ?? null,
-          metricsMap[c.business_id] ?? null,
-        );
+        const expiryRaw = (c.permissions as Record<string,unknown> | null)?.expires_at as string | undefined;
+        return {
+          consent_id:    c.consent_id,
+          business_id:   c.business_id,
+          granted_at:    c.granted_at,
+          permissions:   c.permissions,
+          business_name: biz?.name ?? "",
+          anonymized_id: biz?.financial_identity_id ?? c.business_id.slice(0, 8).toUpperCase(),
+          data_months:   0, // filled when detail loads
+          consent_expiry: expiryRaw ? new Date(expiryRaw).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null,
+        };
       });
 
-      setBusinesses(shaped);
-      if (shaped.length > 0) setSelected(shaped[0]);
+      setStubs(builtStubs);
       setLoading(false);
+
+      // Auto-select the first business and trigger detail load
+      if (builtStubs.length > 0) loadDetail(builtStubs[0]);
     })();
   }, [user]);
 
-  if (loading) return (
+  // ── Phase 2: lazy-load score + metrics for a selected stub ────────────────
+  async function loadDetail(stub: ConsentStub) {
+    // Return cached result immediately if available
+    if (analysisCache.current[stub.consent_id]) {
+      setSelected(analysisCache.current[stub.consent_id]);
+      return;
+    }
+    setDetailLoading(true);
+    const bizId = stub.business_id;
+
+    // Fetch latest score (LIMIT 1 per business)
+    const { data: scoreRows } = await supabase
+      .from("creditlinker_scores")
+      .select("business_id, composite_score, lender_risk, data_quality_score, data_months_analyzed, dimensions, analysis, computed_at, engine_version")
+      .eq("business_id", bizId)
+      .order("computed_at", { ascending: false })
+      .limit(1);
+
+    // Fetch latest aggregated_metrics (LIMIT 1 per business)
+    const { data: metricsRows } = await supabase
+      .from("aggregated_metrics")
+      .select("business_id, metrics, computed_at")
+      .eq("business_id", bizId)
+      .order("computed_at", { ascending: false })
+      .limit(1);
+
+    const shaped = shapeAnalysis(
+      { consent_id: stub.consent_id, business_id: stub.business_id, granted_at: stub.granted_at, permissions: stub.permissions },
+      { name: stub.business_name, financial_identity_id: stub.anonymized_id },
+      scoreRows?.[0] ?? null,
+      metricsRows?.[0] ?? null,
+    );
+
+    analysisCache.current[stub.consent_id] = shaped;
+    setSelected(shaped);
+    setDetailLoading(false);
+  }
+
+  if (loading || !selected) return (
     <div style={{ padding:"80px 0", display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
       <Loader2 size={28} style={{ color:"#D1D5DB", animation:"spin 1s linear infinite" }} />
       <p style={{ fontSize:13, color:"#9CA3AF" }}>Loading financial analysis…</p>
@@ -912,7 +943,7 @@ export default function FinancerFinancialAnalysis() {
     <div style={{ padding:"14px 18px", borderRadius:10, background:"#FEF2F2", border:"1px solid #FECACA", fontSize:13, color:"#B91C1C" }}>{error}</div>
   );
 
-  if (businesses.length === 0) return (
+  if (stubs.length === 0) return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
       <h2 style={{ fontFamily:"var(--font-display)", fontWeight:800, fontSize:22, color:"#0A2540", letterSpacing:"-0.03em" }}>Financial Analysis</h2>
       <div style={{ padding:"60px 24px", textAlign:"center" as const, background:"white", borderRadius:14, border:"1px solid #E5E7EB" }}>
@@ -931,6 +962,27 @@ export default function FinancerFinancialAnalysis() {
   const biz = selected!;
   const displayName = biz.business_name || `BIZ-${biz.anonymized_id.slice(0,6).toUpperCase()}`;
 
+  // Picker list derived from stubs (business_name + anonymized_id already on stub)
+  const pickerList: BusinessAnalysis[] = stubs.map(s =>
+    analysisCache.current[s.consent_id] ?? {
+      consent_id:         s.consent_id,
+      business_id:        s.business_id,
+      business_name:      s.business_name,
+      anonymized_id:      s.anonymized_id,
+      granted_at:         s.granted_at,
+      consent_expiry:     s.consent_expiry,
+      data_months:        selected?.consent_id === s.consent_id ? (selected.data_months) : 0,
+      coverage:           "",
+      composite_score:    null,
+      lender_risk:        null,
+      data_quality_score: null,
+      engine_version:     null,
+      dimensions:         [],
+      metrics:            null,
+      analysis:           null,
+    }
+  );
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
 
@@ -945,7 +997,7 @@ export default function FinancerFinancialAnalysis() {
           </p>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <BusinessPicker list={businesses} selected={biz} onSelect={setSelected} />
+          <BusinessPicker list={pickerList} selected={biz} onSelect={stub => loadDetail(stub as any)} />
           <Link href={`/financer/business-profile?id=${biz.anonymized_id}`} style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 16px", borderRadius:9, background:"#0A2540", color:"white", fontSize:13, fontWeight:600, textDecoration:"none", whiteSpace:"nowrap" as const }}>
             Full Identity <ArrowUpRight size={12} />
           </Link>
@@ -961,7 +1013,12 @@ export default function FinancerFinancialAnalysis() {
         </p>
       </div>
 
-      {biz.data_months === 0 ? (
+      {detailLoading ? (
+        <div style={{ padding:"48px 0", display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
+          <Loader2 size={22} style={{ color:"#D1D5DB", animation:"spin 1s linear infinite" }} />
+          <p style={{ fontSize:13, color:"#9CA3AF" }}>Loading analysis…</p>
+        </div>
+      ) : biz.data_months === 0 ? (
         <div style={{ padding:"48px 24px", textAlign:"center" as const, background:"white", borderRadius:14, border:"1px solid #E5E7EB" }}>
           <Info size={28} style={{ color:"#D1D5DB", marginBottom:12 }} />
           <p style={{ fontSize:14, fontWeight:600, color:"#0A2540", marginBottom:4 }}>No financial data yet</p>

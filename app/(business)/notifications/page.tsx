@@ -83,7 +83,7 @@ export default function NotificationsPage() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [filter,    setFilter]    = useState("all");
-  const [undoToast, setUndoToast] = useState<{ message: string; restore: () => void } | null>(null);
+  const [undoToast, setUndoToast] = useState<{ message: string; restore: () => void; onCommit?: () => void } | null>(null);
 
   // ── FETCH ────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
@@ -121,26 +121,36 @@ export default function NotificationsPage() {
   const dismiss = (id: string) => {
     const notif = notifs.find(n => n.id === id);
     const idx   = notifs.findIndex(n => n.id === id);
+    if (!notif) return;
+
+    // Optimistic remove from UI
     setNotifs(ns => ns.filter(n => n.id !== id));
-    // Fire-and-forget — optimistic
-    dismissNotification(id).catch(() => {
-      // Restore on failure
-      setNotifs(prev => {
-        const n = [...prev];
-        if (notif) n.splice(idx, 0, notif);
-        return n;
-      });
-    });
-    if (notif) {
-      setUndoToast({
-        message: "Notification dismissed",
-        restore: () => setNotifs(prev => {
+
+    let undone = false;
+
+    setUndoToast({
+      message: "Notification dismissed",
+      restore: () => {
+        undone = true;
+        setNotifs(prev => {
           const n = [...prev];
           n.splice(idx, 0, notif);
           return n;
-        }),
-      });
-    }
+        });
+      },
+      // Defer the actual API call until the undo window closes
+      onCommit: () => {
+        if (undone) return;
+        dismissNotification(id).catch(() => {
+          // API failed after window closed — restore silently
+          setNotifs(prev => {
+            const n = [...prev];
+            n.splice(idx, 0, notif);
+            return n;
+          });
+        });
+      },
+    });
   };
 
   // ── DERIVED ─────────────────────────────────────────────────
@@ -183,7 +193,7 @@ export default function NotificationsPage() {
         <UndoToast
           message={undoToast.message}
           onUndo={() => { undoToast.restore(); setUndoToast(null); }}
-          onDismiss={() => setUndoToast(null)}
+          onDismiss={() => { undoToast.onCommit?.(); setUndoToast(null); }}
         />
       )}
 

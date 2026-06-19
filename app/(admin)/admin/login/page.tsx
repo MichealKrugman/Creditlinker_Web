@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, Shield, ShieldCheck, Activity, BarChart2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Shield, ShieldCheck, Activity, BarChart2, KeyRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function AdminLoginPage() {
@@ -13,6 +13,13 @@ export default function AdminLoginPage() {
   const [showPass,  setShowPass]  = useState(false);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
+
+  // MFA step
+  const [mfaRequired,  setMfaRequired]  = useState(false);
+  const [mfaCode,      setMfaCode]      = useState("");
+  const [factorId,     setFactorId]     = useState("");
+  const [challengeId,  setChallengeId]  = useState("");
+  const [mfaLoading,   setMfaLoading]   = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,11 +51,62 @@ export default function AdminLoginPage() {
         return;
       }
 
+      // Check for a verified TOTP factor. If present the session is aal1
+      // and must be elevated to aal2 via challenge + verify before entry.
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const verifiedFactor = factorsData?.totp?.find((f: any) => f.status === "verified");
+
+      if (verifiedFactor) {
+        // Issue a challenge immediately so the user can enter their code
+        const { data: challengeData, error: challengeErr } =
+          await supabase.auth.mfa.challenge({ factorId: verifiedFactor.id });
+
+        if (challengeErr || !challengeData) {
+          setError("Failed to initiate MFA challenge. Please try again.");
+          return;
+        }
+
+        setFactorId(verifiedFactor.id);
+        setChallengeId(challengeData.id);
+        setMfaRequired(true);
+        return; // wait for TOTP step
+      }
+
+      // No TOTP factor enrolled — proceed directly
       router.push("/admin/dashboard");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleMfaSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const code = mfaCode.replace(/\s/g, "");
+    if (code.length !== 6) return;
+
+    setMfaLoading(true);
+    setError("");
+
+    try {
+      const { error: verifyErr } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId,
+        code,
+      });
+
+      if (verifyErr) {
+        setError("Invalid code. Please check your authenticator app and try again.");
+        setMfaCode("");
+        return;
+      }
+
+      router.push("/admin/dashboard");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setMfaLoading(false);
     }
   }
 

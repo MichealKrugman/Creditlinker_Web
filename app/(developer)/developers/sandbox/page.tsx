@@ -303,7 +303,7 @@ export default function SandboxPage() {
                 color: "rgba(255,255,255,0.85)",
                 wordBreak: "break-all", minWidth: 0,
               }}>
-                https://api.creditlinker.io{selectedEndpoint.path}
+                https://sandbox.api.creditlinker.com.ng{selectedEndpoint.path}
               </code>
               <Button
                 variant="accent" size="sm"

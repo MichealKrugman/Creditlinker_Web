@@ -425,10 +425,10 @@ export default function FinancialIdentityPage() {
     if (!activeBusiness) return;
     const id = activeBusiness.business_id;
     setLoading(true);
-      const [businessRes, minDateRes, maxDateRes, scoreRes, accountsRes, snapshotsRes, metricsRes] = await Promise.all([
+      const [businessRes, txCoverageRes, scoreRes, accountsRes, snapshotsRes, metricsRes] = await Promise.all([
         supabase.from("businesses").select("last_pipeline_run_at").eq("business_id", id).single(),
-        supabase.from("normalized_transactions").select("date").eq("business_id", id).order("date", { ascending: true }).limit(1).maybeSingle(),
-        supabase.from("normalized_transactions").select("date").eq("business_id", id).order("date", { ascending: false }).limit(1).maybeSingle(),
+        // Single MIN/MAX aggregate replaces the previous two ASC/DESC LIMIT 1 queries
+        supabase.from("normalized_transactions").select("min_date:date.min(), max_date:date.max()").eq("business_id", id).single(),
         supabase.from("creditlinker_scores").select("*").eq("business_id", id).order("computed_at", { ascending: false }).limit(1).single(),
         supabase.from("linked_accounts").select("*").eq("business_id", id).order("is_primary", { ascending: false }),
         supabase.from("creditlinker_scores").select("computed_at, composite_score, lender_risk, data_quality_score").eq("business_id", id).order("computed_at", { ascending: false }).limit(9),
@@ -437,8 +437,8 @@ export default function FinancialIdentityPage() {
       ]);
 
       setLastSyncedAt(businessRes.data?.last_pipeline_run_at ?? null);
-      setTxCoverageStart(minDateRes.data?.date ?? null);
-      setTxCoverageEnd(maxDateRes.data?.date ?? null);
+      setTxCoverageStart(txCoverageRes.data?.min_date ?? null);
+      setTxCoverageEnd(txCoverageRes.data?.max_date ?? null);
 
       // Recommendations are fetched for the specific pipeline run that produced the latest score,
       // so we always show recommendations that correspond to the current score state.

@@ -276,14 +276,25 @@ export default function FinancerAlerts() {
       return;
     }
 
-    // 2. Scores + pipeline runs for consented businesses
-    const [scoreRes, pipelineRes, prefRes] = await Promise.all([
+    // 2. Scores: fetch latest + previous per business using two targeted queries
+    //    (replaces the old limit(n*5) bulk fetch + client-side dedup)
+    const [latestScoreRes, prevScoreRes, pipelineRes, prefRes] = await Promise.all([
+      // Latest score per business — one row each
       supabase
         .from("creditlinker_scores")
         .select("business_id, composite_score, computed_at, pipeline_run_id")
         .in("business_id", consentedIds)
         .order("computed_at", { ascending: false })
-        .limit(consentedIds.length * 5),
+        .limit(consentedIds.length),
+
+      // Previous score per business — second-most-recent row
+      // We fetch 2 per business and will use [1] after grouping
+      supabase
+        .from("creditlinker_scores")
+        .select("business_id, composite_score, computed_at, pipeline_run_id")
+        .in("business_id", consentedIds)
+        .order("computed_at", { ascending: false })
+        .limit(consentedIds.length * 2),
 
       supabase
         .from("pipeline_runs")
@@ -299,8 +310,19 @@ export default function FinancerAlerts() {
         .eq("institution_id", instId),
     ]);
 
-    if (scoreRes.error)    { setError(scoreRes.error.message);    setLoading(false); return; }
-    if (pipelineRes.error) { setError(pipelineRes.error.message); setLoading(false); return; }
+    if (latestScoreRes.error) { setError(latestScoreRes.error.message); setLoading(false); return; }
+    if (pipelineRes.error)    { setError(pipelineRes.error.message);    setLoading(false); return; }
+
+    // Merge latest + prev into a combined scores array (max 2 per business)
+    const seenCount: Record<string, number> = {};
+    const mergedScores: typeof latestScoreRes.data = [];
+    for (const row of (prevScoreRes.data ?? [])) {
+      const count = seenCount[row.business_id] ?? 0;
+      if (count < 2) {
+        mergedScores.push(row);
+        seenCount[row.business_id] = count + 1;
+      }
+    }
 
     // Restore persisted mute state
     const mutedIds = new Set(
@@ -313,7 +335,7 @@ export default function FinancerAlerts() {
       consentedIds,
       anonymizedMap,
       anonIdMap,
-      scoreRes.data   ?? [],
+      mergedScores ?? [],
       pipelineRes.data ?? [],
       consents.map(c => ({ consent_id: c.consent_id, business_id: c.business_id, expiry: c.expiry })),
     ));

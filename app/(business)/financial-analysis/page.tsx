@@ -84,10 +84,17 @@ interface CashflowForecast {
 }
 
 interface AggregatedMetrics {
-  monthly_revenue_avg?: number;
-  monthly_expense_avg?: number;
-  net_cashflow_avg?: number;
-  revenue_growth_rate?: number;
+  // Pre-computed by the pipeline — used for metric tiles
+  monthly_revenue_avg?:  number;
+  monthly_expense_avg?:  number;
+  net_cashflow_avg?:     number;
+  revenue_growth_rate?:  number;
+  revenue_growth_rate_3m?: number;
+  positive_cashflow_ratio?: number;
+  cashflow_volatility_coefficient?: number;
+  opex_to_revenue_ratio?: number;
+  active_months_ratio?: number;
+  months_of_data?: number;
   transaction_count_total?: number;
 }
 
@@ -136,28 +143,53 @@ function aggregateByMonth(txs: RawTransaction[]): MonthlyRow[] {
 }
 
 function computeMetrics(rows: MonthlyRow[], saved: AggregatedMetrics): MetricTileData[] {
-  if (!rows.length) return [];
-  const avgRev  = rows.reduce((s, r) => s + r.revenue,  0) / rows.length;
-  const avgExp  = rows.reduce((s, r) => s + r.expenses, 0) / rows.length;
-  const avgNet  = rows.reduce((s, r) => s + r.net,      0) / rows.length;
-  const margin  = avgRev > 0 ? (avgNet / avgRev) * 100 : 0;
-  const expRatio = avgRev > 0 ? (avgExp / avgRev) * 100 : 0;
-  const stdDev  = Math.sqrt(rows.reduce((s, r) => s + Math.pow(r.revenue - avgRev, 2), 0) / rows.length);
-  const volatility = avgRev > 0 ? (stdDev / avgRev) * 100 : 0;
-  const half = Math.floor(rows.length / 2);
-  const firstH = rows.slice(0, half).reduce((s, r) => s + r.revenue, 0) / (half || 1);
-  const secH   = rows.slice(half).reduce((s, r) => s + r.revenue, 0) / ((rows.length - half) || 1);
-  const growth = saved.revenue_growth_rate ?? (firstH > 0 ? (secH - firstH) / firstH : 0);
+  // Prefer pre-computed values from aggregated_metrics when available;
+  // fall back to deriving from raw monthly rows only when the pipeline hasn't run.
+  const hasAgg = !!(saved.monthly_revenue_avg != null || saved.net_cashflow_avg != null);
+
+  const avgRev  = saved.monthly_revenue_avg  ?? (rows.length ? rows.reduce((s, r) => s + r.revenue,  0) / rows.length : 0);
+  const avgExp  = saved.monthly_expense_avg  ?? (rows.length ? rows.reduce((s, r) => s + r.expenses, 0) / rows.length : 0);
+  const avgNet  = saved.net_cashflow_avg     ?? (rows.length ? rows.reduce((s, r) => s + r.net,      0) / rows.length : 0);
+
+  const margin    = avgRev > 0 ? (avgNet  / avgRev) * 100 : 0;
+  const expRatio  = saved.opex_to_revenue_ratio != null
+    ? saved.opex_to_revenue_ratio * 100
+    : (avgRev > 0 ? (avgExp / avgRev) * 100 : 0);
+
+  // Volatility: use pipeline coefficient if available, otherwise compute from rows
+  const volatility = saved.cashflow_volatility_coefficient != null
+    ? saved.cashflow_volatility_coefficient * 100
+    : (() => {
+        if (!rows.length) return 0;
+        const stdDev = Math.sqrt(rows.reduce((s, r) => s + Math.pow(r.revenue - avgRev, 2), 0) / rows.length);
+        return avgRev > 0 ? (stdDev / avgRev) * 100 : 0;
+      })();
+
+  // Growth: prefer 3m rate from pipeline, then full-period rate, then compute from rows
+  const growth = saved.revenue_growth_rate_3m
+    ?? saved.revenue_growth_rate
+    ?? (() => {
+        if (rows.length < 2) return 0;
+        const half   = Math.floor(rows.length / 2);
+        const firstH = rows.slice(0, half).reduce((s, r) => s + r.revenue, 0) / (half || 1);
+        const secH   = rows.slice(half).reduce((s, r) => s + r.revenue, 0) / ((rows.length - half) || 1);
+        return firstH > 0 ? (secH - firstH) / firstH : 0;
+      })();
+
+  const monthCount = saved.months_of_data ?? rows.length;
+  const suffix     = hasAgg ? " (pipeline)" : ` over ${monthCount} months`;
+
+  if (!rows.length && !hasAgg) return [];
 
   return [
-    { label: "Avg Monthly Revenue",  value: fmt(avgRev),                       sub: `over ${rows.length} months`,        positive: null },
-    { label: "Avg Monthly Expenses", value: fmt(avgExp),                       sub: `over ${rows.length} months`,        positive: null },
-    { label: "Avg Net Cashflow",     value: fmt(avgNet),                       sub: "revenue minus expenses",            positive: avgNet >= 0 },
-    { label: "Operating Margin",     value: `${margin.toFixed(1)}%`,           sub: "net / revenue",                     positive: margin > 30 ? true : margin > 0 ? null : false },
-    { label: "Revenue Volatility",   value: `${volatility.toFixed(1)}%`,       sub: "monthly std dev",                   positive: volatility < 15 ? true : volatility < 30 ? null : false },
-    { label: "Expense Ratio",        value: `${expRatio.toFixed(1)}%`,         sub: "expenses / revenue",                positive: expRatio < 70 ? true : expRatio < 85 ? null : false },
-    { label: "Revenue Growth",       value: `${growth >= 0 ? "+" : ""}${(growth * 100).toFixed(1)}%`, sub: "first vs second half", positive: growth > 0 ? true : growth === 0 ? null : false },
-    { label: "Months of Data",       value: `${rows.length}`,                  sub: rows.length >= 12 ? "sufficient history" : "building history", positive: rows.length >= 12 ? true : null },
+    { label: "Avg Monthly Revenue",  value: fmt(avgRev),                       sub: `avg / month${suffix}`,               positive: null },
+    { label: "Avg Monthly Expenses", value: fmt(avgExp),                       sub: `avg / month${suffix}`,               positive: null },
+    { label: "Avg Net Cashflow",     value: fmt(avgNet),                       sub: "revenue minus expenses",             positive: avgNet >= 0 },
+    { label: "Operating Margin",     value: `${margin.toFixed(1)}%`,           sub: "net / revenue",                      positive: margin > 30 ? true : margin > 0 ? null : false },
+    { label: "Revenue Volatility",   value: `${volatility.toFixed(1)}%`,       sub: "monthly std dev",                    positive: volatility < 15 ? true : volatility < 30 ? null : false },
+    { label: "Expense Ratio",        value: `${expRatio.toFixed(1)}%`,         sub: "expenses / revenue",                 positive: expRatio < 70 ? true : expRatio < 85 ? null : false },
+    { label: "Revenue Growth",       value: `${growth >= 0 ? "+" : ""}${(growth * 100).toFixed(1)}%`, sub: hasAgg ? "3-month trend (pipeline)" : "first vs second half", positive: growth > 0 ? true : growth === 0 ? null : false },
+    { label: "Months of Data",       value: `${monthCount}`,                   sub: monthCount >= 12 ? "sufficient history" : "building history",    positive: monthCount >= 12 ? true : null },
   ];
 }
 

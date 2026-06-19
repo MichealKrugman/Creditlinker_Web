@@ -50,6 +50,15 @@ function QuotaBar({ label, used, limit }: { label: string; used: number; limit: 
   );
 }
 
+function QuotaInfo({ label, limit }: { label: string; limit: number }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{label}</span>
+      <span style={{ fontSize: 12, color: "#9CA3AF" }}>Limit: <b style={{ color: "#6B7280" }}>{limit.toLocaleString()}</b> / mo <span style={{ fontSize: 10, color: "#D1D5DB", marginLeft: 4 }}>usage not tracked</span></span>
+    </div>
+  );
+}
+
 function SparkBars({ data }: { data: DailyCount[] }) {
   const max = Math.max(...data.map(d => d.count), 1);
   return (
@@ -286,9 +295,9 @@ export default function UsagePage() {
           {/* Monthly quota */}
           <Card style={{ padding: "18px 22px" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 18 }}>Monthly Quota</p>
-            <QuotaBar label="API Requests"  used={liveRequests} limit={limits.requests}  />
-            <QuotaBar label="Webhooks"       used={0}            limit={limits.webhooks}  />
-            <QuotaBar label="Pipeline Runs"  used={0}            limit={limits.pipelines} />
+            <QuotaBar  label="API Requests"  used={liveRequests}    limit={limits.requests}  />
+            <QuotaInfo label="Webhooks"        limit={limits.webhooks}  />
+            <QuotaInfo label="Pipeline Runs"   limit={limits.pipelines} />
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 0 0", borderTop: "1px solid #F3F4F6" }}>
               <Clock size={11} style={{ color: "#9CA3AF" }} />
               <span style={{ fontSize: 11, color: "#9CA3AF" }}>Quota resets {resetDate}</span>

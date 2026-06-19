@@ -35,8 +35,7 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } }
 );
 
-const SIGNING_SECRET = process.env.WEBHOOK_SIGNING_SECRET ?? "dev_signing_secret";
-const TIMEOUT_MS     = 10_000;
+const TIMEOUT_MS = 10_000;
 
 /** HMAC-SHA256 signature for payload verification by the developer */
 async function signPayload(payload: string, secret: string): Promise<string> {
@@ -88,13 +87,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ dispatched: 0 });
   }
 
+  // ── Load webhook secrets per developer ───────────────────────────
+  const developerIds = [...new Set(hooks.map(h => h.developer_id))];
+  const { data: accounts } = await supabaseAdmin
+    .from("developer_accounts")
+    .select("id, webhook_secret")
+    .in("id", developerIds);
+
+  const secretMap = Object.fromEntries(
+    (accounts ?? []).map(a => [a.id, a.webhook_secret])
+  );
+
   // ── Dispatch to each endpoint in parallel ─────────────────────────
-  const timestamp   = Date.now();
-  const rawPayload  = JSON.stringify({ event: body.event_type, created_at: new Date().toISOString(), data: body.payload });
-  const signature   = await signPayload(rawPayload, SIGNING_SECRET);
+  const timestamp  = Date.now();
+  const rawPayload = JSON.stringify({ event: body.event_type, created_at: new Date().toISOString(), data: body.payload });
 
   const results = await Promise.allSettled(
     hooks.map(async (hook) => {
+      const devSecret = secretMap[hook.developer_id] ?? "";
+      const signature = await signPayload(rawPayload, devSecret);
       const controller = new AbortController();
       const timeout    = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -105,10 +116,10 @@ export async function POST(req: NextRequest) {
         const res = await fetch(hook.url, {
           method:  "POST",
           headers: {
-            "Content-Type":      "application/json",
-            "X-CL-Signature":   signature,
-            "X-CL-Timestamp":   String(timestamp),
-            "X-CL-Event":       body.event_type,
+            "Content-Type":    "application/json",
+            "X-CL-Signature":  signature,
+            "X-CL-Timestamp":  String(timestamp),
+            "X-CL-Event":      body.event_type,
           },
           body:    rawPayload,
           signal:  controller.signal,

@@ -46,7 +46,7 @@ const REPORT_DEFS = [
     requires:    "verified",
   },
   {
-    id:          "financial_identity" as ReportType,
+    id:          "transaction_export" as ReportType,
     title:       "Transaction Export",
     description: "Full normalised transaction history with categories, counterparty clusters, and flags. Useful for accounting reconciliation.",
     icon:        <FileText size={18} />,
@@ -56,7 +56,7 @@ const REPORT_DEFS = [
     _label:      "transaction_export",
   },
   {
-    id:          "financial_identity" as ReportType,
+    id:          "audit_trail" as ReportType,
     title:       "Consent & Access Audit",
     description: "Full log of every consent granted, revoked, and every financer access event against your financial identity.",
     icon:        <Clock size={18} />,
@@ -278,6 +278,15 @@ export default function ReportsPage() {
   // Derive last_generated from latest snapshot
   const lastGenerated = snapshots[0] ? formatTakenAt(snapshots[0].taken_at) : null;
 
+  // Filter snapshot history by selected date range (client-side — API returns all)
+  const filteredSnapshots = React.useMemo(() => {
+    if (dateRange === "All time") return snapshots;
+    const months = dateRange === "Last 3 months" ? 3 : dateRange === "Last 6 months" ? 6 : 12;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    return snapshots.filter(s => new Date(s.taken_at) >= cutoff);
+  }, [snapshots, dateRange]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -372,14 +381,16 @@ export default function ReportsPage() {
           )}
 
           {/* Empty state */}
-          {!snapLoading && !snapError && snapshots.length === 0 && (
+          {!snapLoading && !snapError && filteredSnapshots.length === 0 && (
             <div style={{ padding: "32px 24px", textAlign: "center" as const, color: "#9CA3AF", fontSize: 13 }}>
-              No snapshots yet. Run the pipeline to generate your first financial identity snapshot.
+              {snapshots.length === 0
+                ? "No snapshots yet. Run the pipeline to generate your first financial identity snapshot."
+                : `No snapshots in the selected period. Try a wider date range.`}
             </div>
           )}
 
           {/* ── DESKTOP TABLE ── */}
-          {!snapLoading && snapshots.length > 0 && (
+          {!snapLoading && filteredSnapshots.length > 0 && (
             <div className="bp-op-desktop">
               <div className="cl-table-scroll">
                 <div style={{ minWidth: 560 }}>
@@ -390,7 +401,7 @@ export default function ReportsPage() {
                     ))}
                   </div>
                   {/* Rows */}
-                  {snapshots.map((snap, i) => {
+                  {filteredSnapshots.map((snap, i) => {
                     const rowKey = `${snap.snapshot_id}_pdf`;
                     const busy   = generatingKey === rowKey;
                     const score  = snap.composite_score ?? 0;
@@ -402,7 +413,7 @@ export default function ReportsPage() {
                     return (
                       <div
                         key={snap.snapshot_id}
-                        style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 140px", gap: 14, padding: "13px 24px", borderBottom: i < snapshots.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", transition: "background 0.1s" }}
+                        style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 80px 140px", gap: 14, padding: "13px 24px", borderBottom: i < filteredSnapshots.length - 1 ? "1px solid #F9FAFB" : "none", alignItems: "center", transition: "background 0.1s" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "#FAFAFA")}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
@@ -439,9 +450,9 @@ export default function ReportsPage() {
           )}
 
           {/* ── MOBILE CARDS ── */}
-          {!snapLoading && snapshots.length > 0 && (
+          {!snapLoading && filteredSnapshots.length > 0 && (
             <div className="bp-op-mobile">
-              {snapshots.map((snap, i) => {
+              {filteredSnapshots.map((snap, i) => {
                 const rowKey = `mob_${snap.snapshot_id}_pdf`;
                 const busy   = generatingKey === rowKey;
                 const score  = snap.composite_score ?? 0;
@@ -451,7 +462,7 @@ export default function ReportsPage() {
                   : "—";
                 const riskVariant = snap.risk_level === "low" ? "success" : snap.risk_level === "medium" ? "warning" : "destructive";
                 return (
-                  <div key={snap.snapshot_id} style={{ padding: "14px 16px", borderBottom: i < snapshots.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                  <div key={snap.snapshot_id} style={{ padding: "14px 16px", borderBottom: i < filteredSnapshots.length - 1 ? "1px solid #F3F4F6" : "none" }}>
                     <div style={{ marginBottom: 10 }}>
                       <p style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 500, color: "#0A2540", marginBottom: 2 }}>
                         {formatTakenAt(snap.taken_at)}

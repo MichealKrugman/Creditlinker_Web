@@ -1391,24 +1391,29 @@ function IntegrationsTab() {
   async function handleCreate(label: string) {
     if (!devAccount) return;
     setError(null);
-    const host = window.location.hostname;
-    const isSandbox = host.startsWith("sandbox.") || host === "localhost" || host.includes("127.0.0.1");
-    const environment: "test" | "live" = isSandbox ? "test" : "live";
-    const prefix_tag = environment === "test" ? "sk_test" : "sk_live";
-    const r1 = crypto.randomUUID().replace(/-/g, "");
-    const r2 = crypto.randomUUID().replace(/-/g, "");
-    const randomPart = (r1 + r2).slice(0, 40);
-    const raw = `${prefix_tag}_${randomPart}`;
-    const key_prefix = `${prefix_tag}_${randomPart.slice(0, 8)}`;
-    const encoder = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(raw));
-    const key_hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
-    const { error: insertError } = await supabase.from("developer_api_keys").insert({
-      developer_id: devAccount.id,
-      key_prefix, key_hash, environment, label, is_active: true,
-    });
-    if (insertError) { setError(insertError.message); return; }
-    setNewKeyFull(raw);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setError('Session expired. Please sign in again.'); return; }
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-financer-data`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ type: 'generate-api-key', label }),
+      }
+    );
+
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      setError(result.error ?? 'Failed to create API key');
+      return;
+    }
+
+    setNewKeyFull(result.key);
     await loadKeys(devAccount.id);
   }
 

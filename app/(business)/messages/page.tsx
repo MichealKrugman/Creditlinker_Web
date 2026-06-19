@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   MessageSquare, Send, Search, X, Building2,
-  ShieldCheck, Clock, CheckCheck, Paperclip,
+  ShieldCheck, Clock, CheckCheck,
   Info, ArrowLeft, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -462,9 +462,7 @@ export default function BusinessMessagesPage() {
                       placeholder="Reply to this financer… (Enter to send)"
                       rows={1}
                       style={{ flex: 1, border: "none", background: "transparent", resize: "none", padding: "10px 12px", fontSize: 13, color: "#0A2540", outline: "none", lineHeight: 1.5, maxHeight: 100, overflowY: "auto" as const }} />
-                    <button style={{ padding: "8px 10px", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", flexShrink: 0, display: "flex" }}>
-                      <Paperclip size={15} />
-                    </button>
+
                   </div>
                   <button onClick={handleSend} disabled={!compose.trim() || sending}
                     style={{ width: 40, height: 40, borderRadius: 10, border: "none", flexShrink: 0, background: compose.trim() ? "#0A2540" : "#E5E7EB", color: compose.trim() ? "white" : "#9CA3AF", display: "flex", alignItems: "center", justifyContent: "center", cursor: compose.trim() ? "pointer" : "not-allowed", transition: "all 0.15s" }}>

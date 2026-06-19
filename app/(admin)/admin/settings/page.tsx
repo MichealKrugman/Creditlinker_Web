@@ -255,19 +255,30 @@ function SaveBar({
 // ─────────────────────────────────────────────────────────────
 //  PAGE
 // ─────────────────────────────────────────────────────────────
+// Per-tab save state so saves on one tab don't bleed into another
+type SaveState = { saving: boolean; saved: boolean; error: string; dirty: boolean };
+const SAVE_INIT: SaveState = { saving: false, saved: false, error: "", dirty: false };
+type SaveTab = "platform" | "security" | "logging" | "retention";
+
 export default function AdminSettingsPage() {
   const { adminUser, loading: userLoading } = useAdminUser();
 
   const [activeTab,       setActiveTab]       = useState<"admins"|"platform"|"security"|"logging"|"sessions">("admins");
   const [showInvite,      setShowInvite]      = useState(false);
-  const [saved,           setSaved]           = useState(false);
-  const [saving,          setSaving]          = useState(false);
-  const [saveError,       setSaveError]       = useState("");
-  const [dirty,           setDirty]           = useState(false);
+  const [saveStates,      setSaveStates]      = useState<Record<SaveTab, SaveState>>({
+    platform:  { ...SAVE_INIT },
+    security:  { ...SAVE_INIT },
+    logging:   { ...SAVE_INIT },
+    retention: { ...SAVE_INIT },
+  });
   const [admins,          setAdmins]          = useState<AdminRecord[]>([]);
   const [adminsLoading,   setAdminsLoading]   = useState(false);
   const [settings,        setSettings]        = useState<PlatformSettings>(DEFAULTS);
   const [settingsLoading, setSettingsLoading] = useState(false);
+
+  function setSave(tab: SaveTab, patch: Partial<SaveState>) {
+    setSaveStates(prev => ({ ...prev, [tab]: { ...prev[tab], ...patch } }));
+  }
 
   const loadAdmins = useCallback(async () => {
     setAdminsLoading(true);
@@ -302,21 +313,22 @@ export default function AdminSettingsPage() {
   if (userLoading) return null;
   if (!isSuperAdmin(adminUser)) return <AccessDenied />;
 
-  function set<K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) {
+  function set<K extends keyof PlatformSettings>(tab: SaveTab, key: K, value: PlatformSettings[K]) {
     setSettings(prev => ({ ...prev, [key]: value }));
-    setDirty(true);
+    setSave(tab, { dirty: true, saved: false });
   }
 
-  async function handleSave(keys: (keyof PlatformSettings)[]) {
-    setSaving(true); setSaveError(""); setSaved(false);
+  async function handleSave(tab: SaveTab, keys: (keyof PlatformSettings)[]) {
+    setSave(tab, { saving: true, error: "", saved: false });
     try {
       const payload: Record<string, unknown> = {};
       keys.forEach(k => { payload[k] = settings[k]; });
       await callFn({ action: "save-settings", settings: payload });
-      setSaved(true); setDirty(false);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (e: any) { setSaveError(e.message ?? "Failed to save"); }
-    finally { setSaving(false); }
+      setSave(tab, { saving: false, saved: true, dirty: false });
+      setTimeout(() => setSave(tab, { saved: false }), 3000);
+    } catch (e: any) {
+      setSave(tab, { saving: false, error: e.message ?? "Failed to save" });
+    }
   }
 
   async function handleDeactivate(userId: string) {
@@ -431,7 +443,7 @@ export default function AdminSettingsPage() {
               ].map((field) => (
                 <div key={field.key}>
                   <label style={{ fontSize:12, fontWeight:600, color:"#374151", display:"block", marginBottom:4 }}>{field.label}</label>
-                  <Input value={settings[field.key] as string} onChange={(e) => set(field.key, e.target.value as any)} type={field.type} style={{ height:40, fontSize:13, maxWidth:400 }} />
+                  <Input value={settings[field.key] as string} onChange={(e) => set("platform", field.key, e.target.value as any)} type={field.type} style={{ height:40, fontSize:13, maxWidth:400 }} />
                   <p style={{ fontSize:11, color:"#9CA3AF", marginTop:4 }}>{field.help}</p>
                 </div>
               ))}
@@ -440,11 +452,11 @@ export default function AdminSettingsPage() {
                   <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Maintenance Mode</p>
                   <p style={{ fontSize:12, color:"#9CA3AF" }}>Puts the platform in read-only mode for all users.</p>
                 </div>
-                <Toggle value={settings.maintenance_mode} onChange={(v) => set("maintenance_mode", v)} />
+                <Toggle value={settings.maintenance_mode} onChange={(v) => set("platform", "maintenance_mode", v)} />
               </div>
             </>
           )}
-          <SaveBar onSave={() => handleSave(["platform_name","api_base_url","support_email","maintenance_mode"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
+          <SaveBar onSave={() => handleSave("platform", ["platform_name","api_base_url","support_email","maintenance_mode"])} saving={saveStates.platform.saving} saved={saveStates.platform.saved} error={saveStates.platform.error} dirty={saveStates.platform.dirty} />
         </div>
       )}
 
@@ -466,7 +478,7 @@ export default function AdminSettingsPage() {
                       <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>{f.label}</p>
                       <p style={{ fontSize:12, color:"#9CA3AF" }}>{f.help}</p>
                     </div>
-                    <Input value={String(settings[f.key])} onChange={(e) => set(f.key, parseInt(e.target.value) || 0)} type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
+                    <Input value={String(settings[f.key])} onChange={(e) => set("security", f.key, parseInt(e.target.value) || 0)} type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
                   </div>
                 ))}
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
@@ -474,12 +486,12 @@ export default function AdminSettingsPage() {
                     <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Require MFA for Admins</p>
                     <p style={{ fontSize:12, color:"#9CA3AF" }}>All admin accounts must use multi-factor authentication.</p>
                   </div>
-                  <Toggle value={settings.mfa_required} onChange={(v) => set("mfa_required", v)} />
+                  <Toggle value={settings.mfa_required} onChange={(v) => set("security", "mfa_required", v)} />
                 </div>
               </div>
             )}
             <div style={{ marginTop:20, paddingTop:16, borderTop:"1px solid #F3F4F6" }}>
-              <SaveBar onSave={() => handleSave(["session_timeout_minutes","max_login_attempts","mfa_required"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
+              <SaveBar onSave={() => handleSave("security", ["session_timeout_minutes","max_login_attempts","mfa_required"])} saving={saveStates.security.saving} saved={saveStates.security.saved} error={saveStates.security.error} dirty={saveStates.security.dirty} />
             </div>
           </div>
           <div style={{ background:"#FEF2F2", border:"1px solid rgba(239,68,68,0.15)", borderRadius:12, padding:"16px 18px", display:"flex", gap:10 }}>
@@ -509,7 +521,7 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0 }}>
-                <Toggle value={settings.platform_logging_enabled} onChange={(v) => set("platform_logging_enabled", v)} disabled={settingsLoading} />
+                <Toggle value={settings.platform_logging_enabled} onChange={(v) => set("logging", "platform_logging_enabled", v)} disabled={settingsLoading} />
                 <span style={{ fontSize:11, fontWeight:700, color: settings.platform_logging_enabled ? "#10B981" : "#EF4444" }}>{settings.platform_logging_enabled ? "ON" : "OFF"}</span>
               </div>
             </div>
@@ -519,7 +531,7 @@ export default function AdminSettingsPage() {
                 <p style={{ fontSize:12, color:"#854D0E" }}><strong>Logging is off.</strong> New platform events are not being recorded.</p>
               </div>
             )}
-            <SaveBar onSave={() => handleSave(["platform_logging_enabled"])} saving={saving} saved={saved} error={saveError} dirty={dirty}
+            <SaveBar onSave={() => handleSave("logging", ["platform_logging_enabled"])} saving={saveStates.logging.saving} saved={saveStates.logging.saved} error={saveStates.logging.error} dirty={saveStates.logging.dirty}
               saveLabel={settings.platform_logging_enabled ? "Disable Logging" : "Enable Logging"}
               saveVariant={settings.platform_logging_enabled ? "outline" : "primary"}
               saveStyle={settings.platform_logging_enabled ? { color:"#EF4444", borderColor:"rgba(239,68,68,0.3)" } : {}} />
@@ -531,9 +543,9 @@ export default function AdminSettingsPage() {
                 <p style={{ fontSize:13, fontWeight:600, color:"#0A2540", marginBottom:2 }}>Delete events older than (days)</p>
                 <p style={{ fontSize:12, color:"#9CA3AF" }}>Set to 0 to retain forever.</p>
               </div>
-              <Input value={String(settings.audit_log_retention_days)} onChange={(e) => set("audit_log_retention_days", parseInt(e.target.value) || 30)} type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
+              <Input value={String(settings.audit_log_retention_days)} onChange={(e) => set("retention", "audit_log_retention_days", parseInt(e.target.value) || 30)} type="number" style={{ height:36, fontSize:13, width:80, flexShrink:0 }} />
             </div>
-            <SaveBar onSave={() => handleSave(["audit_log_retention_days"])} saving={saving} saved={saved} error={saveError} dirty={dirty} />
+            <SaveBar onSave={() => handleSave("retention", ["audit_log_retention_days"])} saving={saveStates.retention.saving} saved={saveStates.retention.saved} error={saveStates.retention.error} dirty={saveStates.retention.dirty} />
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Settings, User, Bell, Shield, Key,
   Globe, Trash2, CheckCircle2, AlertCircle,
-  Eye, EyeOff, Copy, Save, Loader2, Clock, ArrowRight,
+  Eye, EyeOff, Copy, Save, Loader2, Clock, ArrowRight, RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -204,12 +204,50 @@ export default function DeveloperSettingsPage() {
     setShowRequestModal(false);
     setUseCase("");
   }
-  const webhookSecret = "whsec_cl_k3s9mPqLzXvNtRbWoYdAcFhGuJiE";
-  const [copied, setCopied] = useState(false);
+  const [webhookSecret,  setWebhookSecret]  = useState<string | null>(null);
+  const [secretVisible,  setSecretVisible]  = useState(false);
+  const [copied,         setCopied]         = useState(false);
+  const [rotating,       setRotating]       = useState(false);
+  const [rotateError,    setRotateError]    = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!account) return;
+    supabase
+      .from("developer_accounts")
+      .select("webhook_secret")
+      .eq("id", account.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.webhook_secret) setWebhookSecret(data.webhook_secret);
+      });
+  }, [account]);
+
   function copySecret() {
+    if (!webhookSecret) return;
     navigator.clipboard.writeText(webhookSecret);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleRotateSecret() {
+    setRotating(true);
+    setRotateError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session.");
+      const res = await fetch("/api/developers/rotate-webhook-secret", {
+        method: "POST",
+        headers: { authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Failed to rotate secret.");
+      setWebhookSecret(body.webhook_secret);
+      setSecretVisible(true);
+    } catch (err: any) {
+      setRotateError(err.message ?? "Something went wrong.");
+    } finally {
+      setRotating(false);
+    }
   }
 
   // ── Delete account ───────────────────────────────────────────────
@@ -585,17 +623,35 @@ export default function DeveloperSettingsPage() {
                 <Card>
                   <CardHeader title="Webhook signing secret" desc="Use this secret to verify webhook payloads from Creditlinker." />
                   <div style={{ padding: "16px 24px 20px" }}>
+                    {rotateError && (
+                      <div style={{ padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, fontSize: 13, color: "#DC2626", marginBottom: 12 }}>{rotateError}</div>
+                    )}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <code style={{ fontSize: 12, color: "#6B7280", background: "#F3F4F6", padding: "7px 12px", borderRadius: 7, fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{webhookSecret}</code>
-                      <button type="button" onClick={copySecret}
-                        style={{ padding: "7px 12px", border: "1px solid #E5E7EB", borderRadius: 7, background: "white", cursor: "pointer", color: copied ? "#10B981" : "#6B7280", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                      <code style={{ fontSize: 12, color: "#6B7280", background: "#F3F4F6", padding: "7px 12px", borderRadius: 7, fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                        {webhookSecret
+                          ? secretVisible
+                            ? webhookSecret
+                            : "••••••••••••••••••••••••••••••••"
+                          : "Loading…"}
+                      </code>
+                      <button type="button" onClick={() => setSecretVisible(v => !v)}
+                        style={{ padding: "7px 10px", border: "1px solid #E5E7EB", borderRadius: 7, background: "white", cursor: "pointer", color: "#6B7280", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                        {secretVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button type="button" onClick={copySecret} disabled={!webhookSecret}
+                        style={{ padding: "7px 12px", border: "1px solid #E5E7EB", borderRadius: 7, background: "white", cursor: webhookSecret ? "pointer" : "default", color: copied ? "#10B981" : "#6B7280", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                         {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
                         {copied ? "Copied" : "Copy"}
                       </button>
                     </div>
-                    <p style={{ fontSize: 12, color: "#9CA3AF" }}>
+                    <p style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 14 }}>
                       Verify incoming webhooks by checking the <code style={{ fontSize: 11, background: "#F3F4F6", padding: "1px 5px", borderRadius: 4 }}>X-CL-Signature</code> header against this secret.
                     </p>
+                    <button type="button" onClick={handleRotateSecret} disabled={rotating}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", background: "#FEF2F2", fontSize: 12, fontWeight: 600, color: "#EF4444", cursor: rotating ? "default" : "pointer", opacity: rotating ? 0.6 : 1 }}>
+                      {rotating ? <><Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} /> Rotating…</> : <><RefreshCw size={12} /> Rotate secret</>}
+                    </button>
+                    <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8 }}>Rotating generates a new secret immediately. Update your webhook handler before rotating to avoid failed verifications.</p>
                   </div>
                 </Card>
                 <Card>

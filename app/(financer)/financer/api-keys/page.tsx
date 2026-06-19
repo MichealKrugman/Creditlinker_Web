@@ -24,17 +24,6 @@ type ApiKey = {
 };
 
 /* ─────────────────────────────────────────────────────────
-   PERMISSIONS — financer keys only need to read
-   consented business data via the partner API
-───────────────────────────────────────────────────────── */
-const PERMISSION_OPTIONS = [
-  { value: "read:score",        label: "Read Score",        desc: "Access creditworthiness score and dimensions for consented businesses" },
-  { value: "read:transactions", label: "Read Transactions", desc: "Access transaction history for consented businesses" },
-  { value: "read:identity",     label: "Read Identity",     desc: "Access business profile and financial identity snapshots" },
-  { value: "read:consent",      label: "Read Consent",      desc: "Check consent status and permissions granted by a business" },
-];
-
-/* ─────────────────────────────────────────────────────────
    SHARED CARD
 ───────────────────────────────────────────────────────── */
 function Card({ children, style = {} }: {
@@ -375,19 +364,15 @@ function NewKeyModal({ fullKey, onDismiss }: {
 ───────────────────────────────────────────────────────── */
 function CreateKeyModal({ onClose, onCreate }: {
   onClose: () => void;
-  onCreate: (label: string, perms: string[]) => Promise<void>;
+  onCreate: (label: string) => Promise<void>;
 }) {
   const [label, setLabel] = useState("");
-  const [perms, setPerms] = useState<string[]>(["read:score"]);
   const [saving, setSaving] = useState(false);
 
-  const toggle = (p: string) =>
-    setPerms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
-
   async function handleCreate() {
-    if (!label.trim() || perms.length === 0) return;
+    if (!label.trim()) return;
     setSaving(true);
-    await onCreate(label.trim(), perms);
+    await onCreate(label.trim());
     setSaving(false);
     onClose();
   }
@@ -449,37 +434,7 @@ function CreateKeyModal({ onClose, onCreate }: {
             />
           </div>
 
-          {/* Permissions */}
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8 }}>
-              Permissions
-            </label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {PERMISSION_OPTIONS.map(opt => (
-                <label
-                  key={opt.value}
-                  style={{
-                    display: "flex", alignItems: "flex-start", gap: 10,
-                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                    border: `1px solid ${perms.includes(opt.value) ? "rgba(0,212,255,0.25)" : "#E5E7EB"}`,
-                    background: perms.includes(opt.value) ? "rgba(0,212,255,0.04)" : "white",
-                    transition: "all 0.12s",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={perms.includes(opt.value)}
-                    onChange={() => toggle(opt.value)}
-                    style={{ marginTop: 1, accentColor: "#0A2540" }}
-                  />
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>{opt.label}</p>
-                    <p style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.desc}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
+
         </div>
 
         {/* Footer */}
@@ -488,7 +443,7 @@ function CreateKeyModal({ onClose, onCreate }: {
           <Button
             variant="primary" size="sm"
             onClick={handleCreate}
-            disabled={!label.trim() || perms.length === 0 || saving}
+            disabled={!label.trim() || saving}
           >
             {saving
               ? <><Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> Creating…</>
@@ -550,57 +505,32 @@ export default function InstitutionApiKeysPage() {
   useEffect(() => { loadKeys(); }, [loadKeys]);
 
   /* ── create ── */
-  async function handleCreate(label: string, _perms: string[]) {
+  async function handleCreate(label: string) {
     if (!institutionId) return;
     setError(null);
 
-    const host = window.location.hostname;
-    const isSandbox =
-      host.startsWith("sandbox.") ||
-      host === "localhost" ||
-      host.includes("127.0.0.1");
-    const environment: "test" | "live" = isSandbox ? "test" : "live";
-    const prefix_tag = environment === "test" ? "sk_test" : "sk_live";
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setError('Session expired. Please sign in again.'); return; }
 
-    // 160-bit entropy raw key
-    const r1 = crypto.randomUUID().replace(/-/g, "");
-    const r2 = crypto.randomUUID().replace(/-/g, "");
-    const randomPart = (r1 + r2).slice(0, 40);
-    const raw = `${prefix_tag}_${randomPart}`;
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-financer-data`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ type: 'generate-api-key', label }),
+      }
+    );
 
-    // First 8 random chars stored as the displayable prefix
-    const key_prefix = `${prefix_tag}_${randomPart.slice(0, 8)}`;
-
-    // Guard: prefix must match environment
-    const prefixEnvMatch =
-      (environment === "test" && key_prefix.startsWith("sk_test_")) ||
-      (environment === "live" && key_prefix.startsWith("sk_live_"));
-    if (!prefixEnvMatch) {
-      setError("Key prefix / environment mismatch — please refresh and try again.");
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      setError(result.error ?? 'Failed to create API key');
       return;
     }
 
-    // SHA-256 hash — only this is stored; raw key never persisted
-    const encoder = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(raw));
-    const key_hash = Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    const { error: insertError } = await supabase
-      .from("institution_api_keys")
-      .insert({
-        institution_id: institutionId,
-        key_prefix,
-        key_hash,
-        environment,
-        label,
-        is_active: true,
-      });
-
-    if (insertError) { setError(insertError.message); return; }
-
-    setNewKeyFull(raw);
+    setNewKeyFull(result.key);
     await loadKeys();
   }
 

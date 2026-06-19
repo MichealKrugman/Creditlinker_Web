@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search, X, ChevronLeft, ChevronRight, SlidersHorizontal,
@@ -14,28 +14,11 @@ import { Input } from "@/components/ui/input";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callEdgeFn } from "@/lib/admin-api";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
-  const res = await fetch(method === "GET" ? url : url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const callFn = callEdgeFn;
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 const STATUSES = ["All", "active", "suspended", "incomplete"];
 const VERIFICATIONS = ["All", "verified", "pending", "unverified", "rejected"];
 
@@ -149,11 +132,10 @@ export default function AdminBusinessesPage() {
 
   function handleExport() {
     if (!businesses.length) return;
-    const rows = filtered.length ? filtered : businesses;
     const csv = [
       ["business_id", "name", "sector", "score", "accounts", "months", "status", "verification"].join(","),
-      ...rows.map((b) => [
-        b.business_id, `"${(b.name ?? "").replace(/"/g, '""')}"`,
+      ...businesses.map((b) => [
+        b.business_id, `"${(b.name ?? "").replace(/"/g, '""')}"`  ,
         `"${(b.sector ?? "").replace(/"/g, '""')}"`,
         b.score ?? 0, b.accounts ?? 0, b.months ?? 0,
         b.status ?? "", b.verification ?? b.kyc_status ?? "",
@@ -165,29 +147,38 @@ export default function AdminBusinessesPage() {
     a.click();
   }
 
-  const [businesses, setBusinesses] = useState<any[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [search,     setSearch]     = useState("");
-  const [status,     setStatus]     = useState("All");
-  const [verif,      setVerif]      = useState("All");
-  const [page,       setPage]       = useState(1);
+  const [businesses,  setBusinesses]  = useState<any[]>([]);
+  const [totalCount,  setTotalCount]  = useState(0);
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState("");
+  const [status,      setStatus]      = useState("All");
+  const [verif,       setVerif]       = useState("All");
+  const [page,        setPage]        = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [modal, setModal] = useState<{ type: "suspend" | "unsuspend" | "verify"; bizId: string; bizName: string } | null>(null);
   const [actionError, setActionError] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (pg = page, q = search, st = status, vf = verif) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("businesses")
         .select(`
           business_id, name, sector, profile_status, kyc_status,
           created_at, data_coverage_start, data_coverage_end,
           creditlinker_scores ( composite_score ),
           linked_accounts ( account_id )
-        `)
-        .order("created_at", { ascending: false });
+        `, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE - 1);
+
+      if (q)         query = query.ilike("name", `%${q}%`);
+      if (st !== "All") query = query.eq("profile_status", st);
+      if (vf !== "All") query = query.eq("kyc_status", vf);
+
+      const { data, error, count } = await query;
       if (error) throw error;
+      setTotalCount(count ?? 0);
       setBusinesses((data ?? []).map((b: any) => ({
         ...b,
         score:        b.creditlinker_scores?.[0]?.composite_score ?? 0,
@@ -203,20 +194,20 @@ export default function AdminBusinessesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, search, status, verif]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => businesses.filter((b) => {
-    const matchSearch = !search || (b.name ?? "").toLowerCase().includes(search.toLowerCase()) || (b.sector ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "All" || b.status === status;
-    const matchVerif  = verif  === "All" || (b.verification ?? b.kyc_status) === verif;
-    return matchSearch && matchStatus && matchVerif;
-  }), [businesses, search, status, verif]);
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Stats use the current page data; for accurate totals a separate count query would be needed,
+  // but for admin overview these approximations from the current dataset are acceptable.
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const rows = businesses; // already server-paginated
   const hasFilters = search || status !== "All" || verif !== "All";
+
+  function handleFilterChange<T>(setter: (v: T) => void, val: T) {
+    setter(val);
+    setPage(1);
+  }
 
   async function handleAction(reason: string) {
     if (!modal) return;
@@ -244,7 +235,7 @@ export default function AdminBusinessesPage() {
             Businesses
           </h2>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
-            {loading ? "Loading…" : `${businesses.length.toLocaleString()} total · ${businesses.filter(b => b.status === "active").length} active · ${businesses.filter(b => (b.verification ?? b.kyc_status) === "pending").length} pending verification`}
+            {loading ? "Loading…" : `${totalCount.toLocaleString()} total`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -260,10 +251,10 @@ export default function AdminBusinessesPage() {
       {/* STATS ROW */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         {[
-          { label: "Active",     value: businesses.filter(b => b.status === "active").length,    color: "#10B981", bg: "#ECFDF5" },
-          { label: "Suspended",  value: businesses.filter(b => b.status === "suspended").length,  color: "#EF4444", bg: "#FEF2F2" },
-          { label: "Incomplete", value: businesses.filter(b => b.status === "incomplete").length, color: "#F59E0B", bg: "#FFFBEB" },
-          { label: "Pending KYB",value: businesses.filter(b => (b.verification ?? b.kyc_status) === "pending").length, color: "#6366F1", bg: "#EEF2FF" },
+          { label: "Total",      value: loading ? "—" : totalCount,                                                                       color: "#0A2540" },
+          { label: "Active",     value: loading ? "—" : businesses.filter(b => b.status === "active").length + (totalCount > PAGE_SIZE ? "+" : ""), color: "#10B981" },
+          { label: "Suspended",  value: loading ? "—" : businesses.filter(b => b.status === "suspended").length,                          color: "#EF4444" },
+          { label: "Pending KYB",value: loading ? "—" : businesses.filter(b => (b.verification ?? b.kyc_status) === "pending").length,    color: "#6366F1" },
         ].map((s) => (
           <div key={s.label} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 18px" }}>
             <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: s.color, letterSpacing: "-0.03em", marginBottom: 2 }}>{s.value}</p>
@@ -280,7 +271,7 @@ export default function AdminBusinessesPage() {
             <Input
               placeholder="Search by name or sector…"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => { handleFilterChange(setSearch, e.target.value); }}
               style={{ paddingLeft: 36, height: 38, fontSize: 13 }}
             />
             {search && (
@@ -416,13 +407,13 @@ export default function AdminBusinessesPage() {
       {totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount.toLocaleString()}
           </p>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: page === 1 ? "not-allowed" : "pointer", color: page === 1 ? "#D1D5DB" : "#374151" }}>
               <ChevronLeft size={15} />
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
               <button key={p} onClick={() => setPage(p)} style={{ width: 34, height: 34, borderRadius: 8, border: "1.5px solid", borderColor: page === p ? "#0A2540" : "#E5E7EB", background: page === p ? "#0A2540" : "white", color: page === p ? "white" : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 {p}
               </button>

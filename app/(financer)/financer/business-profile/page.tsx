@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session-context";
+import { sendFinancerMessage } from "@/lib/api";
 import { getMyInstitutionId } from "@/lib/institution";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1";
@@ -342,24 +343,7 @@ export default function FinancerBusinessProfile() {
     setMsgSending(true);
     setMsgError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Not authenticated");
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
-        body: JSON.stringify({ consent_id: data.consent_id, content: msgBody.trim(), sender_type: "institution" }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `Send failed (${res.status})`);
-      }
-
+      await sendFinancerMessage(data.consent_id, msgBody.trim());
       setMsgOpen(false);
       setMsgBody("");
       router.push(`/financer/messages?consent=${data.consent_id}`);

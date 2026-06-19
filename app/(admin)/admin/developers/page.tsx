@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search, X, ChevronLeft, ChevronRight, SlidersHorizontal,
@@ -14,33 +14,39 @@ import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
-//  DIRECT QUERY — developer_accounts table
+//  SERVER-SIDE QUERY — developer_accounts table
 // ─────────────────────────────────────────────────────────────
-async function loadDevelopers() {
-  const { data, error } = await supabase
+async function loadDevelopers(pg: number, q: string, st: string, tr: string) {
+  let query = supabase
     .from("developer_accounts")
-    .select(`
-      id, name, email, status, tier,
-      api_key_count, api_calls_30d, last_active_at, created_at
-    `)
+    .select(`id, name, email, status, tier, api_key_count, api_calls_30d, last_active_at, created_at`, { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(500);
+    .range((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE - 1);
+
+  if (q)          query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
+  if (st !== "All") query = query.eq("status", st);
+  if (tr !== "All") query = query.eq("tier", tr);
+
+  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((d: any) => ({
-    id:            d.id,
-    name:          d.name  || d.email,
-    email:         d.email,
-    status:        d.status        ?? "pending",
-    tier:          d.tier          ?? "read",
-    api_keys:      d.api_key_count ?? 0,
-    api_key_count: d.api_key_count ?? 0,
-    calls_30d:     d.api_calls_30d ?? 0,
-    api_calls_30d: d.api_calls_30d ?? 0,
-    last_active:   d.last_active_at
-                     ? new Date(d.last_active_at).toLocaleDateString()
-                     : "Never",
-    last_sign_in_at: d.last_active_at ?? null,
-  }));
+  return {
+    total: count ?? 0,
+    rows: (data ?? []).map((d: any) => ({
+      id:            d.id,
+      name:          d.name  || d.email,
+      email:         d.email,
+      status:        d.status        ?? "pending",
+      tier:          d.tier          ?? "read",
+      api_keys:      d.api_key_count ?? 0,
+      api_key_count: d.api_key_count ?? 0,
+      calls_30d:     d.api_calls_30d ?? 0,
+      api_calls_30d: d.api_calls_30d ?? 0,
+      last_active:   d.last_active_at
+                       ? new Date(d.last_active_at).toLocaleDateString()
+                       : "Never",
+      last_sign_in_at: d.last_active_at ?? null,
+    })),
+  };
 }
 
 
@@ -110,6 +116,7 @@ export default function AdminDevelopersPage() {
   const canAct = canManage(adminUser, "developers");
 
   const [developers,  setDevelopers]  = useState<any[]>([]);
+  const [totalCount,  setTotalCount]  = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [actionError, setActionError] = useState("");
   const [search,      setSearch]      = useState("");
@@ -122,26 +129,20 @@ export default function AdminDevelopersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const devs = await loadDevelopers();
-      setDevelopers(devs);
+      const { total, rows } = await loadDevelopers(page, search, status, tier);
+      setTotalCount(total);
+      setDevelopers(rows);
     } catch (e) {
       console.error("[developers] load failed", e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, search, status, tier]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => developers.filter((d: any) => {
-    const matchSearch = !search || (d.name ?? "").toLowerCase().includes(search.toLowerCase()) || (d.email ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "All" || d.status === status;
-    const matchTier   = tier   === "All" || d.tier   === tier;
-    return matchSearch && matchStatus && matchTier;
-  }), [developers, search, status, tier]);
-
-  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const rows = developers; // server-paginated
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const totalCalls30d = developers.reduce((s: number, d: any) => s + (d.calls_30d ?? d.api_calls_30d ?? 0), 0);
 
   async function handleAction(reason: string) {
@@ -173,7 +174,7 @@ export default function AdminDevelopersPage() {
         <div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#0A2540", letterSpacing: "-0.03em", marginBottom: 4 }}>Developers</h2>
           <p style={{ fontSize: 13, color: "#9CA3AF" }}>
-            {loading ? "Loading…" : `${developers.length} registered · ${fmtCalls(totalCalls30d)} API calls (30 days)`}
+            {loading ? "Loading…" : `${totalCount.toLocaleString()} registered · ${fmtCalls(totalCalls30d)} API calls (30 days)`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -298,7 +299,7 @@ export default function AdminDevelopersPage() {
 
       {totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <p style={{ fontSize: 13, color: "#9CA3AF" }}>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}</p>
+          <p style={{ fontSize: 13, color: "#9CA3AF" }}>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount.toLocaleString()}</p>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: page === 1 ? "not-allowed" : "pointer", color: page === 1 ? "#D1D5DB" : "#374151" }}><ChevronLeft size={15} /></button>
             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (<button key={p} onClick={() => setPage(p)} style={{ width: 34, height: 34, borderRadius: 8, border: "1.5px solid", borderColor: page === p ? "#0A2540" : "#E5E7EB", background: page === p ? "#0A2540" : "white", color: page === p ? "white" : "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{p}</button>))}

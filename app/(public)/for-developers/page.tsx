@@ -66,29 +66,6 @@ function CodeBlock({ title, lang, children }: { title: string; lang: string; chi
 }
 
 /* ─────────────────────────────────────────────────────────
-   ENDPOINT ROW
-───────────────────────────────────────────────────────── */
-function EndpointRow({ method, path, desc, auth }: { method: "GET" | "POST" | "PATCH" | "DELETE"; path: string; desc: string; auth: string }) {
-  const methodColors: Record<string, { bg: string; color: string }> = {
-    GET:    { bg: "rgba(56,189,248,0.12)",  color: "#38BDF8" },
-    POST:   { bg: "rgba(16,185,129,0.12)",  color: "#10B981" },
-    PATCH:  { bg: "rgba(245,158,11,0.12)",  color: "#F59E0B" },
-    DELETE: { bg: "rgba(239,68,68,0.12)",   color: "#EF4444" },
-  };
-  const mc = methodColors[method];
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 0", borderBottom: "1px solid #F3F4F6" }}>
-      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: mc.color, background: mc.bg, padding: "3px 9px", borderRadius: 6, flexShrink: 0, marginTop: 1, fontFamily: "monospace" }}>{method}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <code className="fd-endpoint-path" style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", fontFamily: "monospace", display: "block", marginBottom: 4 }}>{path}</code>
-        <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{desc}</p>
-      </div>
-      <span className="fd-endpoint-auth" style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", border: "1px solid #E5E7EB", padding: "2px 8px", borderRadius: 5, flexShrink: 0, fontFamily: "monospace", whiteSpace: "nowrap" }}>{auth}</span>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
    ACCESS TIER CARD
 ───────────────────────────────────────────────────────── */
 function TierCard({ tier, tag, desc, permissions, dark = false }: { tier: string; tag: string; desc: string; permissions: string[]; dark?: boolean }) {
@@ -397,38 +374,16 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
                 id="api-heading"
                 badge={<Badge><Code2 size={10} aria-hidden="true" /> REST API</Badge>}
                 title={<>Clean, predictable<br />endpoints.</>}
-                sub="Bearer JWT auth via Keycloak. All endpoints return typed JSON. Full OpenAPI spec available in the developer portal."
+                sub="Bearer JWT auth via Keycloak. All endpoints return typed JSON. The full set of Partner, Business, and Institution endpoints is documented in the interactive API reference."
               />
 
-              {/* Partner endpoints */}
-              <div style={{ marginBottom: 32 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 12 }}>Partner API</p>
-                <EndpointRow method="GET"  path="/partner/consent/status"          desc="Check consent status and permitted fields for a business token"          auth="partner" />
-                <EndpointRow method="GET"  path="/partner/profile/:business_token"  desc="Fetch the scoped financial identity profile (permitted fields only)"    auth="partner" />
-                <EndpointRow method="POST" path="/partner/submit/:submission_type"  desc="Submit verified bank transactions, identity signals, or operational data" auth="partner · Build" />
-              </div>
-
-              {/* Business endpoints */}
-              <div style={{ marginBottom: 32 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 12 }}>Business API</p>
-                <EndpointRow method="GET"  path="/business/score"                   desc="Retrieve current identity score and all six financial dimensions"       auth="business_owner" />
-                <EndpointRow method="POST" path="/business/mono/initiate"           desc="Initiate Mono Open Banking link flow. Returns a link URL."               auth="business_owner" />
-                <EndpointRow method="POST" path="/business/mono/callback"           desc="Exchange Mono auth code for account link"                              auth="business_owner" />
-                <EndpointRow method="POST" path="/business/upload/csv"              desc="Import transaction data from CSV with configurable column mapping"      auth="business_owner" />
-                <EndpointRow method="GET"  path="/business/readiness"               desc="Get capital readiness assessments across all 14 financing categories"  auth="business_owner" />
-                <EndpointRow method="GET"  path="/business/snapshots"               desc="Retrieve historical financial identity snapshots"                      auth="business_owner" />
-                <EndpointRow method="POST" path="/business/consent/grant"           desc="Grant a capital provider access to financial identity data"            auth="business_owner" />
-                <EndpointRow method="POST" path="/business/consent/revoke"          desc="Immediately revoke an active consent grant"                           auth="business_owner" />
-              </div>
-
-              {/* Institution endpoints */}
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: 12 }}>Institution API</p>
-                <EndpointRow method="GET"  path="/institution/score/:fid"           desc="Fetch a business's identity score (requires can_view_score consent)"   auth="institution" />
-                <EndpointRow method="GET"  path="/institution/profile/:fid"         desc="Fetch filtered financial profile based on consent permissions"         auth="institution" />
-                <EndpointRow method="GET"  path="/institution/profile/:fid/provenance" desc="Retrieve full metric provenance: source data, account, and period"    auth="institution" />
-                <EndpointRow method="GET"  path="/institution/discovery"            desc="List anonymized businesses matching your criteria"                    auth="institution" />
-                <EndpointRow method="POST" path="/institution/discovery/criteria"   desc="Post or update your matching criteria"                               auth="institution" />
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: "24px 26px" }}>
+                <p style={{ fontSize: 15, color: "#4B5563", lineHeight: 1.78, marginBottom: 18 }}>
+                  Endpoints are organized into three scopes: <strong>Partner</strong> for consent-scoped profile access and data submission, <strong>Business</strong> for businesses managing their own identity, and <strong>Institution</strong> for financers evaluating and discovering businesses.
+                </p>
+                <Link href="/developers/api-reference" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: "#0A2540", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                  Browse the full API reference <ArrowUpRight size={14} aria-hidden="true" />
+                </Link>
               </div>
             </div>
 

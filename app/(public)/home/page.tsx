@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowRight, ChevronRight } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────
-   IDENTITY CARD  — the centrepiece visual
-   Shows what a Creditlinker Financial Identity looks like.
+   PASSPORT CARD  — the centrepiece visual
+   Shows what a Creditlinker Business Passport looks like.
    Pure SVG/inline — no images, no external deps.
 ───────────────────────────────────────────────────────── */
 function IdentityCard() {
@@ -40,7 +40,7 @@ function IdentityCard() {
       }}>
         <div>
           <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 3 }}>
-            Financial Identity
+            Business Passport
           </p>
           <p style={{ fontSize: 16, fontWeight: 700, color: "white", fontFamily: "var(--font-display)" }}>
             Aduke Bakeries Ltd.
@@ -80,7 +80,7 @@ function IdentityCard() {
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           }}>
             <span style={{ fontSize: 28, fontWeight: 800, color: "white", lineHeight: 1, fontFamily: "var(--font-display)", letterSpacing: "-0.04em" }}>{score}</span>
-            <span style={{ fontSize: 9, fontWeight: 600, color: "#10B981", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Low Risk</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: "#10B981", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Ready</span>
           </div>
         </div>
 
@@ -151,28 +151,20 @@ export default function HomePage() {
         }
         @media (max-width: 680px) {
           .home-grid-inner { padding: 40px 20px 44px !important; }
-          /* Hide card on mobile — headline carries the story */
           .home-card-wrap { display: none !important; }
-          /* Tighten hero text */
           .home-body-text { font-size: 15px !important; line-height: 1.65 !important; margin-bottom: 28px !important; }
           .home-eyebrow { margin-bottom: 16px !important; font-size: 11px !important; }
-          /* Stack CTAs full-width */
           .home-ctas { flex-direction: column !important; gap: 10px !important; margin-bottom: 32px !important; }
           .home-ctas a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; text-align: center !important; }
-          /* Trust row compact */
           .trust-row { gap: 8px 14px !important; }
           .trust-label { font-size: 11px !important; margin-bottom: 8px !important; }
-          /* Problem section */
           .home-problem-section { padding: 44px 20px !important; }
           .home-problem-body { display: none !important; }
-          /* How it works section */
           .home-how-section { padding: 44px 20px !important; }
-          /* CTA section */
           .home-cta-section { padding: 44px 20px !important; }
           .home-cta-body { font-size: 15px !important; }
           .home-cta-btns { flex-direction: column !important; gap: 10px !important; }
           .home-cta-btns a { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
-          /* Pulse card teaser section */
           .home-pulse-section { padding: 44px 20px !important; }
           .home-pulse-tags { gap: 6px !important; }
           .home-pulse-cta { width: 100% !important; box-sizing: border-box !important; justify-content: center !important; }
@@ -208,13 +200,13 @@ export default function HomePage() {
               className="animate-fade-up home-eyebrow"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", maxWidth: "100%", boxSizing: "border-box" as const,
-                background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.2)",
-                color: "#0A5060", fontSize: 12, fontWeight: 700,
-                padding: "5px 14px", borderRadius: 9999, marginBottom: 28,
+                background: "rgba(0,212,255,0.09)", border: "1.5px solid rgba(0,212,255,0.28)",
+                color: "#0A4A5C", fontSize: 14, fontWeight: 700,
+                padding: "9px 22px", borderRadius: 9999, marginBottom: 36,
               }}
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00D4FF", flexShrink: 0, display: "inline-block", animation: "pulse-dot 2s ease-in-out infinite" }} />
-              Financial identity for businesses
+              A passport to capital for every business
             </div>
 
             {/* Headline */}
@@ -233,8 +225,8 @@ export default function HomePage() {
                 maxWidth: "100%",
               }}
             >
-              Capital doesn&apos;t know<br />
-              your business.<br />
+              Your Passport<br />
+              To Capital.<br />
               <span style={{
                 background: "linear-gradient(90deg, #00D4FF, #38BDF8, #0A2540, #00D4FF)",
                 backgroundSize: "300% auto",
@@ -243,7 +235,7 @@ export default function HomePage() {
                 backgroundClip: "text",
                 animation: "shimmer-text 5s linear infinite",
               }}>
-                Now it will.
+                Built from your real financial history.
               </span>
             </h1>
 
@@ -258,10 +250,7 @@ export default function HomePage() {
                 maxWidth: 500,
               }}
             >
-              Creditlinker builds a verified{" "}
-              <strong style={{ color: "#0A2540", fontWeight: 700 }}>financial identity</strong> from your business
-              transaction history and connects you to capital providers who can act on it.
-              Your profile updates continuously as your business operates.
+              Capital flows to businesses that can prove themselves. Creditlinker connects to your accounts automatically and builds a verified financial identity for your business. One you can share with banks, investors, lenders, suppliers, distributors, and manufacturers whenever you are ready.
             </p>
 
             {/* CTAs */}
@@ -287,7 +276,7 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
                 }}
               >
-                Start building my Creditlinker ID <ArrowRight size={17} />
+                Get my business passport <ArrowRight size={17} />
               </Link>
               <Link
                 href="/for-financers"
@@ -331,7 +320,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* ── RIGHT — Identity card ── */}
+          {/* ── RIGHT — Business Passport card ── */}
           <div className="home-card-wrap animate-float">
             <IdentityCard />
           </div>
@@ -342,10 +331,8 @@ export default function HomePage() {
       {/* ══ TRUST CONTEXT STRIP ══════════════════════════════════ */}
       <section style={{ padding: "32px 32px", background: "#F1F5F9", borderTop: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0" }}>
         <p style={{ maxWidth: 760, margin: "0 auto", fontSize: 15, color: "#6B7280", lineHeight: 1.75, textAlign: "center" }}>
-          Whether it&apos;s an investor, a bank, a microfinance institution, a supplier in Lagos or a manufacturer in China,
-          every business partner wants to understand who you are, what your business does, how you operate, and whether
-          your business is performing well.{" "}
-          <strong style={{ color: "#0A2540", fontWeight: 600 }}>Creditlinker turns operational and financial data into clear, verifiable insights that inspire trust and open opportunities.</strong>
+          Most businesses already have the history. Revenue, customers, months of real activity. What they do not have is a way to show it clearly.{" "}
+          <strong style={{ color: "#0A2540", fontWeight: 600 }}>Creditlinker turns that activity into a business passport. Something you carry into every conversation with a capital provider, ready to speak for you.</strong>
         </p>
       </section>
 
@@ -366,13 +353,13 @@ export default function HomePage() {
             color: "white", lineHeight: 1.1, marginBottom: 24,
             fontSize: "clamp(28px, 4vw, 48px)", letterSpacing: "-0.04em",
           }}>
-            Nigerian SMEs move billions.<br />
-            Financers still can&apos;t see them.<br />
-            <span style={{ color: "#00D4FF" }}>Creditlinker changes that.</span>
+            Most businesses work hard.<br />
+            Capital still cannot find them.<br />
+            <span style={{ color: "#00D4FF" }}>That changes today.</span>
           </h2>
           <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
-            Most Nigerian SMEs don&apos;t have audited accounts or formal credit history, but they have real financial activity. Creditlinker reads that activity and turns it into something{" "}
-            <strong style={{ color: "rgba(255,255,255,0.75)" }}>capital providers can evaluate and act on.</strong>
+            Many Nigerian businesses have real revenue, real customers, and months of operating history. What they are missing is not the track record. It is a way to show it.{" "}
+            <strong style={{ color: "rgba(255,255,255,0.75)" }}>Creditlinker packages what your business has already earned into a passport that capital providers can read, verify, and act on.</strong>
           </p>
           <Link
             href="/what-is-financial-identity"
@@ -391,7 +378,7 @@ export default function HomePage() {
               (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
             }}
           >
-            What is a financial identity? <ArrowRight size={13} />
+            What goes into your passport? <ArrowRight size={13} />
           </Link>
         </div>
       </section>
@@ -404,21 +391,21 @@ export default function HomePage() {
       >
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
           <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", color: "#00A8CC", textTransform: "uppercase", marginBottom: 16 }}>
-            What happens after you sign up
+            How you get your passport
           </p>
           <h2 style={{
             fontFamily: "var(--font-display)", fontWeight: 800, color: "#0A2540",
             fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-0.04em",
             lineHeight: 1.1, marginBottom: 56,
           }}>
-            How it works.
+            Simple to start. Stronger over time.
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 32 }}>
             {[
               { step: "01", title: "Connect", body: "Link your bank accounts and financial records. Takes about 2 minutes." },
-              { step: "02", title: "Analyze", body: "We process your real transaction history and business activity." },
-              { step: "03", title: "Get your ID", body: "Your Creditlinker ID is created, verified and ready to share with capital providers." },
-              { step: "04", title: "Compound", body: "Every month you operate, your profile adds more verified data. Capital providers see a deeper, more reliable picture of your business." },
+              { step: "02", title: "We read the data", body: "We go through your real transaction history and turn it into clear, structured financial information." },
+              { step: "03", title: "Your passport is ready", body: "You get a verified Creditlinker passport you can share directly with any bank, investor, or lender." },
+              { step: "04", title: "It grows with you", body: "Every month you operate, your passport gets stronger. The longer you are on the platform, the more credible your profile becomes." },
             ].map(item => (
               <div key={item.step} style={{ textAlign: "left" }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "#00D4FF", letterSpacing: "0.12em", display: "block", marginBottom: 12 }}>{item.step}</span>
@@ -446,11 +433,11 @@ export default function HomePage() {
             fontSize: "clamp(30px, 4.5vw, 54px)", letterSpacing: "-0.04em",
             lineHeight: 1.05, marginBottom: 20,
           }}>
-            Start your financial identity<br />
-            <span style={{ color: "#00D4FF" }}>in minutes.</span>
+            Your passport to capital<br />
+            <span style={{ color: "#00D4FF" }}>starts here.</span>
           </h2>
           <p className="home-cta-body" style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.75, marginBottom: 40, maxWidth: 480, margin: "0 auto 40px" }}>
-            Connect your bank accounts and we generate your Creditlinker ID from your real transaction history. Share it with capital providers directly from your dashboard.
+            Connect your accounts and we build your passport from your actual financial history. No paperwork. No guesswork. Share it with capital providers directly from your dashboard whenever you are ready.
           </p>
           <div className="home-cta-btns" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
@@ -474,7 +461,7 @@ export default function HomePage() {
                 (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
               }}
             >
-              Make my business visible to capital <ArrowRight size={17} />
+              Get my business passport <ArrowRight size={17} />
             </Link>
             <Link
               href="/how-it-works"
@@ -496,87 +483,8 @@ export default function HomePage() {
                 (e.currentTarget as HTMLElement).style.background = "transparent";
               }}
             >
-              See how your ID grows
+              See how your passport grows
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ PULSE CARD TEASER ══════════════════════════ */}
-      <section
-        aria-label="Pulse Card"
-        className="home-pulse-section"
-        style={{ padding: "88px 32px", background: "#0A2540", position: "relative", overflow: "hidden" }}
-      >
-        <div aria-hidden style={{
-          pointerEvents: "none", position: "absolute", inset: 0,
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)",
-          backgroundSize: "48px 48px",
-        }} />
-        <div aria-hidden style={{ pointerEvents: "none", position: "absolute", top: "20%", right: "-5%", width: 560, height: 560, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)" }} />
-        <style>{`
-          .pulse-card-grid { display: grid; grid-template-columns: 1fr auto; gap: 64px; align-items: center; }
-          @media (max-width: 780px) {
-            .pulse-card-grid { grid-template-columns: 1fr !important; }
-            .pulse-card-visual { display: none !important; }
-          }
-        `}</style>
-        <div className="pulse-card-grid" style={{ position: "relative", maxWidth: 1200, margin: "0 auto" }}>
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 9999, marginBottom: 20, letterSpacing: "0.08em" }}>
-              ⚡ NEW, JUST LAUNCHED
-            </div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: "clamp(26px,3.5vw,44px)", letterSpacing: "-0.04em", lineHeight: 1.08, marginBottom: 16 }}>
-              Introducing the{" "}
-              <span style={{ color: "#00D4FF" }}>Creditlinker Pulse Card</span>
-            </h2>
-            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, maxWidth: 480, marginBottom: 28 }}>
-              A business credit card with a limit that recalculates in real time based on your live financial identity. When your business performs, your limit moves with it. Automatically.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }} className="home-pulse-tags">
-              {["Real-time dynamic limits", "Powered by your Creditlinker ID", "Business spend only"].map(tag => (
-                <span key={tag} style={{ fontSize: 12, fontWeight: 600, color: "rgba(0,212,255,0.8)", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", padding: "4px 12px", borderRadius: 9999 }}>{tag}</span>
-              ))}
-            </div>
-            <Link
-              href="/products"
-              className="home-pulse-cta"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}
-            >
-              Learn about the Pulse Card <ArrowRight size={15} />
-            </Link>
-          </div>
-
-          {/* mini card visual */}
-          <div className="pulse-card-visual" style={{ flexShrink: 0 }}>
-            <div style={{
-              width: 300, height: 190,
-              borderRadius: 16,
-              background: "linear-gradient(135deg, #0d2d4e 0%, #061524 60%, #0a1e35 100%)",
-              boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.07)",
-              padding: "22px 24px",
-              display: "flex", flexDirection: "column", justifyContent: "space-between",
-              position: "relative", overflow: "hidden",
-            }}>
-              <div aria-hidden style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.18) 0%, transparent 70%)", pointerEvents: "none" }} />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <p style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 3 }}>Creditlinker</p>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "0.02em" }}>PULSE</p>
-                </div>
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,212,255,0.25)", border: "1px solid rgba(0,212,255,0.4)" }} />
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", marginLeft: -8 }} />
-                </div>
-              </div>
-              <div>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.25)", color: "#00D4FF", fontSize: 8, fontWeight: 700, padding: "2px 7px", borderRadius: 9999, letterSpacing: "0.08em", marginBottom: 5 }}>
-                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#00D4FF", display: "inline-block" }} /> LIVE LIMIT
-                </span>
-                <p style={{ fontSize: 24, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>₦2,400,000</p>
-              </div>
-              <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>ADUKE BAKERIES LTD</p>
-            </div>
           </div>
         </div>
       </section>

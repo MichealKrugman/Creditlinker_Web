@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Creditlinker Investor Presentation 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow-x: hidden; }
+body { overflow-x: hidden; }
+
+:root {
+  --navy:       #081c38;
+  --navy-mid:   #0a2540;
+  --navy-light: #0f3460;
+  --cyan:       #00c8f0;
+  --cyan-dim:   rgba(0,200,240,0.12);
+  --cyan-border:rgba(0,200,240,0.22);
+  --white:      #ffffff;
+  --off-white:  #f4f7fb;
+  --slate:      #64748b;
+  --body:       #334155;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-sans:  'DM Sans', system-ui, sans-serif;
+  --page-w:     794px;
+  --page-h:     1123px;
+  --pad:        64px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #e8ecf0;
+  color: var(--navy);
+  line-height: 1;
+}
+
+/* ── DECK + SLIDE ── */
+.deck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0 48px;
+}
+.slide {
+  width: min(var(--page-w), 100%);
+  min-height: var(--page-h);
+  position: relative;
+  overflow: hidden;
+  background: var(--white);
+  box-shadow: 0 4px 40px rgba(0,0,0,0.13);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── SLIDE NUMBER ── */
+.slide-num {
+  position: absolute;
+  bottom: 32px;
+  right: var(--pad);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.22);
+  letter-spacing: 0.12em;
+}
+.slide-num.dark { color: rgba(8,28,56,0.18); }
+
+/* ── WORDMARK (inner slides) ── */
+.wordmark {
+  position: absolute;
+  top: 28px;
+  left: var(--pad);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,0.52);
+}
+.wordmark.dark { color: rgba(8,28,56,0.38); }
+
+/* ── DECORATIVE ── */
+.dot-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.dot-grid.light {
+  background-image: radial-gradient(rgba(8,28,56,0.06) 1px, transparent 1px);
+}
+.line-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size: 56px 56px;
+}
+.glow-orb { position: absolute; border-radius: 50%; pointer-events: none; }
+
+/* ── EYEBROW ── */
+.eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--cyan);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 10px;
+}
+.eyebrow::before {
+  content: ''; display: block; width: 24px; height: 1.5px; background: var(--cyan);
+}
+.eyebrow.dark { color: var(--navy-mid); }
+.eyebrow.dark::before { background: var(--navy-mid); }
+
+/* ── HEADINGS ── */
+h1.display {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: 72px; line-height: 1.0; letter-spacing: -0.02em; color: var(--white);
+}
+h2.section-title {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: 52px; line-height: 1.05; letter-spacing: -0.02em; color: var(--white);
+}
+h2.section-title.dark { color: var(--navy); }
+
+/* ── LOGO SVG SHARED ── */
+.cl-logo-svg { flex-shrink: 0; }
+
+/* ────────────────────────────────────────────
+   SLIDE 1: COVER
+──────────────────────────────────────────── */
+.s-cover { background: var(--navy); justify-content: flex-end; }
+.s-cover .inner {
+  position: relative; padding: var(--pad); padding-bottom: 72px; z-index: 2;
+}
+.s-cover .tagline {
+  font-size: 16px; color: rgba(255,255,255,0.45); font-weight: 400;
+  margin-top: 24px; max-width: 420px; line-height: 1.65;
+}
+.s-cover .meta-row {
+  margin-top: 56px; display: flex; align-items: center; gap: 32px;
+}
+.s-cover .confidential {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--cyan-border); color: var(--cyan);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; padding: 6px 14px; border-radius: 99px;
+}
+.s-cover .date { font-size: 12px; color: rgba(255,255,255,0.3); font-weight: 500; }
+
+/* cover logo lockup */
+.cover-logo {
+  position: absolute;
+  top: var(--pad);
+  left: var(--pad);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 3;
+}
+.cover-logo-wordmark {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--white);
+}
+
+.cover-accent-line {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--cyan), rgba(0,200,240,0));
+}
+
+/* ────────────────────────────────────────────
+   SLIDE 2: PROBLEM
+──────────────────────────────────────────── */
+.s-problem { background: var(--navy-mid); }
+.s-problem .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.pull-quote {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 26px; line-height: 1.45; color: rgba(255,255,255,0.88);
+  max-width: 560px; margin: 32px 0 48px; padding-left: 24px;
+  border-left: 2px solid var(--cyan);
+}
+.problem-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+  margin-top: auto; border: 1px solid rgba(255,255,255,0.06);
+}
+.problem-cell { padding: 28px; border: 1px solid rgba(255,255,255,0.05); }
+.problem-cell .num {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  color: var(--cyan); margin-bottom: 12px; display: block;
+}
+.problem-cell p { font-size: 14px; line-height: 1.65; color: rgba(255,255,255,0.55); }
+
+/* ────────────────────────────────────────────
+   SLIDE 3: MARKET
+──────────────────────────────────────────── */
+.s-market { background: var(--off-white); }
+.s-market .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; margin: 48px 0; }
+.stat-card { background: var(--navy); padding: 36px 28px; position: relative; overflow: hidden; }
+.stat-card::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--cyan), transparent);
+}
+.stat-card .value {
+  font-family: var(--font-serif); font-size: 52px; color: var(--white);
+  line-height: 1; letter-spacing: -0.03em; margin-bottom: 8px;
+}
+.stat-card .label {
+  font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500;
+  line-height: 1.5; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.market-context { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: auto; }
+.market-context-item { padding: 24px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; }
+.market-context-item .mc-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--slate); margin-bottom: 10px;
+}
+.market-context-item p { font-size: 14px; line-height: 1.65; color: var(--body); }
+
+/* ────────────────────────────────────────────
+   SLIDE 4: SOLUTION
+──────────────────────────────────────────── */
+.s-solution { background: var(--navy); }
+.s-solution .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.solution-def { margin: 32px 0 48px; max-width: 540px; }
+.solution-def p { font-size: 18px; line-height: 1.72; color: rgba(255,255,255,0.65); }
+.solution-def strong { color: var(--white); font-weight: 600; }
+.capability-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; margin-top: auto; }
+.cap-item { padding: 28px 24px; border: 1px solid rgba(255,255,255,0.06); position: relative; }
+.cap-item::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--cyan), transparent);
+}
+.cap-item .cap-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--cyan-dim); border: 1px solid var(--cyan-border);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px; font-size: 16px;
+}
+.cap-item .cap-title { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+.cap-item .cap-body { font-size: 12px; line-height: 1.62; color: rgba(255,255,255,0.42); }
+
+/* ────────────────────────────────────────────
+   SLIDE 5: FINANCIAL IDENTITY INFRASTRUCTURE (NEW)
+──────────────────────────────────────────── */
+.s-identity { background: var(--off-white); }
+.s-identity .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.identity-narrative {
+  font-size: 17px; line-height: 1.75; color: var(--body);
+  max-width: 560px; margin: 24px 0 40px;
+}
+.identity-narrative strong { color: var(--navy); }
+.identity-evolution {
+  display: grid; grid-template-columns: 1fr 24px 1fr; gap: 0;
+  margin-top: auto; align-items: stretch;
+}
+.id-col { display: flex; flex-direction: column; gap: 2px; }
+.id-col-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 14px 20px; margin-bottom: 2px;
+}
+.id-col-label.today { background: #e2e8f0; color: var(--slate); }
+.id-col-label.tomorrow { background: var(--navy); color: var(--cyan); }
+.id-row {
+  padding: 18px 20px; font-size: 13px; line-height: 1.55; display: flex; align-items: center; gap: 12px;
+}
+.id-row.today-row { background: white; border: 1px solid #e2e8f0; color: var(--body); }
+.id-row.tomorrow-row { background: var(--navy-mid); border: 1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
+.id-row .id-actor { font-weight: 700; color: var(--navy); min-width: 80px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.id-row.tomorrow-row .id-actor { color: var(--cyan); }
+.id-arrow-col {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #e2e8f0 50%, var(--navy-mid) 50%);
+}
+.id-arrow-col svg { filter: drop-shadow(0 0 4px rgba(0,200,240,0.3)); }
+.identity-footer {
+  margin-top: 20px; padding: 20px 24px;
+  background: var(--navy); color: rgba(255,255,255,0.65);
+  font-size: 14px; line-height: 1.65; font-family: var(--font-serif); font-style: italic;
+  border-left: 3px solid var(--cyan);
+}
+
+/* ────────────────────────────────────────────
+   SLIDE 6: NETWORK EFFECTS (NEW)
+──────────────────────────────────────────── */
+.s-network { background: var(--navy); }
+.s-network .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.network-body {
+  font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.6);
+  max-width: 500px; margin: 20px 0 40px;
+}
+.flywheel-wrap {
+  flex: 1; display: flex; gap: 40px; align-items: center;
+}
+.flywheel-steps {
+  display: flex; flex-direction: column; gap: 0; flex: 1;
+}
+.fw-step {
+  display: grid; grid-template-columns: 40px 1fr; gap: 0;
+  align-items: stretch;
+}
+.fw-step-left {
+  display: flex; flex-direction: column; align-items: center;
+}
+.fw-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--cyan); border: 2px solid var(--navy);
+  box-shadow: 0 0 10px rgba(0,200,240,0.6);
+  flex-shrink: 0; margin-top: 4px;
+}
+.fw-line {
+  width: 1px; flex: 1; background: rgba(0,200,240,0.25); margin: 4px auto 0;
+}
+.fw-step:last-child .fw-line { display: none; }
+.fw-content {
+  padding: 0 0 28px 16px;
+}
+.fw-num { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: rgba(255,255,255,0.25); margin-bottom: 5px; }
+.fw-title { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 5px; }
+.fw-desc { font-size: 12px; line-height: 1.55; color: rgba(255,255,255,0.45); }
+
+.flywheel-panel {
+  width: 240px; flex-shrink: 0;
+  border: 1px solid rgba(0,200,240,0.18);
+  background: rgba(0,200,240,0.04);
+  padding: 28px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.fp-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); margin-bottom: 4px; }
+.fp-stat { font-family: var(--font-serif); font-size: 40px; color: var(--white); line-height: 1; letter-spacing: -0.03em; }
+.fp-caption { font-size: 11px; line-height: 1.55; color: rgba(255,255,255,0.38); margin-top: 4px; }
+.fp-divider { height: 1px; background: rgba(255,255,255,0.07); }
+
+/* ────────────────────────────────────────────
+   SLIDE 7: DATA MOAT (NEW)
+──────────────────────────────────────────── */
+.s-moat { background: var(--off-white); }
+.s-moat .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.moat-intro { font-size: 17px; line-height: 1.75; color: var(--body); max-width: 520px; margin: 20px 0 40px; }
+.moat-intro strong { color: var(--navy); }
+.moat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: auto; }
+.moat-card { background: var(--white); border: 1px solid #e2e8f0; padding: 28px 24px; position: relative; overflow: hidden; }
+.moat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--navy), transparent);
+}
+.moat-card.accent::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+.moat-card.accent { background: var(--navy); border-color: rgba(0,200,240,0.15); }
+.moat-card-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate); margin-bottom: 12px; }
+.moat-card.accent .moat-card-label { color: var(--cyan); }
+.moat-card-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 10px; line-height: 1.25; }
+.moat-card.accent .moat-card-title { color: var(--white); }
+.moat-card-body { font-size: 13px; line-height: 1.65; color: var(--slate); }
+.moat-card.accent .moat-card-body { color: rgba(255,255,255,0.55); }
+.moat-signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.moat-signal {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 99px;
+  background: rgba(8,28,56,0.07); color: var(--navy-mid);
+  border: 1px solid rgba(8,28,56,0.1);
+}
+.moat-compound {
+  margin-top: 20px; padding: 20px 28px;
+  background: var(--navy); display: flex; align-items: center; gap: 24px;
+}
+.mc-text { font-size: 14px; line-height: 1.65; color: rgba(255,255,255,0.6); }
+.mc-text strong { color: var(--cyan); }
+.mc-badge {
+  flex-shrink: 0; padding: 8px 16px; border: 1px solid var(--cyan-border);
+  border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--cyan); white-space: nowrap;
+}
+
+/* ────────────────────────────────────────────
+   SLIDE 8: WHY CREDITLINKER WINS (NEW)
+──────────────────────────────────────────── */
+.s-wins { background: var(--navy-mid); }
+.s-wins .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.wins-intro { font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.6); max-width: 520px; margin: 20px 0 40px; }
+.wins-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.wins-card { padding: 28px 24px; border: 1px solid rgba(255,255,255,0.06); }
+.wins-card-who { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cyan); margin-bottom: 12px; }
+.wins-card-limit { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+.wins-card-body { font-size: 13px; line-height: 1.62; color: rgba(255,255,255,0.42); }
+.wins-advantage {
+  margin-top: 24px; padding: 28px;
+  background: linear-gradient(135deg, rgba(0,200,240,0.1) 0%, rgba(0,200,240,0.03) 100%);
+  border: 1px solid var(--cyan-border);
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 32px;
+}
+.wa-text { font-size: 15px; line-height: 1.65; color: rgba(255,255,255,0.75); }
+.wa-text strong { color: var(--white); }
+.wa-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--cyan); border: 1px solid var(--cyan-border); padding: 8px 16px; white-space: nowrap;
+}
+
+/* ────────────────────────────────────────────
+   SLIDE 9: HOW IT WORKS
+──────────────────────────────────────────── */
+.s-how { background: var(--off-white); }
+.s-how .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.steps { display: flex; flex-direction: column; margin-top: 48px; flex: 1; }
+.step-row {
+  display: grid; grid-template-columns: 64px 1fr; gap: 24px;
+  padding: 28px 0; border-bottom: 1px solid #e2e8f0; align-items: start;
+}
+.step-row:last-child { border-bottom: none; }
+.step-num { font-family: var(--font-serif); font-size: 42px; color: #cbd5e1; line-height: 1; text-align: right; }
+.step-content .step-title { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.step-content .step-body { font-size: 14px; line-height: 1.65; color: var(--slate); }
+.step-tag {
+  display: inline-block; margin-top: 10px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--navy-mid);
+  background: rgba(8,28,56,0.07); padding: 3px 10px; border-radius: 99px;
+}
+
+/* ────────────────────────────────────────────
+   SLIDE 10: GO-TO-MARKET (NEW)
+──────────────────────────────────────────── */
+.s-gtm { background: var(--off-white); }
+.s-gtm .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.gtm-intro { font-size: 16px; line-height: 1.72; color: var(--body); max-width: 500px; margin: 20px 0 36px; }
+.gtm-phases { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px; flex: 1; }
+.gtm-phase { display: flex; flex-direction: column; position: relative; overflow: hidden; }
+.gtm-phase::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--navy);
+}
+.gtm-phase.active::before { background: var(--cyan); }
+.gtm-phase-head {
+  padding: 20px 20px 16px;
+  background: var(--navy);
+}
+.gtm-phase.active .gtm-phase-head { background: var(--navy-mid); }
+.gtm-phase-num { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: rgba(255,255,255,0.3); margin-bottom: 6px; }
+.gtm-phase-name { font-size: 14px; font-weight: 700; color: var(--white); line-height: 1.3; }
+.gtm-phase.active .gtm-phase-num { color: var(--cyan); }
+.gtm-phase-body { padding: 16px 20px; background: var(--white); border: 1px solid #e2e8f0; border-top: none; flex: 1; }
+.gtm-phase-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate); margin-bottom: 12px; }
+.gtm-phase.active .gtm-phase-body { background: rgba(0,200,240,0.03); border-color: rgba(0,200,240,0.15); }
+.gtm-channel { font-size: 13px; color: var(--body); padding: 8px 0; border-bottom: 1px solid #f1f5f9; line-height: 1.45; }
+.gtm-channel:last-child { border-bottom: none; }
+.gtm-phase.active .gtm-channel { color: var(--navy); font-weight: 500; }
+.gtm-arrow-row {
+  display: flex; align-items: center; gap: 0; margin-top: 20px;
+}
+.gtm-arrow-item {
+  flex: 1; text-align: center; padding: 14px 8px;
+  background: var(--navy); color: rgba(255,255,255,0.5);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  position: relative;
+}
+.gtm-arrow-item.current { background: rgba(0,200,240,0.15); color: var(--cyan); border: 1px solid var(--cyan-border); }
+.gtm-arrow-sep { color: rgba(255,255,255,0.2); font-size: 14px; flex-shrink: 0; padding: 0 2px; background: var(--navy); }
+
+/* ────────────────────────────────────────────
+   SLIDE 11: PRODUCT
+──────────────────────────────────────────── */
+.s-product { background: var(--navy-mid); }
+.s-product .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.product-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 40px; flex: 1; }
+.product-col { padding: 32px 28px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 20px; }
+.product-col-title { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); margin-bottom: 4px; }
+.product-feature { padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; }
+.product-feature .pf-title { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.product-feature .pf-body { font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.45); }
+.future-products-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--cyan); margin-bottom: 12px; padding-top: 4px;
+}
+.future-product-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  padding: 5px 12px; border-radius: 4px; margin: 3px 3px 3px 0;
+}
+.future-product-tag.primary {
+  color: var(--cyan); background: rgba(0,200,240,0.06); border-color: var(--cyan-border);
+}
+.pulse-card-preview {
+  background: linear-gradient(135deg, #0d2d50 0%, #061524 100%);
+  border: 1px solid rgba(0,200,240,0.15); border-radius: 10px;
+  padding: 20px 22px; display: flex; flex-direction: column;
+  justify-content: space-between; height: 130px;
+  position: relative; overflow: hidden; margin-top: 8px;
+}
+.pulse-card-preview::after {
+  content: ''; position: absolute; top: -30px; right: -30px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,200,240,0.14) 0%, transparent 70%);
+}
+.pulse-card-preview .pcp-brand { font-size: 9px; font-weight: 700; letter-spacing: 0.2em; color: rgba(255,255,255,0.35); text-transform: uppercase; }
+.pulse-card-preview .pcp-name { font-size: 15px; font-weight: 800; color: white; letter-spacing: 0.04em; }
+.pulse-card-preview .pcp-limit-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--cyan); text-transform: uppercase; margin-bottom: 3px; }
+.pulse-card-preview .pcp-limit { font-family: var(--font-serif); font-size: 22px; color: white; letter-spacing: -0.03em; }
+
+/* ────────────────────────────────────────────
+   SLIDE 12: STAKEHOLDERS
+──────────────────────────────────────────── */
+.s-stake { background: var(--off-white); }
+.s-stake .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.stake-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; margin-top: 48px; flex: 1; }
+.stake-card { background: var(--white); border: 1px solid #e2e8f0; padding: 28px 24px; display: flex; flex-direction: column; }
+.stake-card .sk-icon { font-size: 22px; margin-bottom: 16px; }
+.stake-card .sk-title { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 12px; }
+.stake-card ul { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.stake-card ul li { font-size: 12px; line-height: 1.55; color: var(--slate); padding-left: 14px; position: relative; }
+.stake-card ul li::before { content: ''; position: absolute; left: 0; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--navy-mid); }
+
+/* ────────────────────────────────────────────
+   SLIDE 13: MOMENTUM
+──────────────────────────────────────────── */
+.s-traction { background: var(--navy); }
+.s-traction .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.traction-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; flex: 1; }
+.traction-left .tl-label { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); margin-bottom: 24px; }
+.milestone-list { list-style: none; display: flex; flex-direction: column; }
+.milestone-list li { padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display: grid; grid-template-columns: 80px 1fr; gap: 16px; align-items: start; }
+.milestone-list li:last-child { border-bottom: none; }
+.milestone-list .ms-period { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.3); letter-spacing: 0.06em; padding-top: 2px; }
+.milestone-list .ms-text { font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.55; }
+.why-now-list { list-style: none; display: flex; flex-direction: column; gap: 20px; }
+.why-now-list li { padding: 20px 22px; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.02); }
+.why-now-list .wn-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); margin-bottom: 7px; }
+.why-now-list .wn-body { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.52); }
+
+/* ────────────────────────────────────────────
+   SLIDE 14: THE BILLION-DOLLAR NARRATIVE (NEW)
+──────────────────────────────────────────── */
+.s-billion { background: var(--navy); }
+.s-billion .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 96px;
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+}
+.billion-not {
+  display: flex; flex-direction: column; gap: 2px; margin: 36px 0 32px;
+}
+.billion-not-item {
+  display: grid; grid-template-columns: 20px 1fr; gap: 14px; align-items: center;
+  padding: 18px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+}
+.billion-not-item .bn-x {
+  width: 18px; height: 18px; border-radius: 50%; background: rgba(255,80,80,0.2);
+  border: 1px solid rgba(255,80,80,0.3); display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: rgba(255,100,100,0.8); font-weight: 700; flex-shrink: 0;
+}
+.billion-not-item .bn-text { font-size: 14px; color: rgba(255,255,255,0.4); line-height: 1.4; }
+.billion-is {
+  padding: 32px 36px;
+  background: linear-gradient(135deg, rgba(0,200,240,0.1) 0%, rgba(0,200,240,0.03) 100%);
+  border: 1px solid var(--cyan-border);
+  position: relative; overflow: hidden;
+}
+.billion-is::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--cyan), transparent);
+}
+.bi-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); margin-bottom: 16px; }
+.bi-statement {
+  font-family: var(--font-serif); font-size: 26px; line-height: 1.4;
+  color: var(--white); max-width: 560px;
+}
+.bi-statement em { color: var(--cyan); font-style: normal; }
+.billion-outcome {
+  margin-top: 24px; padding: 20px 24px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+  font-size: 14px; color: rgba(255,255,255,0.5); line-height: 1.65;
+}
+.billion-outcome strong { color: rgba(255,255,255,0.85); }
+
+/* ────────────────────────────────────────────
+   SLIDE 15: BUSINESS MODEL
+──────────────────────────────────────────── */
+.s-biz { background: var(--off-white); }
+.s-biz .inner {
+  position: relative; z-index: 2; padding: var(--pad); padding-top: 88px;
+  flex: 1; display: flex; flex-direction: column;
+}
+.biz-streams { display: grid; grid-template-columns: repeat(2,1fr); gap: 2px; margin-top: 48px; }
+.biz-stream { background: var(--white); border: 1px solid #e2e8f0; padding: 32px 28px; position: relative; overflow: hidden; }
+.biz-stream::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: var(--navy); }
+.biz-stream.highlight::after { background: var(--cyan); }
+.biz-stream .bs-label { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate); margin-bottom: 16px; }
+.biz-stream .bs-title { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+.biz-stream .bs-body { font-size: 13px; line-height: 1.65; color: var(--slate); }
+.biz-footer { margin-top: 24px; padding: 28px; background: var(--navy); color: white; display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+.biz-footer .bf-label { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); white-space: nowrap; }
+.biz-footer .bf-text { font-size: 14px; line-height: 1.65; color: rgba(255,255,255,0.62); }
+
+/* ────────────────────────────────────────────
+   SLIDE 16: THE FUTURE / STRATEGIC VISION (CLOSE)
+──────────────────────────────────────────── */
+.s-close { background: var(--navy); }
+.s-close .inner {
+  position: relative; z-index: 2; padding: var(--pad);
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+}
+.vision-timeline { display: flex; flex-direction: column; gap: 2px; margin: 36px 0; }
+.vt-row {
+  display: grid; grid-template-columns: 120px 1fr; gap: 0; align-items: stretch;
+}
+.vt-era {
+  padding: 20px 20px; display: flex; align-items: flex-start; justify-content: flex-end;
+  border-right: 2px solid rgba(255,255,255,0.08);
+}
+.vt-era-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.28); writing-mode: vertical-lr; transform: rotate(180deg);
+  text-align: center;
+}
+.vt-row.now .vt-era { border-right-color: rgba(255,255,255,0.2); }
+.vt-row.tomorrow .vt-era { border-right-color: rgba(0,200,240,0.4); }
+.vt-row.eventually .vt-era { border-right-color: var(--cyan); }
+.vt-row.now .vt-era-label { color: rgba(255,255,255,0.45); }
+.vt-row.tomorrow .vt-era-label { color: rgba(0,200,240,0.6); }
+.vt-row.eventually .vt-era-label { color: var(--cyan); }
+.vt-content { padding: 20px 28px; display: flex; flex-direction: column; gap: 6px; }
+.vt-row.now .vt-content { background: rgba(255,255,255,0.02); }
+.vt-row.tomorrow .vt-content { background: rgba(255,255,255,0.04); }
+.vt-row.eventually .vt-content { background: rgba(0,200,240,0.07); border: 1px solid rgba(0,200,240,0.12); border-left: none; }
+.vt-title { font-size: 15px; font-weight: 700; color: var(--white); }
+.vt-row.eventually .vt-title { color: var(--cyan); }
+.vt-desc { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.45); }
+.vt-row.eventually .vt-desc { color: rgba(255,255,255,0.62); }
+
+.vision-statement {
+  padding: 28px 32px;
+  background: linear-gradient(135deg, rgba(0,200,240,0.08) 0%, transparent 70%);
+  border: 1px solid rgba(0,200,240,0.15);
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 22px; line-height: 1.5; color: var(--white); max-width: 580px;
+}
+.vision-statement em { color: var(--cyan); font-style: normal; }
+
+.contact-block { padding: 28px 32px; border: 1px solid rgba(255,255,255,0.08); display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 28px; }
+.contact-item .ci-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 7px; }
+.contact-item .ci-value { font-size: 15px; font-weight: 600; color: var(--white); }
+
+/* ────────────────────────────────────────────
+   PRINT
+──────────────────────────────────────────── */
+@media print {
+  body { background: white; }
+  .deck { gap: 0; padding: 0; }
+  .slide { width: 100%; min-height: 100vh; page-break-after: always; break-after: page; box-shadow: none; }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+}
+@page { size: A4; margin: 0; }
+
+/* ══════════════════════════════════════════
+   MOBILE RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width: 860px) {
+  :root {
+    --pad: 28px;
+    --page-w: 100%;
+    --page-h: auto;
+  }
+
+  body { background: #0d1b2e; }
+
+  .deck {
+    gap: 6px;
+    padding: 12px 0 32px;
+    width: 100%;
+  }
+
+  .slide {
+    width: 100%;
+    min-height: unset;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* ── Typography scale-down ── */
+  h1.display {
+    font-size: 36px;
+    line-height: 1.1;
+  }
+
+  h2.section-title {
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  /* ── Wordmark & cover logo ── */
+  .wordmark { top: 20px; left: var(--pad); font-size: 11px; }
+
+  .cover-logo { top: 20px; left: var(--pad); }
+  .cover-logo svg { width: 30px; height: 30px; }
+  .cover-logo-wordmark { font-size: 17px; }
+
+  /* ── Slide number ── */
+  .slide-num { bottom: 18px; right: var(--pad); }
+
+  /* ── Slide inner padding ── */
+  .s-cover .inner { padding: var(--pad); padding-top: 100px; padding-bottom: 48px; }
+  .s-problem .inner,
+  .s-solution .inner,
+  .s-network .inner,
+  .s-wins .inner,
+  .s-product .inner,
+  .s-traction .inner,
+  .s-billion .inner,
+  .s-close .inner { padding: var(--pad); padding-top: 72px; }
+
+  .s-market .inner,
+  .s-identity .inner,
+  .s-moat .inner,
+  .s-how .inner,
+  .s-gtm .inner,
+  .s-stake .inner,
+  .s-biz .inner { padding: var(--pad); padding-top: 72px; }
+
+  /* ── Cover slide ── */
+  .s-cover .tagline { font-size: 14px; max-width: 100%; }
+  .s-cover .meta-row { margin-top: 32px; flex-wrap: wrap; gap: 14px; }
+  .s-cover .date:last-child { margin-left: 0 !important; }
+
+  /* ── Pull quote ── */
+  .pull-quote { font-size: 17px; margin: 20px 0 28px; }
+
+  /* ── 2-col → 1-col grids ── */
+  .problem-grid,
+  .market-context,
+  .identity-evolution,
+  .moat-grid,
+  .wins-grid,
+  .product-layout,
+  .traction-cols,
+  .biz-streams,
+  .contact-block {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── 3-col → 1-col grids ── */
+  .stat-row,
+  .stake-grid,
+  .capability-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── 4-col → 2-col ── */
+  .gtm-phases {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* ── 4-col timeline bar → 2-col ── */
+  .s-gtm .inner > div[style*='repeat(4'] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* ── Stat cards ── */
+  .stat-card .value { font-size: 38px; }
+
+  /* ── Moat compound bar ── */
+  .moat-compound { flex-direction: column; gap: 14px; padding: 18px 20px; }
+
+  /* ── Wins advantage ── */
+  .wins-advantage {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* ── Flywheel layout ── */
+  .flywheel-wrap { flex-direction: column; gap: 28px; }
+  .flywheel-panel { width: 100%; }
+
+  /* ── Identity evolution arrow column hidden on mobile ── */
+  .id-arrow-col { display: none; }
+  .identity-evolution { grid-template-columns: 1fr; }
+  .id-col-label.today { margin-bottom: 2px; }
+
+  /* ── Vision timeline ── */
+  .vt-row { grid-template-columns: 60px 1fr; }
+  .vt-era { padding: 14px 12px; }
+  .vt-era-label { font-size: 9px; }
+  .vt-content { padding: 14px 16px; }
+  .vt-title { font-size: 13px; }
+  .vt-desc { font-size: 12px; }
+
+  /* ── Contact block ── */
+  .contact-block { grid-template-columns: 1fr 1fr; gap: 18px; padding: 20px; }
+
+  /* ── Vision statement ── */
+  .vision-statement { font-size: 16px; padding: 20px 24px; }
+
+  /* ── Biz footer ── */
+  .biz-footer { grid-template-columns: 1fr; gap: 12px; }
+
+  /* ── Product: pulse card preview ── */
+  .pulse-card-preview { height: 110px; }
+
+  /* ── Billion slide ── */
+  .bi-statement { font-size: 19px; }
+  .billion-not-item .bn-text { font-size: 13px; }
+
+  /* ── Steps (How It Works) ── */
+  .step-row { grid-template-columns: 44px 1fr; gap: 14px; padding: 20px 0; }
+  .step-num { font-size: 32px; }
+
+  /* ── GTM intro ── */
+  .gtm-intro { font-size: 14px; }
+
+  /* ── Network body / solution def ── */
+  .network-body,
+  .solution-def p,
+  .identity-narrative,
+  .moat-intro,
+  .wins-intro { font-size: 15px; }
+
+  /* ── Stakeholder card list ── */
+  .stake-card ul li { font-size: 12px; }
+
+  /* ── Traction cols ── */
+  .traction-cols { gap: 28px; }
+  .milestone-list li { grid-template-columns: 64px 1fr; gap: 10px; }
+
+  /* ── Cover decorative watermark ── */
+  .s-cover div[aria-hidden],
+  .s-close div[aria-hidden] { display: none; }
+}
+
+@media (max-width: 480px) {
+  :root { --pad: 20px; }
+
+  h1.display { font-size: 30px; }
+  h2.section-title { font-size: 24px; }
+
+  .stat-card .value { font-size: 32px; }
+  .bi-statement { font-size: 17px; }
+  .vision-statement { font-size: 15px; }
+
+  /* 4-col phases → 1-col on very small screens */
+  .gtm-phases { grid-template-columns: 1fr; }
+  .s-gtm .inner > div[style*='repeat(4'] { grid-template-columns: 1fr 1fr !important; }
+
+  .contact-block { grid-template-columns: 1fr; }
+
+  .cover-logo { top: 16px; }
+  .wordmark { top: 16px; }
+  .s-cover .inner { padding-top: 88px; }
+}
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- ══ 01 COVER ═══════════════════════════════════ -->
+  <div class="slide s-cover">
+    <div class="cover-accent-line"></div>
+    <div class="dot-grid"></div>
+    <div class="glow-orb" style="width:600px;height:600px;top:-200px;right:-180px;background:radial-gradient(circle,rgba(0,200,240,0.09) 0%,transparent 70%);"></div>
+    <div class="glow-orb" style="width:400px;height:400px;bottom:-100px;left:-100px;background:radial-gradient(circle,rgba(15,52,96,0.6) 0%,transparent 70%);"></div>
+
+    <div class="cover-logo" style="z-index:3;">
+      <svg width="40" height="40" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      <span class="cover-logo-wordmark">Creditlinker</span>
+    </div>
+
+    <div class="inner" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;">
+      <div class="eyebrow" style="color:rgba(255,255,255,0.3);margin-bottom:32px;">
+        <span style="display:block;width:24px;height:1.5px;background:rgba(255,255,255,0.2);"></span>
+        Investor Presentation
+      </div>
+
+      <h1 class="display">The financial identity<br />infrastructure layer<br /><em style="font-style:italic;color:var(--cyan);">for African business.</em></h1>
+
+      <p class="tagline">Creditlinker is building the trust layer that every lender, fintech, supplier, insurer, and government agency needs to understand African businesses  at scale, in real time, from real data.</p>
+
+      <div class="meta-row">
+        <div class="confidential">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="4.5" width="8" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M3 4.5V3a2 2 0 0 1 4 0v1.5" stroke="currentColor" stroke-width="1.2"/></svg>
+          Confidential
+        </div>
+        <span class="date">2026</span>
+        <span class="date" style="margin-left:auto;">giwamicheal@creditlinker.com.ng</span>
+      </div>
+    </div>
+
+    <div aria-hidden="true" style="position:absolute;bottom:48px;right:var(--pad);font-family:'Instrument Serif',serif;font-size:140px;font-weight:400;color:rgba(255,255,255,0.025);line-height:1;letter-spacing:-0.04em;pointer-events:none;user-select:none;">CL</div>
+    <div class="slide-num">01 / 16</div>
+  </div>
+
+
+  <!-- ══ 02 PROBLEM ══════════════════════════════════ -->
+  <div class="slide s-problem">
+    <div class="line-grid"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">The Problem</div>
+      <h2 class="section-title">Millions of businesses<br />are thriving. Most<br />can't prove it.</h2>
+
+      <blockquote class="pull-quote">
+        "Six years in business. Consistent revenue. Never missed a payment. Turned away by every lender. Not because her business is struggling. Because no one can see that it is not."
+      </blockquote>
+
+      <div class="problem-grid">
+        <div class="problem-cell">
+          <span class="num">01</span>
+          <p>Most SMEs have no financial track record a lender can actually look at. Years of real transactions, and nothing to show for it.</p>
+        </div>
+        <div class="problem-cell">
+          <span class="num">02</span>
+          <p>A business's financial story lives across five different platforms and nobody has stitched it together. There is no single picture of how a business actually performs.</p>
+        </div>
+        <div class="problem-cell">
+          <span class="num">03</span>
+          <p>Underwriting is still done by hand. It is slow, expensive, and makes small-ticket lending a losing proposition for most lenders before they even begin.</p>
+        </div>
+        <div class="problem-cell">
+          <span class="num">04</span>
+          <p>The businesses getting funded are not always the strongest ones. They are simply the ones that look right on paper. Performance is losing to presentation.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num">02 / 16</div>
+  </div>
+
+
+  <!-- ══ 03 MARKET ═══════════════════════════════════ -->
+  <div class="slide s-market">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">Market Opportunity</div>
+      <h2 class="section-title dark">The gap is massive.<br />And the timing<br />has never been better.</h2>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="value">41M+</div>
+          <div class="label">Underserved SMEs<br />across Africa</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">$330B</div>
+          <div class="label">Annual SME<br />financing gap<br /><span style="font-size:10px;opacity:0.6;letter-spacing:0.06em;">growing at 15% annually</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="value">&lt;8%</div>
+          <div class="label">of SMEs with any<br />verifiable financial identity</div>
+        </div>
+      </div>
+
+      <div class="market-context">
+        <div class="market-context-item">
+          <div class="mc-label">Why Nigeria First</div>
+          <p>Nigeria has over 39 million SMEs driving nearly half the country's GDP. Formal credit reaches fewer than 5% of them. The infrastructure to change that simply does not exist yet. That is where Creditlinker starts.</p>
+        </div>
+        <div class="market-context-item">
+          <div class="mc-label">The Data Already Exists</div>
+          <p>Nigerian businesses are transacting every day across banks, wallets, and payment platforms. That data is rich, real, and almost entirely ignored by lenders. Creditlinker connects it, structures it, and makes it speak.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num dark">03 / 16</div>
+  </div>
+
+
+  <!-- ══ 04 SOLUTION ═════════════════════════════════ -->
+  <div class="slide s-solution">
+    <div class="dot-grid"></div>
+    <div class="glow-orb" style="width:500px;height:500px;top:-100px;right:-150px;background:radial-gradient(circle,rgba(0,200,240,0.07) 0%,transparent 70%);"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">Solution</div>
+      <h2 class="section-title">The financial identity<br />African businesses<br />have always deserved.</h2>
+
+      <div class="solution-def">
+        <p>Creditlinker pulls together a business's activity across <strong>banking, payments, invoicing, and accounting</strong> into one verified profile. Lenders can see the full picture. Businesses get access to capital based on what they have actually built, not just what they can document.</p>
+      </div>
+
+      <div class="capability-grid">
+        <div class="cap-item">
+          <div class="cap-icon">🪪</div>
+          <div class="cap-title">Structured Financial Identity</div>
+          <div class="cap-body">One verified profile that brings all of a business's financial activity together into something institutions can actually act on.</div>
+        </div>
+        <div class="cap-item">
+          <div class="cap-icon">📊</div>
+          <div class="cap-title">Risk Scoring</div>
+          <div class="cap-body">A proprietary score built from real transaction history. Revenue stability, cashflow, expense discipline, liquidity strength. Not guesswork.</div>
+        </div>
+        <div class="cap-item">
+          <div class="cap-icon">🔄</div>
+          <div class="cap-title">Real-Time Monitoring</div>
+          <div class="cap-body">Profiles stay current. Lenders see how a business is performing right now, not how it looked six months ago when the application was submitted.</div>
+        </div>
+        <div class="cap-item">
+          <div class="cap-icon">✅</div>
+          <div class="cap-title">Verification Intelligence</div>
+          <div class="cap-body">Document, identity, and data cross-checks confirm every business is exactly who they say they are. Nothing slips through unverified.</div>
+        </div>
+        <div class="cap-item">
+          <div class="cap-icon">📋</div>
+          <div class="cap-title">Lender-Ready Profiles</div>
+          <div class="cap-body">Structured output that fits straight into institutional underwriting workflows. What used to take weeks can now take hours.</div>
+        </div>
+        <div class="cap-item">
+          <div class="cap-icon">🔌</div>
+          <div class="cap-title">API-Based Data Access</div>
+          <div class="cap-body">Fintechs and institutions plug financial identity and verification data directly into their own products. Clean, documented, ready to build on.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num">04 / 16</div>
+  </div>
+
+
+  <!-- ══ 05 FINANCIAL IDENTITY INFRASTRUCTURE (NEW) ══ -->
+  <div class="slide s-identity">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">The Infrastructure Vision</div>
+      <h2 class="section-title dark">Financial identity<br />becomes the foundation<br />of African commerce.</h2>
+
+      <p class="identity-narrative">
+        Every modern economy runs on trusted identity. People have national IDs, credit bureaus, credit scores.
+        <strong>African businesses have none of these at scale.</strong> Creditlinker creates the missing layer 
+        the infrastructure that lets institutions trust businesses without knowing them personally.
+      </p>
+
+      <div class="identity-evolution">
+        <div class="id-col">
+          <div class="id-col-label today">Today  Businesses apply for loans</div>
+          <div class="id-row today-row">
+            <span class="id-actor">Banks</span>
+            <span>Manually assess each applicant from scratch, with no shared data layer</span>
+          </div>
+          <div class="id-row today-row">
+            <span class="id-actor">Suppliers</span>
+            <span>Extend credit on gut instinct or personal relationship alone</span>
+          </div>
+          <div class="id-row today-row">
+            <span class="id-actor">Fintechs</span>
+            <span>Build redundant data pipelines independently, duplicating cost and effort</span>
+          </div>
+          <div class="id-row today-row">
+            <span class="id-actor">Governments</span>
+            <span>Lack structured data on SME health for policy or support programmes</span>
+          </div>
+        </div>
+
+        <div class="id-arrow-col">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 4l8 8-8 8M4 12h16" stroke="#00c8f0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <div class="id-col">
+          <div class="id-col-label tomorrow">Tomorrow  Institutions query Creditlinker IDs</div>
+          <div class="id-row tomorrow-row">
+            <span class="id-actor">Banks</span>
+            <span>Query Creditlinker IDs for instant, verified risk profiles before lending</span>
+          </div>
+          <div class="id-row tomorrow-row">
+            <span class="id-actor">Suppliers</span>
+            <span>Check Creditlinker IDs before extending trade credit to new counterparties</span>
+          </div>
+          <div class="id-row tomorrow-row">
+            <span class="id-actor">Fintechs</span>
+            <span>Build on Creditlinker's API  financial identity out of the box, from day one</span>
+          </div>
+          <div class="id-row tomorrow-row">
+            <span class="id-actor">Governments</span>
+            <span>Verify Creditlinker IDs for procurement, inclusion programmes, and policy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="identity-footer">
+        The ID itself becomes infrastructure. The company that creates that ID becomes critical to the entire African credit ecosystem.
+      </div>
+    </div>
+
+    <div class="slide-num dark">05 / 16</div>
+  </div>
+
+
+  <!-- ══ 06 NETWORK EFFECTS (NEW) ════════════════════ -->
+  <div class="slide s-network">
+    <div class="line-grid"></div>
+    <div class="glow-orb" style="width:500px;height:500px;top:-100px;right:-150px;background:radial-gradient(circle,rgba(0,200,240,0.06) 0%,transparent 70%);"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">Network Effects</div>
+      <h2 class="section-title">Every business that<br />joins makes the<br />platform stronger.</h2>
+
+      <p class="network-body">This is not just a product. It is a compounding system. The network effect is the core strategic asset  and it makes Creditlinker harder to displace with every passing month.</p>
+
+      <div class="flywheel-wrap">
+        <div class="flywheel-steps">
+          <div class="fw-step">
+            <div class="fw-step-left"><div class="fw-dot"></div><div class="fw-line"></div></div>
+            <div class="fw-content">
+              <div class="fw-num">01</div>
+              <div class="fw-title">More Businesses Join</div>
+              <div class="fw-desc">Each new business adds verified financial identity data to the network, expanding the dataset.</div>
+            </div>
+          </div>
+          <div class="fw-step">
+            <div class="fw-step-left"><div class="fw-dot"></div><div class="fw-line"></div></div>
+            <div class="fw-content">
+              <div class="fw-num">02</div>
+              <div class="fw-title">More Structured Financial Data</div>
+              <div class="fw-desc">Revenue patterns, payment behaviours, cash flow signals  all mapped across an increasingly diverse business ecosystem.</div>
+            </div>
+          </div>
+          <div class="fw-step">
+            <div class="fw-step-left"><div class="fw-dot"></div><div class="fw-line"></div></div>
+            <div class="fw-content">
+              <div class="fw-num">03</div>
+              <div class="fw-title">Better Risk Models</div>
+              <div class="fw-desc">More data means sharper scoring, fewer defaults, and underwriting accuracy that improves continuously without manual intervention.</div>
+            </div>
+          </div>
+          <div class="fw-step">
+            <div class="fw-step-left"><div class="fw-dot"></div><div class="fw-line"></div></div>
+            <div class="fw-content">
+              <div class="fw-num">04</div>
+              <div class="fw-title">Stronger Institutional Adoption</div>
+              <div class="fw-desc">Lenders, fintechs, and partners see higher value in the platform and integrate more deeply into their workflows.</div>
+            </div>
+          </div>
+          <div class="fw-step">
+            <div class="fw-step-left"><div class="fw-dot" style="background:var(--cyan);box-shadow:0 0 16px rgba(0,200,240,0.8);"></div></div>
+            <div class="fw-content">
+              <div class="fw-num">05</div>
+              <div class="fw-title">More Businesses Join</div>
+              <div class="fw-desc">The cycle accelerates. Each rotation of the flywheel makes the next one faster and more powerful.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flywheel-panel">
+          <div>
+            <div class="fp-label">The Result</div>
+            <div class="fp-stat">Compounding</div>
+            <div class="fp-caption">Value that grows non-linearly  not just as a function of users, but of the relationships between them.</div>
+          </div>
+          <div class="fp-divider"></div>
+          <div>
+            <div class="fp-label">The Moat</div>
+            <div class="fp-stat">Data</div>
+            <div class="fp-caption">A proprietary, structured, ever-growing dataset on African SME financial behaviour that no competitor can replicate from scratch.</div>
+          </div>
+          <div class="fp-divider"></div>
+          <div>
+            <div class="fp-label">Investor Implication</div>
+            <div class="fp-stat">Infrastructure</div>
+            <div class="fp-caption">Without this slide, investors see a lender. With it, they see a platform that becomes harder to displace the bigger it grows.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num">06 / 16</div>
+  </div>
+
+
+  <!-- ══ 07 DATA MOAT (NEW) ══════════════════════════ -->
+  <div class="slide s-moat">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">Proprietary Data Advantage</div>
+      <h2 class="section-title dark">A compounding moat<br />no competitor can<br />replicate from scratch.</h2>
+
+      <p class="moat-intro">
+        Creditlinker is building one of Africa's largest structured datasets on real SME financial behaviour.
+        <strong>Unlike traditional credit bureaus, our models learn from the full texture of a business's financial life</strong>  not just whether a loan was repaid.
+      </p>
+
+      <div class="moat-grid">
+        <div class="moat-card">
+          <div class="moat-card-label">What We Capture</div>
+          <div class="moat-card-title">Five dimensions traditional bureaus miss entirely</div>
+          <div class="moat-card-body">Every business on Creditlinker contributes structured signals across dimensions that existing credit infrastructure has never measured at scale in Africa.</div>
+          <div class="moat-signals">
+            <span class="moat-signal">Revenue Consistency</span>
+            <span class="moat-signal">Cash Flow Volatility</span>
+            <span class="moat-signal">Expense Discipline</span>
+            <span class="moat-signal">Payment Behaviour</span>
+            <span class="moat-signal">Growth Patterns</span>
+          </div>
+        </div>
+        <div class="moat-card">
+          <div class="moat-card-label">How It Compounds</div>
+          <div class="moat-card-title">Every transaction improves future underwriting</div>
+          <div class="moat-card-body">The dataset does not sit static. Each new transaction sharpens the model. Each new business adds context to industry benchmarks. The accuracy gap between Creditlinker and any new entrant widens continuously over time.</div>
+        </div>
+        <div class="moat-card accent">
+          <div class="moat-card-label">The Competitive Reality</div>
+          <div class="moat-card-title">This dataset cannot be bought or built overnight</div>
+          <div class="moat-card-body">A competitor entering tomorrow would start with zero historical data, zero behavioural baselines, and zero institutional trust. The window to build what Creditlinker is building is closing. First mover advantage here is structural, not tactical.</div>
+        </div>
+        <div class="moat-card">
+          <div class="moat-card-label">What VCs Call This</div>
+          <div class="moat-card-title">A compounding data moat</div>
+          <div class="moat-card-body">This is the same fundamental defensibility seen in the world's most valuable data platforms. The asset that compounds and becomes increasingly difficult to replicate  not a feature, but the business itself.</div>
+        </div>
+      </div>
+
+      <div class="moat-compound">
+        <div class="mc-text">The dataset grows <strong>more valuable with every business that joins</strong> and more <strong>difficult to replicate</strong> with every month that passes.</div>
+        <div class="mc-badge">Compounding Moat</div>
+      </div>
+    </div>
+
+    <div class="slide-num dark">07 / 16</div>
+  </div>
+
+
+  <!-- ══ 08 WHY CREDITLINKER WINS (NEW) ══════════════ -->
+  <div class="slide s-wins">
+    <div class="line-grid"></div>
+    <div class="glow-orb" style="width:480px;height:480px;bottom:-80px;right:-100px;background:radial-gradient(circle,rgba(0,200,240,0.06) 0%,transparent 70%);"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">Competitive Position</div>
+      <h2 class="section-title">Why banks cannot<br />build this.<br />Why Creditlinker wins.</h2>
+
+      <p class="wins-intro">Investors ask: why won't an established institution simply replicate this? The answer is structural  not a matter of resources or ambition, but of fundamental data access.</p>
+
+      <div class="wins-grid">
+        <div class="wins-card">
+          <div class="wins-card-who">Banks</div>
+          <div class="wins-card-limit">See only their own customers</div>
+          <div class="wins-card-body">A bank's view of a business is limited to what flows through that bank's own accounts. Creditlinker aggregates across all of them, creating a complete picture no single bank could ever assemble.</div>
+        </div>
+        <div class="wins-card">
+          <div class="wins-card-who">Fintechs</div>
+          <div class="wins-card-limit">See only their own transactions</div>
+          <div class="wins-card-body">Payment fintechs have rich data  but only for the transactions they process. Creditlinker stitches together every financial channel into a single verified identity that no single fintech can match.</div>
+        </div>
+        <div class="wins-card">
+          <div class="wins-card-who">Accounting Software</div>
+          <div class="wins-card-limit">See only what is entered manually</div>
+          <div class="wins-card-body">Bookkeeping data is static, self-reported, and unverified. Creditlinker draws from live transactional sources that cannot be manipulated, creating a layer of verified truth that accounting tools simply cannot provide.</div>
+        </div>
+        <div class="wins-card">
+          <div class="wins-card-who">Credit Bureaus</div>
+          <div class="wins-card-limit">Capture history, not real-time health</div>
+          <div class="wins-card-body">Traditional bureaus record what has already happened. Creditlinker provides a living, updating financial identity  a real-time view of business health that legacy bureau infrastructure was never designed to deliver.</div>
+        </div>
+      </div>
+
+      <div class="wins-advantage">
+        <div class="wa-text">
+          <strong>Creditlinker aggregates financial identity across the entire business ecosystem.</strong> No single institution can build a complete picture alone. Creditlinker sits above all of them  the only player with the cross-institutional view that makes comprehensive financial identity possible.
+        </div>
+        <div class="wa-label">Structural Advantage</div>
+      </div>
+    </div>
+
+    <div class="slide-num">08 / 16</div>
+  </div>
+
+
+  <!-- ══ 09 HOW IT WORKS ══════════════════════════════ -->
+  <div class="slide s-how">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">How It Works</div>
+      <h2 class="section-title dark">From bank transactions<br />to a verified identity<br />in four steps.</h2>
+
+      <div class="steps">
+        <div class="step-row">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <div class="step-title">Connect your accounts</div>
+            <div class="step-body">A business connects its bank accounts and other financial data sources to Creditlinker, enabling us to build a trusted financial identity from its real business activity. The business remains in full control of its data at all times  access is permission-based and can be revoked at any point outside of active financing agreements.</div>
+            <span class="step-tag">Business Portal</span>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <div class="step-title">We read the real story</div>
+            <div class="step-body">Creditlinker's engine works through real transaction history: how revenue flows in, how obligations are met, how expenses are managed, how cash behaves under pressure. All of it becomes structured, scored data.</div>
+            <span class="step-tag">Identity Engine</span>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <div class="step-title">Receive a verified Creditlinker ID</div>
+            <div class="step-body">The business gets a verified financial identity: a score, a full dimensional breakdown, and a profile it can share directly with lenders, trade partners, or any institution that needs to know it is credible.</div>
+            <span class="step-tag">Verification Intelligence</span>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <div class="step-title">The identity grows with the business</div>
+            <div class="step-body">Every month of operation adds more verified data. The profile gets richer, more trusted, and more valuable over time. A financial history the business builds, owns, and controls.</div>
+            <span class="step-tag">Continuous Monitoring</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num dark">09 / 16</div>
+  </div>
+
+
+  <!-- ══ 10 GO-TO-MARKET (NEW) ══════════════════════ -->
+  <div class="slide s-gtm">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">Go-To-Market</div>
+      <h2 class="section-title dark">A phased adoption<br />path that expands the<br />network at every layer.</h2>
+
+      <p class="gtm-intro">How do the first 10,000 businesses arrive  and how does that become 1,000,000? Each phase unlocks the next, compounding network density across every channel.</p>
+
+      <div class="gtm-phases">
+        <div class="gtm-phase active">
+          <div class="gtm-phase-head">
+            <div class="gtm-phase-num">Phase 01 · Now</div>
+            <div class="gtm-phase-name">Direct SME Acquisition</div>
+          </div>
+          <div class="gtm-phase-body">
+            <div class="gtm-phase-tag">Entry Point</div>
+            <div class="gtm-channel">SMEs seeking loans and capital access</div>
+            <div class="gtm-channel">Businesses wanting to build verifiable financial identity</div>
+            <div class="gtm-channel">Founders looking to professionalise financial reporting</div>
+          </div>
+        </div>
+        <div class="gtm-phase">
+          <div class="gtm-phase-head">
+            <div class="gtm-phase-num">Phase 02</div>
+            <div class="gtm-phase-name">Institutional Distribution</div>
+          </div>
+          <div class="gtm-phase-body">
+            <div class="gtm-phase-tag">Scale Multiplier</div>
+            <div class="gtm-channel">Commercial and digital banks</div>
+            <div class="gtm-channel">Microfinance institutions</div>
+            <div class="gtm-channel">Digital lenders and credit platforms</div>
+          </div>
+        </div>
+        <div class="gtm-phase">
+          <div class="gtm-phase-head">
+            <div class="gtm-phase-num">Phase 03</div>
+            <div class="gtm-phase-name">Platform Partnerships</div>
+          </div>
+          <div class="gtm-phase-body">
+            <div class="gtm-phase-tag">Ecosystem Integration</div>
+            <div class="gtm-channel">Accounting software providers</div>
+            <div class="gtm-channel">POS networks and payment processors</div>
+            <div class="gtm-channel">Payroll and HR platforms</div>
+          </div>
+        </div>
+        <div class="gtm-phase">
+          <div class="gtm-phase-head">
+            <div class="gtm-phase-num">Phase 04</div>
+            <div class="gtm-phase-name">Infrastructure Layer</div>
+          </div>
+          <div class="gtm-phase-body">
+            <div class="gtm-phase-tag">Systemic Adoption</div>
+            <div class="gtm-channel">Government procurement systems</div>
+            <div class="gtm-channel">Trade and export ecosystems</div>
+            <div class="gtm-channel">Investor and PE due diligence</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;">
+        <div style="padding:14px 16px;background:rgba(0,200,240,0.08);border:1px solid rgba(0,200,240,0.2);font-size:11px;font-weight:700;color:var(--navy);letter-spacing:0.06em;">← Active Now</div>
+        <div style="padding:14px 16px;background:var(--navy);font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.06em;">12–18 months</div>
+        <div style="padding:14px 16px;background:var(--navy);font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.06em;">18–36 months</div>
+        <div style="padding:14px 16px;background:var(--navy);font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.06em;">36+ months</div>
+      </div>
+    </div>
+
+    <div class="slide-num dark">10 / 16</div>
+  </div>
+
+
+  <!-- ══ 11 PRODUCT ══════════════════════════════════ -->
+  <div class="slide s-product">
+    <div class="line-grid"></div>
+    <div class="glow-orb" style="width:400px;height:400px;bottom:-80px;right:-80px;background:radial-gradient(circle,rgba(0,200,240,0.06) 0%,transparent 70%);"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">Product</div>
+      <h2 class="section-title">Three portals today.<br />An expanding suite<br />powered by identity.</h2>
+
+      <div class="product-layout">
+        <div class="product-col">
+          <div class="product-col-title">Core Infrastructure  Live</div>
+          <div class="product-feature">
+            <div class="pf-title">Business Portal</div>
+            <div class="pf-body">Where businesses connect their accounts, build their identity profile, and put it in front of capital providers who are ready to evaluate it.</div>
+          </div>
+          <div class="product-feature">
+            <div class="pf-title">Financer Portal</div>
+            <div class="pf-body">Where lenders access verified profiles, run underwriting checks, and manage their entire lending pipeline from one place.</div>
+          </div>
+          <div class="product-feature">
+            <div class="pf-title">Developer Portal</div>
+            <div class="pf-body">Where fintechs plug Creditlinker's financial data and verification tools directly into the products they are building.</div>
+          </div>
+        </div>
+
+        <div class="product-col">
+          <div class="product-col-title">Future Products Powered by Financial Identity</div>
+          <div style="font-size:13px;line-height:1.65;color:rgba(255,255,255,0.5);margin-bottom:16px;">
+            The identity layer enables an expanding family of financial products. Each one is an application of the infrastructure  not the company itself.
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;">
+            <span class="future-product-tag primary">⚡ Pulse Card</span>
+            <span class="future-product-tag">Embedded Credit</span>
+            <span class="future-product-tag">Supplier Finance</span>
+            <span class="future-product-tag">Revenue-Based Financing</span>
+            <span class="future-product-tag">Working Capital</span>
+            <span class="future-product-tag">Trade Credit</span>
+          </div>
+
+          <div class="product-feature" style="border-color:var(--cyan-border);background:rgba(0,200,240,0.04);">
+            <div class="pf-title" style="color:var(--cyan);">Spotlight: Creditlinker Pulse Card</div>
+            <div class="pf-body" style="color:rgba(255,255,255,0.55);">A business card where the spending limit is tied directly to live financial identity data. Performance drives access. No manual reviews. No arbitrary caps.</div>
+          </div>
+          <div class="pulse-card-preview">
+            <div>
+              <div class="pcp-brand">Creditlinker</div>
+              <div class="pcp-name">PULSE</div>
+            </div>
+            <div>
+              <div class="pcp-limit-label">&#9889; Live Limit</div>
+              <div class="pcp-limit">&#8358;2,400,000</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num">11 / 16</div>
+  </div>
+
+
+  <!-- ══ 12 STAKEHOLDERS ════════════════════════════ -->
+  <div class="slide s-stake">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">Stakeholders</div>
+      <h2 class="section-title dark">Everyone in the credit<br />ecosystem wins when<br />trust is verifiable.</h2>
+
+      <div class="stake-grid">
+        <div class="stake-card">
+          <div class="sk-icon">🏪</div>
+          <div class="sk-title">Businesses</div>
+          <ul>
+            <li>A verified identity that shows what the business has actually built</li>
+            <li>Access to lenders and partners who can evaluate real performance data</li>
+            <li>A profile that grows more valuable with every month of operation</li>
+          </ul>
+        </div>
+        <div class="stake-card">
+          <div class="sk-icon">🏦</div>
+          <div class="sk-title">Lenders and Banks</div>
+          <ul>
+            <li>Verified, structured profiles ready to go straight into underwriting</li>
+            <li>Automated risk signals that cut the cost of manual assessment</li>
+            <li>Live portfolio monitoring so nothing surprises them after disbursement</li>
+          </ul>
+        </div>
+        <div class="stake-card">
+          <div class="sk-icon">⚡</div>
+          <div class="sk-title">Fintechs</div>
+          <ul>
+            <li>API access to financial identity and verification tools out of the box</li>
+            <li>Ready-made infrastructure for credit, payments, and identity products</li>
+            <li>No need to build expensive data pipelines from scratch</li>
+          </ul>
+        </div>
+        <div class="stake-card">
+          <div class="sk-icon">🏛️</div>
+          <div class="sk-title">Governments and Institutions</div>
+          <ul>
+            <li>Sector-level visibility into how SMEs are actually performing</li>
+            <li>Data infrastructure that supports financial inclusion programs</li>
+            <li>Verifiable records that hold up against regulatory requirements</li>
+          </ul>
+        </div>
+        <div class="stake-card">
+          <div class="sk-icon">🤝</div>
+          <div class="sk-title">Trade Partners</div>
+          <ul>
+            <li>Verified counterparty profiles before extending credit terms</li>
+            <li>Payment track record backed by real transaction history</li>
+            <li>Faster, cheaper due diligence on every new supplier relationship</li>
+          </ul>
+        </div>
+        <div class="stake-card" style="background:var(--navy);border-color:var(--navy);justify-content:center;align-items:center;">
+          <div style="text-align:center;padding:16px;">
+            <div style="font-family:'Instrument Serif',serif;font-size:15px;font-style:italic;color:rgba(255,255,255,0.6);line-height:1.65;max-width:180px;margin:0 auto;">
+              "One infrastructure layer. Every participant in the credit ecosystem. Everyone benefits."
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num dark">12 / 16</div>
+  </div>
+
+
+  <!-- ══ 13 MOMENTUM ══════════════════════════════════ -->
+  <div class="slide s-traction">
+    <div class="line-grid"></div>
+    <div class="glow-orb" style="width:480px;height:480px;top:-60px;right:-120px;background:radial-gradient(circle,rgba(0,200,240,0.07) 0%,transparent 70%);"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">Momentum</div>
+      <h2 class="section-title">We have not been<br />waiting. We have<br />been building.</h2>
+
+      <div class="traction-cols">
+        <div class="traction-left">
+          <div class="tl-label">Progress</div>
+          <ul class="milestone-list">
+            <li>
+              <span class="ms-period">Platform</span>
+              <span class="ms-text">Core identity engine, scoring model, and business portal are built and live.</span>
+            </li>
+            <li>
+              <span class="ms-period">Product</span>
+              <span class="ms-text">Financer portal and developer API in active development. Pulse Card engine fully architected.</span>
+            </li>
+            <li>
+              <span class="ms-period">Ecosystem</span>
+              <span class="ms-text">Compatibility mapped across major Nigerian commercial banks, digital banks, and payment platforms.</span>
+            </li>
+            <li>
+              <span class="ms-period">Team</span>
+              <span class="ms-text">Founding team with deep expertise across financial infrastructure, data systems, and African markets.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="tl-label">Why Now</div>
+          <ul class="why-now-list">
+            <li>
+              <div class="wn-label">Open Banking Momentum</div>
+              <div class="wn-body">CBN policy shifts and expanding API standards across Nigerian banks are creating exactly the technical foundation Creditlinker is building on. The window is open right now.</div>
+            </li>
+            <li>
+              <div class="wn-label">Digital-First SME Adoption</div>
+              <div class="wn-body">Nigerian businesses have moved online. Rich financial data is being generated every day at scale. It sits unstructured and unused. Creditlinker is the infrastructure that finally makes it count.</div>
+            </li>
+            <li>
+              <div class="wn-label">Lender Demand for Better Data</div>
+              <div class="wn-body">Microfinance institutions and digital lenders are actively looking for underwriting infrastructure that cuts cost and improves accuracy. The demand is real. The supply does not exist yet.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-num">13 / 16</div>
+  </div>
+
+
+  <!-- ══ 14 THE BILLION-DOLLAR NARRATIVE (NEW) ════════ -->
+  <div class="slide s-billion">
+    <div class="dot-grid"></div>
+    <div class="glow-orb" style="width:600px;height:600px;top:-200px;right:-200px;background:radial-gradient(circle,rgba(0,200,240,0.06) 0%,transparent 70%);"></div>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow">The Venture Thesis</div>
+      <h2 class="section-title">Why this becomes<br />a billion-dollar<br />company.</h2>
+
+      <div class="billion-not">
+        <div class="billion-not-item">
+          <div class="bn-x">✕</div>
+          <div class="bn-text">Creditlinker is not underwriting loans</div>
+        </div>
+        <div class="billion-not-item">
+          <div class="bn-x">✕</div>
+          <div class="bn-text">Creditlinker is not a lender</div>
+        </div>
+        <div class="billion-not-item">
+          <div class="bn-x">✕</div>
+          <div class="bn-text">Creditlinker is not a credit bureau</div>
+        </div>
+      </div>
+
+      <div class="billion-is">
+        <div class="bi-label">What Creditlinker Actually Is</div>
+        <div class="bi-statement">
+          Creditlinker is building the <em>financial identity infrastructure</em> that institutions use to understand African businesses  and the company that becomes the default source of that identity becomes <em>critical infrastructure for the African economy.</em>
+        </div>
+      </div>
+
+      <div class="billion-outcome">
+        Every lender, fintech, supplier, insurer, investor, and government agency needs trusted business financial identity. <strong>The market for that infrastructure is not measured in loan volumes  it is measured in the total value of transactions, contracts, credit decisions, and capital flows that depend on it.</strong> That is the venture-scale outcome Creditlinker is positioned to capture.
+      </div>
+    </div>
+
+    <div class="slide-num">14 / 16</div>
+  </div>
+
+
+  <!-- ══ 15 BUSINESS MODEL ═══════════════════════════ -->
+  <div class="slide s-biz">
+    <div class="dot-grid light"></div>
+    <div class="wordmark dark">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.45;">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      Creditlinker
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow dark">Business Model</div>
+      <h2 class="section-title dark">Four ways to earn.<br />One network that<br />makes all of them stronger.</h2>
+
+      <div class="biz-streams">
+        <div class="biz-stream">
+          <div class="bs-label">Revenue Stream 01</div>
+          <div class="bs-title">Business Subscriptions</div>
+          <div class="bs-body">Businesses pay a monthly or annual fee to maintain their Creditlinker ID, access their identity dashboard, and share their profile with capital providers across the network.</div>
+        </div>
+        <div class="biz-stream highlight">
+          <div class="bs-label">Revenue Stream 02</div>
+          <div class="bs-title">Institutional API Access</div>
+          <div class="bs-body">Lenders, fintechs, and institutions pay for access to financial identity data, verification checks, and risk signals. Priced per call or under enterprise licence.</div>
+        </div>
+        <div class="biz-stream">
+          <div class="bs-label">Revenue Stream 03</div>
+          <div class="bs-title">Pulse Card Interchange</div>
+          <div class="bs-body">The Creditlinker Pulse Card earns interchange on every transaction. Unit economics improve as more creditworthy businesses join the platform and spend through it.</div>
+        </div>
+        <div class="biz-stream">
+          <div class="bs-label">Revenue Stream 04</div>
+          <div class="bs-title">Marketplace and Referral</div>
+          <div class="bs-body">Creditlinker connects verified businesses directly to matched capital providers, earning referral fees and commissions when financing successfully goes through.</div>
+        </div>
+      </div>
+
+      <div class="biz-footer">
+        <div class="bf-label">Defensibility</div>
+        <div class="bf-text">Every business that builds a Creditlinker ID adds to a proprietary dataset that sharpens scoring accuracy and deepens the platform's value for institutions. The more businesses that join, the better it works for everyone  and the harder it becomes to replicate.</div>
+      </div>
+    </div>
+
+    <div class="slide-num dark">15 / 16</div>
+  </div>
+
+
+  <!-- ══ 16 STRATEGIC VISION / CLOSE ═════════════════ -->
+  <div class="slide s-close">
+    <div class="dot-grid"></div>
+    <div class="glow-orb" style="width:700px;height:700px;bottom:-250px;right:-200px;background:radial-gradient(circle,rgba(0,200,240,0.07) 0%,transparent 70%);"></div>
+    <div class="cover-accent-line"></div>
+
+    <div class="cover-logo">
+      <svg width="36" height="36" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="28" height="28" rx="7" fill="#0A2540"/>
+        <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14" stroke="#00D4FF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M7 14C7 17.866 10.134 21 14 21H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#00D4FF"/>
+      </svg>
+      <span class="cover-logo-wordmark" style="font-size:18px;opacity:0.6;">Creditlinker</span>
+    </div>
+
+    <div class="inner">
+      <div class="eyebrow" style="margin-bottom:32px;margin-top:40px;">The Future</div>
+
+      <div class="vision-timeline">
+        <div class="vt-row now">
+          <div class="vt-era"><div class="vt-era-label">Today</div></div>
+          <div class="vt-content">
+            <div class="vt-title">Creditlinker scores businesses.</div>
+            <div class="vt-desc">We build verified financial identities from real transactional data, enabling lenders to make faster, smarter decisions on African SMEs.</div>
+          </div>
+        </div>
+        <div class="vt-row tomorrow">
+          <div class="vt-era"><div class="vt-era-label">Tomorrow</div></div>
+          <div class="vt-content">
+            <div class="vt-title">Institutions trust Creditlinker IDs.</div>
+            <div class="vt-desc">Banks query Creditlinker before lending. Suppliers check it before extending terms. Fintechs build on it. Governments verify against it. The ID becomes a prerequisite for access.</div>
+          </div>
+        </div>
+        <div class="vt-row eventually">
+          <div class="vt-era"><div class="vt-era-label">Eventually</div></div>
+          <div class="vt-content">
+            <div class="vt-title">Financial identity is the trust layer for African commerce.</div>
+            <div class="vt-desc">Creditlinker becomes the default source of business financial identity across Africa  the infrastructure that capital, suppliers, insurers, investors, and governments rely on to understand and trust businesses at scale.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vision-statement">
+        "We are building the <em>trust infrastructure</em> that powers business finance across Africa. The company that becomes the default source of financial identity becomes <em>critical to the African economy.</em>"
+      </div>
+
+      <div class="contact-block">
+        <div class="contact-item">
+          <div class="ci-label">Contact</div>
+          <div class="ci-value">giwamicheal@creditlinker.com.ng</div>
+        </div>
+        <div class="contact-item">
+          <div class="ci-label">Platform</div>
+          <div class="ci-value">creditlinker.com.ng</div>
+        </div>
+        <div class="contact-item">
+          <div class="ci-label">Classification</div>
+          <div class="ci-value" style="font-size:13px;color:rgba(255,255,255,0.45);">Confidential. For authorised recipients only.</div>
+        </div>
+        <div class="contact-item">
+          <div class="ci-label">Year</div>
+          <div class="ci-value">2026</div>
+        </div>
+      </div>
+
+      <div aria-hidden="true" style="position:absolute;bottom:32px;right:var(--pad);font-family:'Instrument Serif',serif;font-size:140px;font-weight:400;color:rgba(255,255,255,0.02);line-height:1;letter-spacing:-0.04em;pointer-events:none;user-select:none;">CL</div>
+    </div>
+
+    <div class="slide-num">16 / 16</div>
+  </div>
+
+</div>
+</body>
+</html>

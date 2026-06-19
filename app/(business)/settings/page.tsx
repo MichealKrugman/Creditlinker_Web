@@ -14,7 +14,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { apiCall } from "@/lib/api";
+import {
+  apiCall,
+  getAccountSettings,
+  updateProfile,
+  updateOpenToFinancing,
+  updateNotificationPrefs,
+  updateKyc,
+  changePassword,
+  createSupportTicket,
+} from "@/lib/api";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -212,7 +221,7 @@ function ChangePasswordModal({ bizId, onClose }: { bizId: string; onClose: () =>
       if (!user?.email) throw new Error("Could not verify current session.");
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: current });
       if (signInErr) throw new Error("Current password is incorrect.");
-      await apiCall("update-account-settings", { body: { action: "change_password", new_password: next } });
+      await changePassword(next);
       setSuccess(true);
       setTimeout(onClose, 1200);
     } catch (e: any) {
@@ -290,7 +299,7 @@ function SettingsContent() {
     setLoading(true);
     setLoadErr("");
     try {
-      const data = await apiCall<AccountSettings>("get-account-settings", {});
+      const data = await getAccountSettings();
       setSettings(data);
     } catch (e: any) {
       setLoadErr(e?.message ?? "Failed to load settings.");
@@ -383,9 +392,7 @@ function AccountTab({ settings, onRefresh }: { settings: AccountSettings; onRefr
   const handleSaveProfile = async () => {
     setSaving(true); setSaveErr(""); setSaveOk(false);
     try {
-      await apiCall("update-account-settings", {
-        body: { action: "update_profile", full_name: name.trim(), phone: phone.trim() },
-      });
+      await updateProfile({ full_name: name.trim(), phone: phone.trim() });
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
       onRefresh();
@@ -400,9 +407,7 @@ function AccountTab({ settings, onRefresh }: { settings: AccountSettings; onRefr
     setOpenToFin(v);      // optimistic
     setToggling(true);
     try {
-      await apiCall("update-account-settings", {
-        body: { action: "update_open_to_financing", open_to_financing: v },
-      });
+      await updateOpenToFinancing(v);
       // No onRefresh needed — the toggle is self-contained and already
       // wrote to the DB. discovery-match will pick up the new value.
     } catch {
@@ -497,31 +502,18 @@ function DeleteAccountModal({ settings, onClose }: { settings: AccountSettings; 
     setDeleting(true);
     setError("");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-business-data`,
-        {
-          method:  "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body:    JSON.stringify({ business_id: settings.business_id, confirmation_name: confirmName.trim(), reason: reason.trim() || null }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.code === 'OPEN_FINANCING') {
-          setError('You have active financing. Go to the Financing page, settle all open records, then return here to delete.');
-        } else {
-          setError(data.error ?? 'Deletion failed');
-        }
-        setDeleting(false);
-        return;
-      }
+      await apiCall("delete-business-data", {
+        body: { business_id: settings.business_id, confirmation_name: confirmName.trim(), reason: reason.trim() || null },
+      }); // note: delete-business-data has no named wrapper — apiCall is correct here
       // Don't sign out — user may have other businesses.
       // Redirect to "/" so the business selector shows remaining businesses.
       window.location.href = "/";
     } catch (e: any) {
-      setError(e?.message ?? "Something went wrong. Please try again.");
+      if (e?.code === 'OPEN_FINANCING') {
+        setError('You have active financing. Go to the Financing page, settle all open records, then return here to delete.');
+      } else {
+        setError(e?.message ?? 'Deletion failed');
+      }
       setDeleting(false);
     }
   };
@@ -754,9 +746,7 @@ function NotificationsTab({ settings, onRefresh }: { settings: AccountSettings; 
   const handleSave = async () => {
     setSaving(true); setSaveErr(""); setSaveOk(false);
     try {
-      await apiCall("update-account-settings", {
-        body: { action: "update_notification_prefs", preferences: prefs },
-      });
+      await updateNotificationPrefs(prefs);
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
     } catch (e: any) {
@@ -841,16 +831,16 @@ function KycTab({ settings, onRefresh }: { settings: AccountSettings; onRefresh:
   const handleSave = async () => {
     setSaving(true); setSaveErr(""); setSaveOk(false);
     try {
-      const payload: Record<string, any> = { action: "update_kyc" };
-      if (gender)   payload.gender    = gender;
-      if (dob)      payload.dob       = dob;
-      if (address)  payload.address   = address;
-      if (bvn)      payload.bvn       = bvn;
-      if (nin)      payload.nin       = nin;
-      if (idType)   payload.id_type   = idType;
-      if (idNumber) payload.id_number = idNumber;
-      if (idExpiry) payload.id_expiry = idExpiry;
-      await apiCall("update-account-settings", { body: payload });
+      await updateKyc({
+        ...(gender   && { gender }),
+        ...(dob      && { dob }),
+        ...(address  && { address }),
+        ...(bvn      && { bvn }),
+        ...(nin      && { nin }),
+        ...(idType   && { id_type:   idType }),
+        ...(idNumber && { id_number: idNumber }),
+        ...(idExpiry && { id_expiry: idExpiry }),
+      });
       setSaveOk(true);
       setBvn(""); setNin("");
       setTimeout(() => setSaveOk(false), 2500);
@@ -1025,10 +1015,7 @@ function SupportTab({ settings }: { settings: AccountSettings }) {
     if (!issueType || !subject.trim() || !description.trim()) return;
     setSubmitting(true); setSubmitErr("");
     try {
-      const res = await apiCall<{ success: boolean; ticket_id: string }>(
-        "update-account-settings",
-        { body: { action: "create_support_ticket", issue_type: issueType, subject: subject.trim(), description: description.trim() } }
-      );
+      const res = await createSupportTicket(issueType, subject.trim(), description.trim());
       setTicketId(res.ticket_id);
       setSubmitted(true);
     } catch (e: any) {

@@ -58,10 +58,11 @@ type ApiServiceStatus = {
 };
 
 type LiveMetrics = {
-  successRate:  number | null;  // 0–100
-  avgLatencyMs: number | null;
+  successRate:      number | null;  // 0–100
+  successRateTrend: number | null;  // pp delta vs previous 30d (positive = improved)
+  avgLatencyMs:     number | null;
   // trend: compare last 30d calls vs prev 30d calls
-  requestsTrend: number | null; // positive = growth %, negative = decline %
+  requestsTrend:    number | null; // positive = growth %, negative = decline %
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -207,7 +208,7 @@ export default function DeveloperOverviewPage() {
 
   // ── Live state ──────────────────────────────────────────
   const [recentEvents,   setRecentEvents]   = useState<RecentLog[]>([]);
-  const [metrics,        setMetrics]        = useState<LiveMetrics>({ successRate: null, avgLatencyMs: null, requestsTrend: null });
+  const [metrics, setMetrics] = useState<LiveMetrics>({ successRate: null, successRateTrend: null, avgLatencyMs: null, requestsTrend: null });
   const [serviceStatuses,setServiceStatuses]= useState<ApiServiceStatus[]>(
     API_SERVICES.map(s => ({ name: s.name, status: "unknown" as ServiceStatus }))
   );
@@ -247,16 +248,16 @@ export default function DeveloperOverviewPage() {
           .gte("requested_at", ago30);
 
         // Previous 30 days (30–60 days ago) — for trend comparison
-        const { count: prevCount } = await supabase
+        const { data: logs60, count: prevCount } = await supabase
           .from("developer_api_logs")
-          .select("id", { count: "exact", head: true })
+          .select("status_code", { count: "exact" })
           .eq("developer_id", account!.id)
           .gte("requested_at", ago60)
           .lt("requested_at", ago30);
 
         if (!logs30 || logs30.length === 0) {
           // No log data yet — leave nulls so UI shows "—" / "New"
-          setMetrics({ successRate: null, avgLatencyMs: null, requestsTrend: null });
+          setMetrics({ successRate: null, successRateTrend: null, avgLatencyMs: null, requestsTrend: null });
           return;
         }
 
@@ -269,6 +270,16 @@ export default function DeveloperOverviewPage() {
           ? latencies.reduce((a, b) => a + b, 0) / latencies.length
           : null;
 
+        // Success rate trend: current period pp minus previous period pp
+        let successRateTrend: number | null = null;
+        if (logs60 && logs60.length > 0) {
+          const prevSuccessful  = logs60.filter(l => l.status_code < 400).length;
+          const prevSuccessRate = (prevSuccessful / logs60.length) * 100;
+          successRateTrend = successRate - prevSuccessRate;
+          // Treat < 0.1pp delta as stable
+          if (Math.abs(successRateTrend) < 0.1) successRateTrend = 0;
+        }
+
         let requestsTrend: number | null = null;
         if (prevCount !== null && prevCount > 0) {
           requestsTrend = ((total - prevCount) / prevCount) * 100;
@@ -277,7 +288,7 @@ export default function DeveloperOverviewPage() {
           requestsTrend = null;
         }
 
-        setMetrics({ successRate, avgLatencyMs, requestsTrend });
+        setMetrics({ successRate, successRateTrend, avgLatencyMs, requestsTrend });
       } catch (err) {
         console.error("[overview] metrics fetch failed", err);
       } finally {
@@ -337,9 +348,7 @@ export default function DeveloperOverviewPage() {
       value: formatSuccessRate(metrics.successRate),
       sub:   hasActivity ? "Last 30 days" : "No requests yet",
       icon:  CheckCircle2,
-      trend: hasActivity
-        ? (metrics.successRate! >= 99 ? "Stable" : metrics.successRate! >= 95 ? "-1%" : "-5%")
-        : "New",
+      trend: hasActivity ? formatTrend(metrics.successRateTrend) : "New",
     },
     {
       label: "Avg Latency",

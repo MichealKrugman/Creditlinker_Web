@@ -196,12 +196,23 @@ export default function AdminAuditLogsPage() {
   const hasFilters = search || surface !== "All" || severity !== "All" || dateFrom || dateTo;
 
   async function handleExport() {
-    const { data } = await supabase
+    let query = supabase
       .from("platform_events")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(5000);
 
+    if (surface  !== "All") query = query.eq("surface",  surface);
+    if (severity !== "All") query = query.eq("severity", severity);
+    if (dateFrom) query = query.gte("created_at", dateFrom);
+    if (dateTo)   query = query.lte("created_at", dateTo + "T23:59:59");
+    if (search.trim()) {
+      query = query.or(
+        `event_type.ilike.%${search}%,message.ilike.%${search}%,actor_id.ilike.%${search}%`
+      );
+    }
+
+    const { data } = await query;
     if (!data) return;
     const csv = [
       ["id", "created_at", "surface", "event_type", "severity", "actor_id", "actor_type", "target_type", "target_id", "business_id", "message"].join(","),
@@ -216,7 +227,8 @@ export default function AdminAuditLogsPage() {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href     = url;
-    a.download = `platform-events-${new Date().toISOString().slice(0, 10)}.csv`;
+    const suffix = [surface !== "All" ? surface : "", severity !== "All" ? severity : "", dateFrom || dateTo ? "filtered" : ""].filter(Boolean).join("-");
+    a.download = `platform-events-${new Date().toISOString().slice(0, 10)}${suffix ? `-${suffix}` : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

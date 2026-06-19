@@ -8,9 +8,8 @@ import {
   Clock, Loader2, CheckCircle2, XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session-context";
-import { getMyInstitutionId } from "@/lib/institution";
+import { apiCall } from "@/lib/api";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -23,7 +22,7 @@ type DiscoveryMatch = {
   business_id: string;
   institution_id: string | null;
   criteria_id: string | null;
-  capital_category: string;         // primary category from discovery match
+  capital_category: string | null;         // primary category from discovery match
   capital_types: string[];          // ALL eligible types from readiness assessments
   match_score: number | null;
   status: MatchStatus;
@@ -175,7 +174,7 @@ function BusinessCard({
               )}
               {biz.status !== "consented" && <span style={{ fontSize: 10, color: "#D1D5DB" }}>·</span>}
               <span style={{ fontSize: 11, color: "#9CA3AF" }}>
-                {biz.capital_category.replace(/_/g, " ")}
+                {biz.capital_category ? biz.capital_category.replace(/_/g, " ") : "Direct consent"}
               </span>
             </div>
           </div>
@@ -337,181 +336,30 @@ export default function FinancerBusinesses() {
   const [statusFilter, setStatusFilter] = useState("All");
 
   /* ── Load ── */
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!user) return;
-    (async () => {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiCall<{
+        success: boolean;
+        institution_id: string;
+        matches: DiscoveryMatch[];
+      }>("get-financer-data", { body: { type: "businesses" } });
 
-      const instId = await getMyInstitutionId(user.id);
-
-      if (!instId) {
-        setError("No institution found. Please complete your institution setup.");
-        setLoading(false);
-        return;
-      }
-
-      setInstitutionId(instId);
-
-      // ── 1. Fetch ALL businesses ──────────────────────────────────
-      const { data: bizRows, error: bizErr } = await supabase
-        .from("businesses")
-        .select("business_id, name, financial_identity_id");
-
-      if (bizErr) {
-        console.error("businesses error:", bizErr);
-        setError(`Failed to load businesses: ${bizErr.message}`);
-        setLoading(false);
-        return;
-      }
-
-      // ── 2. Fetch active consent_records for this institution ──────
-      const { data: consentRows, error: consentErr } = await supabase
-        .from("consent_records")
-        .select("business_id, granted_at, permissions")
-        .eq("institution_id", instId)
-        .eq("is_active", true);
-
-      if (consentErr) {
-        console.error("consent_records error:", consentErr);
-      }
-
-      const consentedBizIds = new Set((consentRows ?? []).map((c: any) => c.business_id as string));
-
-      // ── 3. Fetch discovery_matches for this institution ──────────
-      const { data: matchRows, error: matchErr } = await supabase
-        .from("discovery_matches")
-        .select(
-          "match_id, anonymized_id, institution_id, criteria_id, " +
-          "capital_category, match_score, status, matched_at, " +
-          "access_requested_at, access_responded_at"
-        )
-        .eq("institution_id", instId);
-
-      if (matchErr) {
-        console.error("discovery_matches error:", matchErr);
-        setError(`Failed to load discovery matches: ${matchErr.message}`);
-        setLoading(false);
-        return;
-      }
-
-      // ── 4. Fetch ALL matches across ALL institutions (for "matched elsewhere" tag)
-      const { data: allMatchRows } = await supabase
-        .from("discovery_matches")
-        .select("anonymized_id, institution_id");
-
-      const matchedElsewhereIds = new Set<string>();
-      (allMatchRows ?? []).forEach((m: any) => {
-        if (m.institution_id !== instId) matchedElsewhereIds.add(m.anonymized_id);
-      });
-
-      // ── 5. Fetch readiness assessments for ALL businesses ────────
-      //    finance_type (e.g. "revenue_advance") is the real product key.
-      //    status "ready" | "almost_ready" = eligible / conditional.
-      //    We only care about ready/almost_ready to populate the filter.
-      const { data: readinessRows } = await supabase
-        .from("financing_readiness_assessments")
-        .select("business_id, finance_type, capital_category, status")
-        .in("status", ["ready", "almost_ready"]);
-
-      // Build lookup: business_id → Set of normalised capital type strings
-      // Normalise: underscores→spaces, lowercase — matches CAPITAL_CATS comparison
-      const readinessByBiz: Record<string, Set<string>> = {};
-      (readinessRows ?? []).forEach((r: any) => {
-        if (!readinessByBiz[r.business_id]) readinessByBiz[r.business_id] = new Set();
-        // Add both finance_type and capital_category (normalised) so either works
-        if (r.finance_type)      readinessByBiz[r.business_id].add(r.finance_type.replace(/_/g, " ").toLowerCase());
-        if (r.capital_category)  readinessByBiz[r.business_id].add(r.capital_category.replace(/_/g, " ").toLowerCase());
-      });
-
-      // ── 6. Build lookup: financial_identity_id → this institution's match
-      const matchByAnonId: Record<string, any> = {};
-      (matchRows ?? []).forEach((m: any) => { matchByAnonId[m.anonymized_id] = m; });
-
-      // ── 7. Merge every business with its match + readiness types ─
-      const shaped: DiscoveryMatch[] = (bizRows ?? []).map((b: any) => {
-        const match            = b.financial_identity_id ? matchByAnonId[b.financial_identity_id] : null;
-        const matchedElsewhere = matchedElsewhereIds.has(b.financial_identity_id ?? b.business_id);
-        const capitalTypes     = Array.from(readinessByBiz[b.business_id] ?? []);
-        // consent_records is the source of truth — override status if an active consent exists
-        const hasConsent       = consentedBizIds.has(b.business_id);
-
-        if (match) {
-          const effectiveStatus: MatchStatus = hasConsent ? "consented" : match.status as MatchStatus;
-          return {
-            match_id:             match.match_id,
-            anonymized_id:        b.financial_identity_id ?? match.anonymized_id,
-            business_id:          b.business_id,
-            institution_id:       match.institution_id,
-            criteria_id:          match.criteria_id,
-            capital_category:     match.capital_category,
-            capital_types:        capitalTypes,
-            match_score:          match.match_score,
-            status:               effectiveStatus,
-            matched_at:           match.matched_at,
-            access_requested_at:  match.access_requested_at,
-            access_responded_at:  match.access_responded_at,
-            business_name:        effectiveStatus === "consented" ? b.name : null,
-            matched_elsewhere:    matchedElsewhere,
-          };
-        }
-
-        // No match row — but may still have a direct consent
-        if (hasConsent) {
-          return {
-            match_id:             `consented-${b.business_id}`,
-            anonymized_id:        b.financial_identity_id ?? b.business_id,
-            business_id:          b.business_id,
-            institution_id:       instId,
-            criteria_id:          null,
-            capital_category:     "Unknown",
-            capital_types:        capitalTypes,
-            match_score:          null,
-            status:               "consented" as MatchStatus,
-            matched_at:           null,
-            access_requested_at:  null,
-            access_responded_at:  null,
-            business_name:        b.name,
-            matched_elsewhere:    matchedElsewhere,
-          };
-        }
-
-        return {
-          match_id:             `unmatched-${b.business_id}`,
-          anonymized_id:        b.financial_identity_id ?? b.business_id,
-          business_id:          b.business_id,
-          institution_id:       null,
-          criteria_id:          null,
-          capital_category:     "Unknown",
-          capital_types:        capitalTypes,
-          match_score:          null,
-          status:               "unmatched" as MatchStatus,
-          matched_at:           null,
-          access_requested_at:  null,
-          access_responded_at:  null,
-          business_name:        null,
-          matched_elsewhere:    matchedElsewhere,
-        };
-      });
-
-      // Sort: matched (by score desc) first, unmatched at end
-      shaped.sort((a, b) => {
-        if (a.match_score !== null && b.match_score !== null)
-          return b.match_score - a.match_score;
-        if (a.match_score !== null) return -1;
-        if (b.match_score !== null) return 1;
-        return 0;
-      });
-
-      setMatches(shaped);
+      setInstitutionId(res.institution_id);
+      setMatches(res.matches);
+    } catch (err: any) {
+      setError(err.message ?? "Failed to load businesses.");
+    } finally {
       setLoading(false);
-    })();
+    }
   }, [user]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   /* ── Request access ── */
   const handleRequestAccess = useCallback(async (matchId: string) => {
-    if (!institutionId) return;
-
     const now = new Date().toISOString();
 
     // Optimistic update
@@ -523,14 +371,12 @@ export default function FinancerBusinesses() {
       )
     );
 
-    const { error } = await supabase
-      .from("discovery_matches")
-      .update({ status: "access_requested", access_requested_at: now })
-      .eq("match_id", matchId)
-      .eq("institution_id", institutionId);
-
-    if (error) {
-      // Revert
+    try {
+      await apiCall("get-financer-data", {
+        body: { type: "request-access", match_id: matchId },
+      });
+    } catch (err: any) {
+      // Revert on failure
       setMatches(prev =>
         prev.map(m =>
           m.match_id === matchId
@@ -538,21 +384,21 @@ export default function FinancerBusinesses() {
             : m
         )
       );
-      console.error("Request access failed:", error.message);
+      console.error("Request access failed:", err.message);
     }
-  }, [institutionId]);
+  }, []);
 
   /* ── Filter + sort ── */
   const filtered = matches
     .filter(b => {
       const matchQ = query === "" ||
         b.anonymized_id.toLowerCase().includes(query.toLowerCase()) ||
-        b.capital_category.toLowerCase().includes(query.toLowerCase()) ||
+        (b.capital_category ?? "").toLowerCase().includes(query.toLowerCase()) ||
         (b.business_name ?? "").toLowerCase().includes(query.toLowerCase());
       // Normalize both sides to lowercase+spaces for comparison
       const matchC = capCat === "All Types" ||
         b.capital_types.some(t => t === capCat.toLowerCase()) ||
-        b.capital_category.replace(/_/g, " ").toLowerCase() === capCat.toLowerCase();
+        (b.capital_category ?? "").replace(/_/g, " ").toLowerCase() === capCat.toLowerCase();
       const matchSt = statusFilter === "All" || b.status === statusFilter;
       return matchQ && matchC && matchSt;
     })
@@ -709,7 +555,7 @@ export default function FinancerBusinesses() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
           {filtered.map(b => (
-            <BusinessCard key={b.match_id} biz={b} onRequestAccess={handleRequestAccess} />
+            <BusinessCard key={b.match_id ?? b.anonymized_id} biz={b} onRequestAccess={handleRequestAccess} />
           ))}
         </div>
       )}

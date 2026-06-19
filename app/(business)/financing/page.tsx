@@ -961,9 +961,9 @@ function SettleButton({
         ]
       );
       setTotalPaid(res.total_paid);
+      onSettled?.();
       if (res.fully_settled) {
         setFullySettled(true);
-        onSettled?.();
         setOpen(false);
       }
       setReference("");
@@ -1951,7 +1951,7 @@ export default function FinancingPage() {
                 </Link>
               }
             />
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px 16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10, padding: "12px 16px 16px" }}>
               {readiness.map((item) => (
                 <ReadinessCard
                   key={item.assessment_id}
@@ -2160,10 +2160,10 @@ export default function FinancingPage() {
                     key={req.match_id}
                     item={req}
                     onDecision={(id, decision) => {
-                      setIncomingRequests((prev) =>
-                        prev.filter((r) => r.match_id !== id)
-                      );
-                      if (decision === "approve") loadData();
+                    setIncomingRequests((prev) =>
+                    prev.filter((r) => r.match_id !== id)
+                    );
+                    loadData();
                     }}
                   />
                 ))}

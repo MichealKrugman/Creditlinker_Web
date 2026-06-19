@@ -894,6 +894,7 @@ export default function FinancerDashboard() {
   const { user } = useSession();
 
   const [institutionName, setInstitutionName] = useState("");
+  const [institutionId,   setInstitutionId]   = useState<string | null>(null);
   const [currentMember,   setCurrentMember]   = useState<MemberRow | null>(null);
   const [allMembers,      setAllMembers]       = useState<MemberRow[]>([]);
   const [allRecords,      setAllRecords]       = useState<FinancingRecord[]>([]);
@@ -901,56 +902,125 @@ export default function FinancerDashboard() {
   const [activityLogs,    setActivityLogs]     = useState<ActivityLog[]>([]);
   const [consentCount,    setConsentCount]     = useState(0);
   const [loadingData,     setLoadingData]      = useState(true);
+  // Track which views have already been fetched so we don't re-fetch on tab switch
+  const loadedViews = useMemo(() => new Set<string>(), []);
 
+  // ── Phase 1: resolve identity (always runs on mount) ──────────────────────
   useEffect(() => {
     if (!user) return;
-    async function load() {
-      const { institutionId, institution: inst, member: me } = await getMyInstitutionContext(user!.id);
-      if (!institutionId || !inst) { setLoadingData(false); return; }
+    async function bootstrap() {
+      const { institutionId: instId, institution: inst, member: me } = await getMyInstitutionContext(user!.id);
+      if (!instId || !inst) { setLoadingData(false); return; }
       setInstitutionName(inst.name);
-
-      const [membersRes, recordsRes, matchesRes, activityRes] = await Promise.all([
-        supabase.from("institution_members").select("id, user_id, role, team_lead_id, full_name, email").eq("institution_id", institutionId).order("created_at"),
-        supabase.from("financing_records").select("financing_id, business_id, capital_category, terms, status, granted_at, settled_at, created_by_member_id").eq("institution_id", institutionId).order("granted_at", { ascending: false }),
-        supabase.from("discovery_matches").select("match_id, anonymized_id, capital_category, match_score, matched_at, status, access_requested_at, created_by_member_id").eq("institution_id", institutionId).order("match_score", { ascending: false }),
-        supabase.from("financer_activity_logs").select("id, member_id, action, target_type, target_id, metadata, created_at").eq("institution_id", institutionId).order("created_at", { ascending: false }).limit(20),
-      ]);
-
-      const rawMembers  = membersRes.data  ?? [];
-      const rawRecords  = recordsRes.data  ?? [];
-      const rawMatches  = matchesRes.data  ?? [];
-      const rawActivity = activityRes.data ?? [];
-
-      const membersWithStats: MemberRow[] = rawMembers.map(m => ({
-        ...m,
-        active_requests: rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
-        active_portfolio: rawRecords.filter(x => x.created_by_member_id === m.id && x.status === "active").reduce((s, r) => s + getAmount(r.terms), 0),
-        pending_actions: rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
-      }));
-
-      setAllMembers(membersWithStats);
-      setAllRecords(rawRecords);
-      setAllMatches(rawMatches);
-      setActivityLogs(rawActivity);
-
+      setInstitutionId(instId);
       if (me) {
-        const meWithStats = membersWithStats.find(m => m.id === me.id) ?? { ...me, active_requests: 0, active_portfolio: 0, pending_actions: 0 };
-        setCurrentMember(meWithStats);
+        // Set member with zero stats initially; they'll be filled when data loads
+        setCurrentMember({ ...me, active_requests: 0, active_portfolio: 0, pending_actions: 0 });
       }
-
-      const { count } = await supabase
-        .from("consent_records")
-        .select("consent_id", { count: "exact", head: true })
-        .eq("institution_id", institutionId)
-        .eq("is_active", true);
-      setConsentCount(count ?? 0);
-      setLoadingData(false);
     }
-    load();
+    bootstrap();
   }, [user]);
 
-  const role: OrgRole = currentMember?.role ?? "analyst";
+  // ── View state (must be declared before Phase 2 effect) ──────────────────
   type ViewKey = "org" | "team" | "personal";
+  const [view, setView] = useState<ViewKey>("personal");
+  // Once we know the member's role, set the correct default view (runs once)
+  const viewInitialised = useMemo(() => ({ done: false }), []);
+  useEffect(() => {
+    if (!currentMember || viewInitialised.done) return;
+    viewInitialised.done = true;
+    const defaultView: ViewKey =
+      (currentMember.role === "owner" || currentMember.role === "admin") ? "org"
+      : currentMember.role === "team_lead" ? "team"
+      : "personal";
+    setView(defaultView);
+  }, [currentMember?.role]);
+
+  // ── Phase 2: lazy-load data per view ─────────────────────────────────────
+  useEffect(() => {
+    if (!institutionId || !currentMember) return;
+    const v = view;
+    if (loadedViews.has(v)) return; // already fetched this view
+    loadedViews.add(v);
+    setLoadingData(true);
+
+    async function loadView() {
+      if (v === "org") {
+        // Org view needs: all members, all records, all matches, activity logs
+        const [membersRes, recordsRes, matchesRes, activityRes] = await Promise.all([
+          supabase.from("institution_members").select("id, user_id, role, team_lead_id, full_name, email").eq("institution_id", institutionId!).order("created_at"),
+          supabase.from("financing_records").select("financing_id, business_id, capital_category, terms, status, granted_at, settled_at, created_by_member_id").eq("institution_id", institutionId!).order("granted_at", { ascending: false }),
+          supabase.from("discovery_matches").select("match_id, anonymized_id, capital_category, match_score, matched_at, status, access_requested_at, created_by_member_id").eq("institution_id", institutionId!).order("match_score", { ascending: false }),
+          supabase.from("financer_activity_logs").select("id, member_id, action, target_type, target_id, metadata, created_at").eq("institution_id", institutionId!).order("created_at", { ascending: false }).limit(20),
+        ]);
+        const rawMembers  = membersRes.data  ?? [];
+        const rawRecords  = recordsRes.data  ?? [];
+        const rawMatches  = matchesRes.data  ?? [];
+        const rawActivity = activityRes.data ?? [];
+        const membersWithStats: MemberRow[] = rawMembers.map(m => ({
+          ...m,
+          active_requests:  rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
+          active_portfolio: rawRecords.filter(x => x.created_by_member_id === m.id && x.status === "active").reduce((s, r) => s + getAmount(r.terms), 0),
+          pending_actions:  rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
+        }));
+        setAllMembers(membersWithStats);
+        setAllRecords(rawRecords);
+        setAllMatches(rawMatches);
+        setActivityLogs(rawActivity);
+        const meWithStats = membersWithStats.find(m => m.id === currentMember!.id);
+        if (meWithStats) setCurrentMember(meWithStats);
+
+      } else if (v === "team") {
+        // Team lead view: all members (for workload), records + matches scoped to team
+        const memberId = currentMember!.id;
+        const [membersRes, recordsRes, matchesRes, activityRes] = await Promise.all([
+          supabase.from("institution_members").select("id, user_id, role, team_lead_id, full_name, email").eq("institution_id", institutionId!).order("created_at"),
+          supabase.from("financing_records").select("financing_id, business_id, capital_category, terms, status, granted_at, settled_at, created_by_member_id").eq("institution_id", institutionId!).order("granted_at", { ascending: false }),
+          supabase.from("discovery_matches").select("match_id, anonymized_id, capital_category, match_score, matched_at, status, access_requested_at, created_by_member_id").eq("institution_id", institutionId!).order("match_score", { ascending: false }),
+          // Activity scoped to team only
+          supabase.from("financer_activity_logs").select("id, member_id, action, target_type, target_id, metadata, created_at").eq("institution_id", institutionId!).order("created_at", { ascending: false }).limit(30),
+        ]);
+        const rawMembers  = membersRes.data  ?? [];
+        const rawRecords  = recordsRes.data  ?? [];
+        const rawMatches  = matchesRes.data  ?? [];
+        const rawActivity = activityRes.data ?? [];
+        const membersWithStats: MemberRow[] = rawMembers.map(m => ({
+          ...m,
+          active_requests:  rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
+          active_portfolio: rawRecords.filter(x => x.created_by_member_id === m.id && x.status === "active").reduce((s, r) => s + getAmount(r.terms), 0),
+          pending_actions:  rawMatches.filter(x => x.created_by_member_id === m.id && x.status === "access_requested").length,
+        }));
+        setAllMembers(membersWithStats);
+        setAllRecords(rawRecords);
+        setAllMatches(rawMatches);
+        setActivityLogs(rawActivity);
+        const meWithStats = membersWithStats.find(m => m.id === memberId);
+        if (meWithStats) setCurrentMember(meWithStats);
+
+      } else {
+        // Personal view: only this member's records + matches + consent count
+        const memberId = currentMember!.id;
+        const isOwnerOrAdminRole = currentMember!.role === "owner" || currentMember!.role === "admin";
+        const [recordsRes, matchesRes, consentRes] = await Promise.all([
+          isOwnerOrAdminRole
+            ? supabase.from("financing_records").select("financing_id, business_id, capital_category, terms, status, granted_at, settled_at, created_by_member_id").eq("institution_id", institutionId!).order("granted_at", { ascending: false })
+            : supabase.from("financing_records").select("financing_id, business_id, capital_category, terms, status, granted_at, settled_at, created_by_member_id").eq("institution_id", institutionId!).eq("created_by_member_id", memberId).order("granted_at", { ascending: false }),
+          isOwnerOrAdminRole
+            ? supabase.from("discovery_matches").select("match_id, anonymized_id, capital_category, match_score, matched_at, status, access_requested_at, created_by_member_id").eq("institution_id", institutionId!).order("match_score", { ascending: false })
+            : supabase.from("discovery_matches").select("match_id, anonymized_id, capital_category, match_score, matched_at, status, access_requested_at, created_by_member_id").eq("institution_id", institutionId!).eq("created_by_member_id", memberId).order("match_score", { ascending: false }),
+          supabase.from("consent_records").select("consent_id", { count: "exact", head: true }).eq("institution_id", institutionId!).eq("is_active", true),
+        ]);
+        setAllRecords(recordsRes.data ?? []);
+        setAllMatches(matchesRes.data ?? []);
+        setConsentCount(consentRes.count ?? 0);
+      }
+      setLoadingData(false);
+    }
+    loadView();
+  }, [institutionId, currentMember?.id, view]);
+
+  const role: OrgRole = currentMember?.role ?? "analyst";
+
   const viewOptions: { key: ViewKey; label: string; icon: React.ReactNode }[] = [];
   if (role === "owner" || role === "admin") {
     viewOptions.push(
@@ -963,8 +1033,6 @@ export default function FinancerDashboard() {
       { key: "personal", label: "My Work", icon: <LayoutDashboard size={13} /> },
     );
   }
-  const defaultView: ViewKey = (role === "owner" || role === "admin") ? "org" : role === "team_lead" ? "team" : "personal";
-  const [view, setView] = useState<ViewKey>(defaultView);
 
   const isOwnerOrAdmin = role === "owner" || role === "admin";
   const myTeam      = currentMember ? allMembers.filter(m => m.team_lead_id === currentMember.id) : [];

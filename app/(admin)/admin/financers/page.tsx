@@ -12,26 +12,9 @@ import { Input } from "@/components/ui/input";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { callEdgeFn } from "@/lib/admin-api";
 
-async function callFn(name: string, body?: object, method: "POST" | "GET" = "GET") {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? "";
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    },
-    ...(method === "POST" && body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+const callFn = callEdgeFn;
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS
@@ -149,7 +132,7 @@ export default function AdminFinancersPage() {
       const metrics: Record<string, any> = {};
       for (const id of instIds) metrics[id] = { active_consents: 0, active_financing: 0, portfolio_ngn: 0, disputes: 0 };
       for (const c of consentRows)   { if (c.is_active && metrics[c.institution_id]) metrics[c.institution_id].active_consents++; }
-      for (const f of financingRows) { if (f.status === "active" && metrics[f.institution_id]) { metrics[f.institution_id].active_financing++; metrics[f.institution_id].portfolio_ngn += (f.terms as any)?.principal ?? (f.terms as any)?.amount ?? 0; } }
+      for (const f of financingRows) { if (f.status === "active" && metrics[f.institution_id]) { metrics[f.institution_id].active_financing++; metrics[f.institution_id].portfolio_ngn += (f.terms as any)?.financing_amount ?? (f.terms as any)?.principal ?? (f.terms as any)?.amount ?? 0; } }
       for (const d of disputeRows)   { if (metrics[d.institution_id]) metrics[d.institution_id].disputes++; }
 
       setFinancers((instRows ?? []).map((inst: any) => ({
@@ -191,12 +174,12 @@ export default function AdminFinancersPage() {
     if (!modal) return;
     setActionError("");
     try {
-      const fnMap = {
-        approve:   "admin-approve-financer",
-        suspend:   "admin-suspend-financer",
-        unsuspend: "admin-activate-financer",
+      const actionMap = {
+        approve:   "approve-financer",
+        suspend:   "suspend-financer",
+        unsuspend: "activate-financer",
       };
-      await callFn(fnMap[modal.type], { institution_id: modal.id, reason }, "POST");
+      await callFn("admin", { action: actionMap[modal.type], institution_id: modal.id, reason }, "POST");
       setModal(null);
       await load();
     } catch (e: any) {

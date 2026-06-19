@@ -17,9 +17,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (isLoginPage) return;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const role = session?.user?.app_metadata?.role;
-      if (!session || role !== "admin") {
+    // getUser() validates the JWT against the Supabase auth server on every
+    // call — it never trusts a locally cached session. A forged or revoked
+    // token will fail here regardless of what is stored in the browser.
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      const role = user?.app_metadata?.role;
+      if (error || !user || role !== "admin") {
         router.replace("/admin/login");
       } else {
         setChecking(false);

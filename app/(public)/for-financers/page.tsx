@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   Banknote,
   Lock,
-  BarChart3,
   Eye,
   ArrowUpRight,
   Layers,
@@ -15,7 +14,6 @@ import {
   Database,
   RefreshCw,
   Star,
-  AlertCircle,
   ChevronRight,
 } from "lucide-react";
 
@@ -188,7 +186,7 @@ export default function ForFinancersPage() {
                 <span style={{ color: "#00D4FF" }}>Know what you are getting into.</span>
               </h1>
               <p style={{ fontSize: 17, color: "#4B5563", lineHeight: 1.78, marginBottom: 36, maxWidth: 520 }}>
-                Whether you have ₦50,000 or ₦50 million to put to work, Creditlinker connects you to verified Nigerian businesses that need capital. You see their real financial data, pick how much to put in, choose your risk level, and earn returns as they grow.
+                Creditlinker connects institutional capital providers to verified Nigerian businesses that need capital. You see their real financial data, decide your own terms, and structure the financing directly with the business. Creditlinker builds the financial identity and gives you the evidence. The financing decision is always yours.
               </p>
               <div className="ff-hero-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
                 <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0A2540", color: "white", padding: "13px 24px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 2px 8px rgba(10,37,64,0.18)" }}>
@@ -270,21 +268,15 @@ export default function ForFinancersPage() {
           <SectionHeading
             id="who-heading"
             badge={<Badge><Landmark size={10} aria-hidden="true" /> Who can be a financer</Badge>}
-            title="Institutions first. Individuals coming soon."
-            sub="We are currently onboarding institutional capital providers: banks, microfinance institutions, equipment financiers, and trade suppliers. Individual financer access opens in phases. Join the waitlist to be notified."
+            title="Built for institutional capital providers."
+            sub="Creditlinker is currently onboarding institutional capital providers: banks, microfinance institutions, equipment financiers, and trade suppliers. Each one gets access to verified business identity data to make their own financing decisions."
             center
           />
-          <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 40 }}>
-            <ProviderCard
-              icon={<Banknote size={20} aria-hidden="true" />}
-              type="Individual financers"
-              desc="Individual financer onboarding is not yet open. We are currently working with institutional capital providers first and will open individual access in phases. Join the waitlist and we will reach out when individual sign-ups open."
-              examples={["Coming soon", "Join the waitlist", "Institutional access open now"]}
-            />
+          <div style={{ maxWidth: 720, margin: "0 auto 40px" }}>
             <ProviderCard
               icon={<Landmark size={20} aria-hidden="true" />}
               type="Institutions and funds"
-              desc="Banks, microfinance institutions, equipment financiers, and trade suppliers. You get access to verified six-dimensional business profiles and deploy capital at scale. Every access event is logged. Every decision has an evidence trail."
+              desc="Banks, microfinance institutions, equipment financiers, and trade suppliers. You get access to verified six-dimensional business profiles to make your own financing decisions. Every access event is logged. Every decision has an evidence trail."
               examples={["Working capital", "Equipment financing", "Invoice and revenue finance", "Trade credit"]}
             />
           </div>
@@ -330,191 +322,13 @@ export default function ForFinancersPage() {
         </div>
       </section>
 
-      {/* HOW UNITS WORK */}
-      <section aria-labelledby="frac-heading" className="ff-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
-        <GridBg />
-        <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "20%", left: "-6%", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
-        <div className="ff-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
-          <div className="ff-data-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-            <div>
-              <div style={{ marginBottom: 20 }}><Badge><Layers size={10} aria-hidden="true" /> How financing units work</Badge></div>
-              <h2 id="frac-heading" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,46px)", letterSpacing: "-0.035em", color: "white", lineHeight: 1.1, marginBottom: 20 }}>
-                Each financing deal<br />
-                <span style={{ color: "#00D4FF" }}>is split into units.</span>
-              </h2>
-              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, marginBottom: 36 }}>
-                No single person funds an entire deal alone. A ₦5 million financing is broken into 100 units of ₦50,000 each. Multiple financers buy in. If the business has trouble repaying, no single person carries the full weight.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                {[
-                  { title: "No one person carries the risk alone", desc: "If a business stops repaying, the impact is shared across all unit holders. One default does not destroy one investor." },
-                  { title: "You control how much you put in", desc: "Buy 1 unit (₦50k) or 10 units (₦500k). Mix across different businesses, financing types, and risk levels." },
-                  { title: "Harder to game the system", desc: "Because capital comes in small slices from many people, no single financer is a big target. Each unit is independently tracked." },
-                  { title: "Returns are priced by the market", desc: "Safer deals get funded faster. Riskier ones attract higher return demands. The platform reflects real risk, not flat pricing." },
-                ].map((f) => <CheckItem key={f.title} title={f.title} desc={f.desc} dark />)}
-              </div>
-            </div>
-            <div>
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, overflow: "hidden" }}>
-                <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 2 }}>Financing unit breakdown · Aduke Bakeries Ltd.</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "white", fontFamily: "var(--font-display)" }}>Working Capital · ₦5,000,000 total</p>
-                </div>
-                <div style={{ padding: "18px 20px" }}>
-                  {[
-                    { label: "Unit size",          value: "₦50,000" },
-                    { label: "Total units",         value: "100 units" },
-                    { label: "Reserve per unit",    value: "₦5,000 (10%)" },
-                    { label: "Active unit holders", value: "87 financers" },
-                    { label: "Units available",     value: "13 units left" },
-                  ].map((row, i) => (
-                    <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>{row.label}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "white" }}>{row.value}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", marginBottom: 10 }}>Units by risk level</p>
-                  {[
-                    { tranche: "Safe",        units: 45, color: "#10B981", pct: "45%" },
-                    { tranche: "Balanced",    units: 30, color: "#F59E0B", pct: "30%" },
-                    { tranche: "High-return", units: 12, color: "#EF4444", pct: "12%" },
-                  ].map((t) => (
-                    <div key={t.tranche} style={{ marginBottom: 10 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 4 }}>
-                        <span>{t.tranche}</span>
-                        <span style={{ color: t.color, fontWeight: 700 }}>{t.units} units ({t.pct})</span>
-                      </div>
-                      <div style={{ height: 5, borderRadius: 9999, background: "rgba(255,255,255,0.07)" }}>
-                        <div style={{ height: "100%", width: t.pct, background: t.color, borderRadius: 9999 }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 10 }}>
-                  <div style={{ flex: 1, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", borderRadius: 9, padding: "10px 14px", textAlign: "center" }}>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Your position</p>
-                    <p style={{ fontSize: 16, fontWeight: 800, color: "#00D4FF", fontFamily: "var(--font-display)" }}>2 units</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>₦100,000</p>
-                  </div>
-                  <div style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9, padding: "10px 14px", textAlign: "center" }}>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Expected return</p>
-                    <p style={{ fontSize: 16, fontWeight: 800, color: "white", fontFamily: "var(--font-display)" }}>₦24,000</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>24% p.a. balanced</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* RISK LEVELS */}
-      <section aria-labelledby="tranches-heading" className="ff-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
-        <div className="ff-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
-          <SectionHeading
-            id="tranches-heading"
-            badge={<Badge><BarChart3 size={10} aria-hidden="true" /> Risk levels</Badge>}
-            title="Pick the risk level that fits you."
-            sub="Every financing deal has three levels you can choose from. Lower risk means lower returns. Higher risk means higher returns. You decide."
-            center
-          />
-          <div className="ff-type-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
-            {[
-              {
-                name: "Safe",
-                color: "#10B981",
-                range: "12 to 16% p.a.",
-                priority: "Paid back first",
-                protection: "Your units are covered by the reserve fund and insurance first. If the business does not repay, you are the last to take a loss.",
-                exposure: "Lowest risk",
-                best: "If you want steady returns and prefer to sleep well at night."
-              },
-              {
-                name: "Balanced",
-                color: "#F59E0B",
-                range: "18 to 24% p.a.",
-                priority: "Paid back second",
-                protection: "Partial coverage from reserve and insurance. You absorb some loss only after high-return holders take their share first.",
-                exposure: "Medium risk",
-                best: "If you want better returns and are comfortable with some exposure across a diversified set of deals."
-              },
-              {
-                name: "High-return",
-                color: "#EF4444",
-                range: "26 to 34% p.a.",
-                priority: "First to take a loss",
-                protection: "No reserve cover. You take the first hit if a business does not repay. The higher return is your compensation for accepting that.",
-                exposure: "Highest risk",
-                best: "If you understand private credit risk and want maximum returns across a wide portfolio."
-              },
-            ].map((t) => (
-              <div key={t.name} style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 18, padding: 28, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color, marginTop: 5 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: t.color, background: `${t.color}12`, border: `1px solid ${t.color}25`, padding: "3px 10px", borderRadius: 9999 }}>{t.exposure}</span>
-                </div>
-                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#0A2540", letterSpacing: "-0.025em", marginBottom: 6 }}>{t.name}</h3>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: t.color, letterSpacing: "-0.035em", marginBottom: 4, lineHeight: 1 }}>{t.range}</div>
-                <p style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 16 }}>Target return</p>
-                <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 3 }}>Repayment order: {t.priority}</p>
-                  <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.65 }}>{t.protection}</p>
-                </div>
-                <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65 }}><strong style={{ color: "#374151" }}>Good for:</strong> {t.best}</p>
-              </div>
-            ))}
-          </div>
-          <p style={{ textAlign: "center", fontSize: 13, color: "#9CA3AF", marginTop: 24 }}>Return ranges are targets, not guarantees. Actual returns depend on the business, deal type, and market conditions.</p>
-        </div>
-      </section>
-
-      {/* WHAT HAPPENS IF A BUSINESS DOES NOT REPAY */}
-      <section aria-labelledby="prot-heading" className="ff-section" style={{ padding: "88px 0", background: "white" }}>
-        <div className="ff-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
-          <div className="ff-data-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-            <div>
-              <div style={{ marginBottom: 20 }}><Badge><ShieldCheck size={10} aria-hidden="true" /> If a business does not repay</Badge></div>
-              <h2 id="prot-heading" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,44px)", letterSpacing: "-0.035em", color: "#0A2540", lineHeight: 1.1, marginBottom: 20 }}>
-                There are four things<br />that happen before<br />you lose anything.
-              </h2>
-              <p style={{ fontSize: 16, color: "#4B5563", lineHeight: 1.78, marginBottom: 32 }}>
-                We do not promise that every deal will pay back. What we do is make sure that if one does not, the impact on you is managed in layers rather than hitting you all at once.
-              </p>
-              <div style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "14px 18px", display: "flex", gap: 12 }}>
-                <AlertCircle size={16} aria-hidden="true" style={{ color: "#EF4444", flexShrink: 0, marginTop: 2 }} />
-                <p style={{ fontSize: 13, color: "#991B1B", lineHeight: 1.65 }}>Creditlinker uses the language "partial loss protection" and "managed risk", not "safe investment" or "guaranteed returns." You are putting capital into real businesses. There is real risk involved.</p>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                { step: "1", color: "#10B981", label: "The business repays normally",         desc: "Your principal plus returns come back. The reserve held per deal is returned to unit holders after the financing cycle ends." },
-                { step: "2", color: "#F59E0B", label: "The reserve fund steps in",            desc: "10% of every deal is set aside and invested in safe instruments. This pool is the first thing used to cover a shortfall if repayment stops." },
-                { step: "3", color: "#38BDF8", label: "Insurance pays out (where applicable)", desc: "Some deals have optional insurance coverage. If activated, the insurer covers part or all of the remaining gap according to the policy." },
-                { step: "4", color: "#A78BFA", label: "The asset is recovered (if there is one)", desc: "For equipment and asset-backed deals, the physical asset is taken back, sold, and the proceeds are returned to unit holders." },
-                { step: "+", color: "#9CA3AF", label: "The platform buffer absorbs the rest",  desc: "A shared pool covers any remaining gap. This affects platform profitability, not your principal beyond your risk level exposure." },
-              ].map((layer, i) => (
-                <div key={layer.step} style={{ display: "flex", gap: 14, background: i === 4 ? "#F9FAFB" : "white", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 16px" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: `${layer.color}12`, border: `1px solid ${layer.color}25`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 800, fontSize: 13, color: layer.color, fontFamily: "var(--font-display)" }}>{layer.step}</div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", marginBottom: 3 }}>{layer.label}</p>
-                    <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.65 }}>{layer.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* WHAT YOU CAN FINANCE */}
       <section aria-labelledby="loantypes-heading" className="ff-section" style={{ padding: "88px 0", background: "#F9FAFB" }}>
         <div className="ff-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
           <SectionHeading
             id="loantypes-heading"
             badge={<Badge><Layers size={10} aria-hidden="true" /> What you can finance</Badge>}
-            title={<>Five ways to put your<br />money to work.</>}
+            title={<>Multiple ways to put your<br />money to work.</>}
             sub="Each one has a different source of repayment and a different level of risk."
             center
           />
@@ -525,7 +339,7 @@ export default function ForFinancersPage() {
                 tag: "Debt financing",
                 risk: "Medium Risk",
                 rc: "#F59E0B",
-                security: "Repaid from the business's cashflow. Backed by their verified financial data and the reserve fund. Good for businesses that need cash now and pay it back over time.",
+                security: "Repaid from the business's cashflow. Backed by their verified financial data and track record. Good for businesses that need cash now and pay it back over time.",
                 types: ["Short-term loans", "Overdraft cover", "Working capital"]
               },
               {
@@ -668,7 +482,7 @@ export default function ForFinancersPage() {
               />
               <TimelineStep n="1" icon={<Landmark size={18} aria-hidden="true" />}
                 title="Create your account"
-                desc="Sign up as an individual or an institution. Tell us what kind of businesses you want to finance and how much you are looking to put in."
+                desc="Sign up as an institution. Tell us what kind of businesses you want to evaluate for financing and what you are looking for."
               />
               <TimelineStep n="2" icon={<Layers size={18} aria-hidden="true" />}
                 title="Set your criteria"
@@ -683,8 +497,8 @@ export default function ForFinancersPage() {
                 desc="You get their six financial measures, reliability score, key business metrics, and risk assessment. All of it comes from verified data, not from what the business told us about itself."
               />
               <TimelineStep n="5" icon={<Banknote size={18} aria-hidden="true" />}
-                title="Put your capital in and track it"
-                desc="Choose how many units you want to hold and at what risk level. The financing is structured on the platform. You track repayments, receive returns, and build a portfolio over time."
+                title="Agree terms and log the financing"
+                desc="You agree financing terms directly with the business and structure the deal between you. Log the offer and its terms on Creditlinker, then track repayments as they happen. Institutions can do this via the dashboard or connect directly through the API, so the financing activity is captured automatically and powered by Creditlinker behind the scenes. This record feeds back into the business's financial identity."
                 last
               />
 
@@ -772,8 +586,7 @@ export default function ForFinancersPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                 {[
                   { title: "Businesses control their own data",    desc: "Each business decides exactly what you can see. Score only, full profile, or transaction detail. They set it. You work within it." },
-                  { title: "Access expires automatically",         desc: "Every permission has a set end date. When it runs out, you lose access. No manual action needed from either side." },
-                  { title: "They can cut your access instantly",   desc: "A business can revoke your access at any time. It happens immediately." },
+                  { title: "Access expires automatically",         desc: "Every permission has a set end date. When it runs out, you lose access automatically. If there is an open obligation still being settled, such as an active financing arrangement, access continues until that obligation is resolved." },
                   { title: "Everything is on the record",         desc: "Every view, every offer, every data access is logged with who did it and when. Your financing decisions have a full evidence trail." },
                 ].map((f) => <CheckItem key={f.title} title={f.title} desc={f.desc} />)}
               </div>
@@ -835,68 +648,64 @@ export default function ForFinancersPage() {
         </div>
       </section>
 
-      {/* REPUTATION */}
-      <section aria-labelledby="rep-heading" className="ff-section" style={{ padding: "88px 0", background: "white" }}>
-        <div className="ff-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
-          <div className="ff-data-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-
+      {/* PULSE CARD */}
+      <section aria-label="Pulse Card" className="ff-section" style={{ padding: "88px 0", background: "#0A2540", position: "relative", overflow: "hidden" }}>
+        <GridBg />
+        <div aria-hidden="true" style={{ pointerEvents: "none", position: "absolute", top: "20%", right: "-5%", width: 560, height: 560, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)" }} />
+        <div className="ff-pad" style={{ position: "relative", maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 64, alignItems: "center" }}>
             <div>
-              <div style={{ marginBottom: 20 }}><Badge><Star size={10} aria-hidden="true" /> Your reputation on the platform</Badge></div>
-              <h2 id="rep-heading" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,3.5vw,44px)", letterSpacing: "-0.035em", color: "#0A2540", marginBottom: 20, lineHeight: 1.1 }}>
-                The better you behave,<br />the stronger your<br />standing gets.
-              </h2>
-              <p style={{ fontSize: 16, color: "#4B5563", lineHeight: 1.78, marginBottom: 36 }}>
-                Creditlinker tracks how you operate as a financing partner. Businesses can see your record before granting you access. A strong reputation means faster consent, better deals, and more trust from the businesses you want to reach.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                {[
-                  { title: "Deal completion rate",      desc: "How many deals you open versus how many you actually complete and settle. Businesses watch this." },
-                  { title: "Settlement speed",          desc: "How quickly you confirm repayments once a business has paid. Slow confirmations lower your standing." },
-                  { title: "Dispute record",            desc: "How disputes involving you are resolved. Clean records are a signal of a fair, trustworthy financing partner." },
-                  { title: "Capital activity",          desc: "Volume and variety of financing you have done. More activity across different business types signals genuine commitment." },
-                ].map((f) => <CheckItem key={f.title} title={f.title} desc={f.desc} />)}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "#00D4FF", fontSize: 11, fontWeight: 700, padding: "4px 14px", borderRadius: 9999, marginBottom: 20, letterSpacing: "0.08em" }}>
+                ⚡ NEW, JUST LAUNCHED
               </div>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: "clamp(26px,3.5vw,44px)", letterSpacing: "-0.04em", lineHeight: 1.08, marginBottom: 16 }}>
+                Introducing the{" "}
+                <span style={{ color: "#00D4FF" }}>Creditlinker Pulse Card</span>
+              </h2>
+              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.78, maxWidth: 480, marginBottom: 28 }}>
+                A business credit card with a limit that moves with the business&apos;s financial health. When a business performs well, their limit reflects that. In real time. Automatically. Powered by the same passport you already review.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+                {["Real-time dynamic limits", "Powered by the Creditlinker passport", "Business spend only"].map(tag => (
+                  <span key={tag} style={{ fontSize: 12, fontWeight: 600, color: "rgba(0,212,255,0.8)", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", padding: "4px 12px", borderRadius: 9999 }}>{tag}</span>
+                ))}
+              </div>
+              <Link
+                href="/products"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}
+              >
+                Learn about the Pulse Card <ArrowRight size={15} aria-hidden="true" />
+              </Link>
             </div>
 
-            <div>
-              <div style={{ background: "#0A2540", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 64px rgba(10,37,64,0.18), 0 0 0 1px rgba(255,255,255,0.06)", position: "relative" }}>
-                <GridBg />
-                <div style={{ padding: "18px 22px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 2 }}>Institution reputation</p>
-                  <p style={{ fontSize: 16, fontWeight: 700, color: "white", fontFamily: "var(--font-display)" }}>FastCash Microfinance</p>
+            <div style={{ flexShrink: 0 }}>
+              <div style={{
+                width: 300, height: 190,
+                borderRadius: 16,
+                background: "linear-gradient(135deg, #0d2d4e 0%, #061524 60%, #0a1e35 100%)",
+                boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.07)",
+                padding: "22px 24px",
+                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                position: "relative", overflow: "hidden",
+              }}>
+                <div aria-hidden="true" style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.18) 0%, transparent 70%)", pointerEvents: "none" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <p style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 3 }}>Creditlinker</p>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "0.02em" }}>PULSE</p>
+                  </div>
+                  <div style={{ display: "flex" }}>
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,212,255,0.25)", border: "1px solid rgba(0,212,255,0.4)" }} />
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", marginLeft: -8 }} />
+                  </div>
                 </div>
-
-                <div style={{ padding: "18px 22px" }}>
-                  {[
-                    { label: "Deal completion rate",   value: "94%", color: "#10B981", bar: 94 },
-                    { label: "Settlement speed",       value: "98%", color: "#38BDF8", bar: 98 },
-                    { label: "Dispute resolution",     value: "91%", color: "#818CF8", bar: 91 },
-                    { label: "Capital activity score", value: "87%", color: "#F59E0B", bar: 87 },
-                  ].map((m) => (
-                    <div key={m.label} style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 5 }}>
-                        <span>{m.label}</span>
-                        <span style={{ fontWeight: 700, color: m.color }}>{m.value}</span>
-                      </div>
-                      <div style={{ height: 5, borderRadius: 9999, background: "rgba(255,255,255,0.07)" }}>
-                        <div style={{ height: "100%", width: `${m.bar}%`, background: m.color, borderRadius: 9999 }} />
-                      </div>
-                    </div>
-                  ))}
+                <div>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(0,212,255,0.10)", border: "1px solid rgba(0,212,255,0.25)", color: "#00D4FF", fontSize: 8, fontWeight: 700, padding: "2px 7px", borderRadius: 9999, letterSpacing: "0.08em", marginBottom: 5 }}>
+                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#00D4FF", display: "inline-block" }} /> LIVE LIMIT
+                  </span>
+                  <p style={{ fontSize: 24, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "-0.04em", lineHeight: 1 }}>₦2,400,000</p>
                 </div>
-
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "14px 22px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-                  {[
-                    { l: "Active deals",   v: "14"    },
-                    { l: "Total deployed", v: "₦84M"  },
-                    { l: "Platform rank",  v: "Top 5%" },
-                  ].map((m, i) => (
-                    <div key={m.l} style={{ borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none", paddingRight: i < 2 ? 12 : 0 }}>
-                      <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 4 }}>{m.l}</p>
-                      <p style={{ fontSize: 18, fontWeight: 800, color: "white", fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>{m.v}</p>
-                    </div>
-                  ))}
-                </div>
+                <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>ADUKE BAKERIES LTD</p>
               </div>
             </div>
           </div>
@@ -930,11 +739,6 @@ export default function ForFinancersPage() {
               </div>
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 24 }}>
                 Consent-gated access from day one · Full audit trail · No hidden fees
-              </p>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 10 }}>
-                Not an institution?{" "}
-                <Link href="/contact" style={{ color: "rgba(0,212,255,0.55)", textDecoration: "underline", textUnderlineOffset: 3 }}>Join the individual waitlist.</Link>
-                {" "}Individual financer access is coming soon.
               </p>
             </div>
           </div>

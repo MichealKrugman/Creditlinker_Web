@@ -162,7 +162,7 @@ function mapAccount(row: any): LinkedAccount {
     sync_status:           (status === "error" ? "error" : "synced") as SyncStatus,
     date_added:            fmtDate(row.created_at ?? ""),
     tx_count:              0,
-    entity_id:             row.entity_id ?? "hq",
+    entity_id:             row.entity_id ?? null, // null = HQ; remapped to real branch UUID after entities are built
   };
 }
 
@@ -179,7 +179,7 @@ function mapLedger(row: any): LedgerUpload {
     records_parsed: row.records_parsed ?? 0,
     period,
     status:        (row.status as UploadStatus) ?? "pending",
-    entity_id:     row.entity_id ?? "hq",
+    entity_id:     row.entity_id ?? null, // null = HQ; caller remaps to real branch UUID
   };
 }
 
@@ -1357,7 +1357,7 @@ export default function DataSourcesPage() {
         .eq("business_id", bid)
         .order("created_at", { ascending: false }),
       fetch(
-        `${supabaseUrl}/functions/v1/get-pipeline-logs?business_id=${bid}&limit=10`,
+        `${supabaseUrl}/functions/v1/get-pipeline-logs?business_id=${bid}&limit=1`,
         { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } }
       ).then(r => r.json() as Promise<{ records: any[] }>).catch(() => ({ records: [] })),
     ]);
@@ -1411,17 +1411,20 @@ export default function DataSourcesPage() {
 
     setEntities(builtEntities);
 
-    // Remap accounts whose entity_id is the string "hq" fallback to the actual HQ branch UUID.
-    // mapAccount() falls back to "hq" when entity_id is null in DB, but the HQ entity
-    // is built with its real branch UUID — so the coverage filter would never match otherwise.
+    // Remap accounts whose entity_id is null (HQ fallback from mapAccount) to the actual HQ branch UUID.
+    // This ensures EntityCoverage's filter (a.entity_id === e.id) matches correctly.
     const hqEntityId = builtEntities.find(e => e.type === "hq")?.id ?? "hq";
     const rawAccounts = (accountsRes.data ?? []).map(mapAccount).map(a => ({
       ...a,
-      entity_id: a.entity_id === "hq" ? hqEntityId : a.entity_id,
+      entity_id: (a.entity_id === null || a.entity_id === "hq") ? hqEntityId : a.entity_id,
     }));
 
     setAccounts(rawAccounts);
-    setLedgers((ledgersRes.data ?? []).map(mapLedger));
+    const rawLedgers = (ledgersRes.data ?? []).map(mapLedger).map(l => ({
+      ...l,
+      entity_id: (l.entity_id === null || l.entity_id === "hq") ? hqEntityId : l.entity_id,
+    }));
+    setLedgers(rawLedgers);
     setPipelineLog(mapPipelineLog(pipelineRecords[0] ?? null));
     setLoading(false);
   }, [activeBusiness]);

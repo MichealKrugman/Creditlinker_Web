@@ -23,14 +23,6 @@ type ApiKey = {
   created_at: string;
 };
 
-const PERMISSION_OPTIONS = [
-  { value: "read:score",        label: "Read Score",        desc: "GET /business/score and dimensions" },
-  { value: "read:transactions", label: "Read Transactions", desc: "GET /business/transactions" },
-  { value: "read:identity",     label: "Read Identity",     desc: "GET /business/profile, snapshots" },
-  { value: "read:consent",      label: "Read Consent",      desc: "GET /business/consent" },
-  { value: "write:webhooks",    label: "Manage Webhooks",   desc: "Create and configure webhook endpoints" },
-  { value: "write:data",        label: "Submit Data",       desc: "POST data to the pipeline (Partner)" },
-];
 
 /* ─────────────────────────────────────────────────────────
    SHARED CARD
@@ -323,19 +315,15 @@ function NewKeyModal({ fullKey, onDismiss }: { fullKey: string; onDismiss: () =>
 ───────────────────────────────────────────────────────── */
 function CreateKeyModal({ onClose, onCreate }: {
   onClose: () => void;
-  onCreate: (label: string, perms: string[]) => Promise<void>;
+  onCreate: (label: string) => Promise<void>;
 }) {
   const [label, setLabel] = useState("");
-  const [perms, setPerms] = useState<string[]>(["read:score"]);
   const [saving, setSaving] = useState(false);
 
-  const toggle = (p: string) =>
-    setPerms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
-
   async function handleCreate() {
-    if (!label.trim() || perms.length === 0) return;
+    if (!label.trim()) return;
     setSaving(true);
-    await onCreate(label.trim(), perms);
+    await onCreate(label.trim());
     setSaving(false);
     onClose();
   }
@@ -381,26 +369,6 @@ function CreateKeyModal({ onClose, onCreate }: {
             />
           </div>
 
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Permissions</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {PERMISSION_OPTIONS.map(opt => (
-                <label key={opt.value} style={{
-                  display: "flex", alignItems: "flex-start", gap: 10,
-                  padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                  border: `1px solid ${perms.includes(opt.value) ? "rgba(0,212,255,0.25)" : "#E5E7EB"}`,
-                  background: perms.includes(opt.value) ? "rgba(0,212,255,0.04)" : "white",
-                  transition: "all 0.12s",
-                }}>
-                  <input type="checkbox" checked={perms.includes(opt.value)} onChange={() => toggle(opt.value)} style={{ marginTop: 1, accentColor: "#0A2540" }} />
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 2 }}>{opt.label}</p>
-                    <p style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.desc}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div style={{ padding: "14px 24px 20px", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -408,7 +376,7 @@ function CreateKeyModal({ onClose, onCreate }: {
           <Button
             variant="primary" size="sm"
             onClick={handleCreate}
-            disabled={!label.trim() || perms.length === 0 || saving}
+            disabled={!label.trim() || saving}
           >
             {saving
               ? <><Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> Creating…</>
@@ -448,7 +416,7 @@ export default function ApiKeysPage() {
 
   useEffect(() => { loadKeys(); }, [loadKeys]);
 
-  async function handleCreate(label: string, _perms: string[]) {
+  async function handleCreate(label: string) {
     if (!account) return;
     setError(null);
 

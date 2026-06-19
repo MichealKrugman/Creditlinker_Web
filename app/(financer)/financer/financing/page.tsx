@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
+import { generateReport } from "@/lib/api";
 import { useSession } from "@/lib/session-context";
 import { getMyInstitutionId } from "@/lib/institution";
 
@@ -93,25 +94,11 @@ function DownloadReportBtn({ businessId, reportType, label }: {
     setLoading(true);
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-report`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ business_id: businessId, report_type: reportType, format: "pdf" }),
-        }
-      );
-      const json = await res.json();
-      if (!res.ok || !json.download_url) throw new Error(json.error ?? "Failed to generate report");
-      window.open(json.download_url, "_blank");
+      const result = await generateReport(businessId, reportType, "pdf");
+      if (!result.download_url) throw new Error("No download URL returned");
+      window.open(result.download_url, "_blank");
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message ?? "Failed to generate report");
     } finally {
       setLoading(false);
     }

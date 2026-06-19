@@ -7,7 +7,7 @@ import {
   AlertCircle, Landmark, Eye, EyeOff,
   CheckCircle2, X, RefreshCw, Info, Search,
   History, MessageSquare, Send, ArrowLeft,
-  Building2, CheckCheck, Paperclip, Plus, Loader2,
+  Building2, CheckCheck, Plus, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -441,9 +441,7 @@ function MessagesPanel({
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Reply to this financer…" rows={1}
               style={{ flex: 1, border: "none", background: "transparent", resize: "none", padding: "10px 12px", fontSize: 13, color: "#0A2540", outline: "none", lineHeight: 1.5, maxHeight: 80, overflowY: "auto" as const }} />
-            <button style={{ padding: "8px 10px", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", flexShrink: 0, display: "flex" }}>
-              <Paperclip size={14} />
-            </button>
+
           </div>
           <button onClick={handleSend} disabled={!compose.trim() || sending}
             style={{ width: 38, height: 38, borderRadius: 10, border: "none", flexShrink: 0, background: compose.trim() ? "#0A2540" : "#E5E7EB", color: compose.trim() ? "white" : "#9CA3AF", display: "flex", alignItems: "center", justifyContent: "center", cursor: compose.trim() ? "pointer" : "not-allowed", transition: "all 0.15s" }}>
