@@ -11,10 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
-import { supabase } from "@/lib/supabase";
-import { callEdgeFn } from "@/lib/admin-api";
-
-const callFn = callEdgeFn;
+import { callAdminFn } from "@/lib/admin-api";
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, Shield, ShieldCheck, Activity, BarChart2, KeyRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { precheckLogin, reportLoginFailure, reportLoginSuccess, formatLockMessage } from "@/lib/login-guard";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -29,12 +30,20 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
+      // SEC-04: check lockout BEFORE spending a Supabase Auth attempt.
+      const lock = await precheckLogin("admin", email.trim());
+      if (lock.locked) {
+        setError(formatLockMessage(lock.retry_after_seconds));
+        return;
+      }
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email:    email.trim(),
         password: password.trim(),
       });
 
       if (authError) {
+        await reportLoginFailure("admin", email.trim());
         if (authError.message.includes("Invalid login credentials")) {
           setError("Email or password is incorrect.");
         } else {
@@ -72,8 +81,11 @@ export default function AdminLoginPage() {
         return; // wait for TOTP step
       }
 
-      // No TOTP factor enrolled — proceed directly
-      router.push("/admin/dashboard");
+      // No TOTP factor enrolled — offer optional MFA setup before proceeding.
+      // mfa-setup page itself provides "Enable MFA" and "Skip for now" (-> dashboard),
+      // so nothing here is compulsory.
+      await reportLoginSuccess("admin", email.trim());
+      router.push("/admin/mfa-setup");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -97,11 +109,13 @@ export default function AdminLoginPage() {
       });
 
       if (verifyErr) {
+        await reportLoginFailure("admin", email.trim());
         setError("Invalid code. Please check your authenticator app and try again.");
         setMfaCode("");
         return;
       }
 
+      await reportLoginSuccess("admin", email.trim());
       router.push("/admin/dashboard");
     } catch {
       setError("Something went wrong. Please try again.");

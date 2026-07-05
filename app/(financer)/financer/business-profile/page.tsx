@@ -7,7 +7,8 @@ import {
   ShieldCheck, ArrowUpRight, Building2, TrendingUp,
   ArrowDownLeft, ChevronRight, AlertCircle, Info, Loader2,
   CheckCircle2, MessageSquare, Send, X, Search, SlidersHorizontal,
-  ChevronLeft, ArrowLeftRight, Repeat2,
+  ChevronLeft, ArrowLeftRight, Repeat2, GitFork, Lock,
+  Landmark, Users, Briefcase, AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
@@ -71,6 +72,70 @@ type ProfileData = {
   dimensions:          DimensionScore[];
 };
 
+// ── Graph types ──────────────────────────────────────────
+type GraphNode = {
+  id:           string;
+  cl_id:        string | null;
+  node_type:    string | null;
+  display_name: string | null;
+  legal_name:   string | null;
+  status:       string | null;
+  masked:       boolean;
+};
+
+type GraphEdge = {
+  edge_id:           string;
+  from_node_id:      string;
+  to_node_id:        string;
+  relationship_type: string;
+  status:            string;
+  weight:            number | null;
+  currency:          string | null;
+  depth:             number;
+};
+
+type GraphSummary = {
+  total_nodes_found: number;
+  total_edges_found: number;
+  max_depth_reached: number;
+  total_exposure_ngn: number;
+  masked_node_count: number;
+};
+
+type GraphData = {
+  origin_node: GraphNode;
+  nodes:       GraphNode[];
+  edges:       GraphEdge[];
+  summary:     GraphSummary;
+};
+
+// ── On-chain types (Phase 3) ────────────────────────────
+type ChainHolding = {
+  chain_account_id:        string;
+  asset:                   string;
+  balance:                 number;
+  balance_usd_equivalent:  number | null;
+  last_fetched_at:         string;
+};
+
+type ChainAccount = {
+  id:           string;
+  chain:        string;
+  address:      string;
+  address_type: string | null;
+  verified:     boolean;
+  verified_at:  string | null;
+  verified_by:  string | null;
+  holdings:     ChainHolding[];
+};
+
+type TrustScores = {
+  on_chain_net_worth_usd:  number | null;
+  on_chain_activity_score: number | null;
+  network_risk_score:      number | null;
+  repayment_score:         number | null;
+};
+
 const DIM_META: Record<string, { label: string; color: string }> = {
   revenue_stability:       { label: "Revenue Stability",       color: "#10B981" },
   cashflow_predictability: { label: "Cashflow Predictability", color: "#38BDF8" },
@@ -78,6 +143,55 @@ const DIM_META: Record<string, { label: string; color: string }> = {
   liquidity_strength:      { label: "Liquidity Strength",      color: "#F59E0B" },
   financial_consistency:   { label: "Financial Consistency",   color: "#10B981" },
   risk_profile:            { label: "Risk Profile",            color: "#EF4444" },
+};
+
+// Relationship type display labels
+const REL_LABELS: Record<string, string> = {
+  BORROWER_OF:      "Borrower",
+  LENDER_TO:        "Lender",
+  GUARANTOR_FOR:    "Guarantor for",
+  SUPPLIER_TO:      "Supplier to",
+  CUSTOMER_OF:      "Customer of",
+  EMPLOYER_OF:      "Employer of",
+  EMPLOYED_BY:      "Employed by",
+  DIRECTOR_OF:      "Director of",
+  SHAREHOLDER_OF:   "Shareholder of",
+  INVOICE_DEBTOR:   "Invoice debtor",
+  BNPL_ACCOUNT:     "BNPL account",
+  ACCOUNT_HOLDER_AT:"Account holder at",
+  SUBSIDIARY_OF:    "Subsidiary of",
+  RELATED_PARTY:    "Related party",
+};
+
+const NODE_TYPE_COLORS: Record<string, string> = {
+  BUSINESS:      "#0A2540",
+  FINANCIAL_INST:"#7C3AED",
+  INDIVIDUAL:    "#0369A1",
+  COOPERATIVE:   "#065F46",
+  NGO:           "#92400E",
+  GOVERNMENT:    "#991B1B",
+  TRUST:         "#374151",
+};
+
+const EDGE_STATUS_COLORS: Record<string, string> = {
+  ACTIVE:   "#10B981",
+  CLOSED:   "#9CA3AF",
+  DISPUTED: "#F59E0B",
+  DEFAULTED:"#EF4444",
+};
+
+const CHAIN_LABELS: Record<string, string> = {
+  ethereum: "Ethereum",
+  bitcoin:  "Bitcoin",
+  solana:   "Solana",
+  tron:     "Tron",
+};
+
+const CHAIN_COLORS: Record<string, string> = {
+  ethereum: "#627EEA",
+  bitcoin:  "#F7931A",
+  solana:   "#14F195",
+  tron:     "#EF0027",
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -88,6 +202,17 @@ function fmt(n: number) {
   if (n >= 1_000_000)     return `₦${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000)         return `₦${(n / 1_000).toFixed(0)}K`;
   return `₦${n.toLocaleString()}`;
+}
+
+function fmtUsd(n: number) {
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(2) + "M";
+  if (n >= 1_000)     return "$" + (n / 1_000).toFixed(1) + "K";
+  return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function fmtAddress(addr: string) {
+  if (addr.length <= 14) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 function fmtDate(iso: string) {
@@ -107,6 +232,15 @@ function categoryColor(cat: string): string {
     Operations: "#6B7280", Transfer: "#38BDF8", Rent: "#F59E0B",
   };
   return map[cat] ?? "#9CA3AF";
+}
+
+function nodeTypeIcon(type: string | null) {
+  switch (type) {
+    case "FINANCIAL_INST": return <Landmark size={12} />;
+    case "INDIVIDUAL":     return <Users size={12} />;
+    case "BUSINESS":       return <Briefcase size={12} />;
+    default:               return <Building2 size={12} />;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -134,6 +268,516 @@ function StatBox({ label, value, color }: { label: string; value: string; color?
       <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>{label}</p>
       <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, color: color ?? "#0A2540", letterSpacing: "-0.03em" }}>{value}</p>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   GRAPH PANEL COMPONENT
+   Collapsed by default. On expand: resolves the business's
+   graph node via graph-node-search, then calls graph-discover
+   to get its relationship map. Renders each edge as a row
+   showing the counterparty, relationship type, exposure, and
+   status. Masked counterparties shown as "Undisclosed entity".
+───────────────────────────────────────────────────────── */
+function RelationshipGraphPanel({
+  businessId,
+  token,
+  displayName,
+}: {
+  businessId: string;
+  token: string;
+  displayName: string;
+}) {
+  const [open,        setOpen]        = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [graphData,   setGraphData]   = useState<GraphData | null>(null);
+  const [clId,        setClId]        = useState<string | null>(null);
+  const [depthFilter, setDepthFilter] = useState<number | null>(null);
+  const [relFilter,   setRelFilter]   = useState<string>("");
+  const [direction,   setDirection]   = useState<"both" | "outbound" | "inbound">("both");
+
+  const fetchGraph = useCallback(async (dir: "both" | "outbound" | "inbound") => {
+    if (!token || !businessId) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Step 1: find the graph node for this business — direct RLS-scoped
+      // query against graph.nodes, filtered by linked_entity_type/id.
+      // (graph-node-search only matches on display_name/legal_name via
+      // ILIKE, so it can't be used to look up a node by business_id.)
+      const { data: matchedNode, error: nodeErr } = await supabase
+        .schema("graph")
+        .from("nodes")
+        .select("id, cl_id, node_type, display_name, legal_name, status, linked_entity_type, linked_entity_id")
+        .eq("linked_entity_type", "business")
+        .eq("linked_entity_id", businessId)
+        .maybeSingle();
+
+      if (nodeErr) throw new Error("Could not look up graph node for this business.");
+
+      if (!matchedNode) {
+        setError("This business does not yet have a graph node. It will appear after its first financing record is created.");
+        setLoading(false);
+        return;
+      }
+
+      const resolvedClId: string = matchedNode.cl_id;
+      setClId(resolvedClId);
+
+      // Step 2: traverse the graph from that node
+      const discoverRes = await fetch(
+        `${API_BASE}/graph-discover/${encodeURIComponent(resolvedClId)}?depth=3&direction=${dir}`,
+        { headers: { Authorization: `Bearer ${token}`, apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! } }
+      );
+      if (!discoverRes.ok) {
+        const errBody = await discoverRes.json().catch(() => ({}));
+        throw new Error(errBody.error ?? `Graph fetch failed (${discoverRes.status})`);
+      }
+      const discoverJson = await discoverRes.json();
+      setGraphData(discoverJson.data);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to load relationship graph.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token, businessId]);
+
+  function handleToggle() {
+    if (!open && !graphData && !loading) fetchGraph(direction);
+    setOpen(o => !o);
+  }
+
+  function handleDirectionChange(dir: "both" | "outbound" | "inbound") {
+    setDirection(dir);
+    setGraphData(null);
+    fetchGraph(dir);
+  }
+
+  // Build a node lookup map for rendering edge endpoints
+  const nodeMap: Record<string, GraphNode> = {};
+  if (graphData) {
+    for (const n of graphData.nodes) nodeMap[n.id] = n;
+    nodeMap[graphData.origin_node.id] = graphData.origin_node;
+  }
+
+  // Filter edges
+  const visibleEdges = (graphData?.edges ?? []).filter(e => {
+    if (depthFilter !== null && e.depth !== depthFilter) return false;
+    if (relFilter && e.relationship_type !== relFilter) return false;
+    return true;
+  });
+
+  // Available relationship types for filter pill
+  const relTypes = Array.from(new Set((graphData?.edges ?? []).map(e => e.relationship_type)));
+  const depths   = Array.from(new Set((graphData?.edges ?? []).map(e => e.depth))).sort();
+
+  return (
+    <Card>
+      {/* Header — always visible */}
+      <button
+        onClick={handleToggle}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "18px 22px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: open ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}>
+            <GitFork size={13} color={open ? "#00D4FF" : "#9CA3AF"} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>Relationship Graph</p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+              {graphData
+                ? `${graphData.summary.total_edges_found} relationship${graphData.summary.total_edges_found !== 1 ? "s" : ""} · ${graphData.summary.total_nodes_found} entit${graphData.summary.total_nodes_found !== 1 ? "ies" : "y"} · up to ${graphData.summary.max_depth_reached} hop${graphData.summary.max_depth_reached !== 1 ? "s" : ""} away`
+                : "Expand to view financial relationships and network exposure"}
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: "#9CA3AF", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }} />
+      </button>
+
+      {/* Body — only when open */}
+      {open && (
+        <div style={{ borderTop: "1px solid #F3F4F6" }}>
+
+          {/* Direction picker — always visible once open, explicit choice, no silent default */}
+          <div style={{ padding: "14px 22px 0", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 60 }}>Direction</span>
+            <FilterPill label="Both directions" active={direction === "both"} onClick={() => handleDirectionChange("both")} />
+            <FilterPill label="What they owe" active={direction === "outbound"} onClick={() => handleDirectionChange("outbound")} />
+            <FilterPill label="Owed to them" active={direction === "inbound"} onClick={() => handleDirectionChange("inbound")} />
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div style={{ padding: "40px 22px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={18} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Traversing relationship graph…</p>
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div style={{ padding: "24px 22px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={16} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280" }}>{error}</p>
+            </div>
+          )}
+
+          {/* No relationships */}
+          {!loading && !error && graphData && graphData.edges.length === 0 && (
+            <div style={{ padding: "40px 22px", textAlign: "center" as const }}>
+              <GitFork size={28} style={{ color: "#E5E7EB", marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No relationships found</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>
+                {displayName} has no recorded financial relationships in the graph yet.
+              </p>
+            </div>
+          )}
+
+          {/* Graph content */}
+          {!loading && !error && graphData && graphData.edges.length > 0 && (
+            <>
+              {/* Summary stats */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, padding: "14px 22px" }}>
+                <StatBox label="Relationships" value={String(graphData.summary.total_edges_found)} />
+                <StatBox label="Total Exposure" value={graphData.summary.total_exposure_ngn > 0 ? fmt(graphData.summary.total_exposure_ngn) : "—"} color="#0A2540" />
+                <StatBox label="Network Depth" value={`${graphData.summary.max_depth_reached} hop${graphData.summary.max_depth_reached !== 1 ? "s" : ""}`} />
+                <StatBox label="Hidden Entities" value={String(graphData.summary.masked_node_count)} color={graphData.summary.masked_node_count > 0 ? "#F59E0B" : "#9CA3AF"} />
+              </div>
+
+              {/* Privacy notice if masked nodes exist */}
+              {graphData.summary.masked_node_count > 0 && (
+                <div style={{ margin: "0 22px 12px", display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 9 }}>
+                  <Lock size={12} style={{ color: "#D97706", flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 11, color: "#92400E", lineHeight: 1.5 }}>
+                    {graphData.summary.masked_node_count} counterpart{graphData.summary.masked_node_count !== 1 ? "ies are" : "y is"} not disclosed — their identity is only visible to parties with direct consent. Relationship metadata (type, amount, status) is still shown.
+                  </p>
+                </div>
+              )}
+
+              {/* Filters */}
+              {(relTypes.length > 1 || depths.length > 1) && (
+                <div style={{ padding: "0 22px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {depths.length > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 44 }}>Depth</span>
+                      <FilterPill label="All" active={depthFilter === null} onClick={() => setDepthFilter(null)} />
+                      {depths.map(d => (
+                        <FilterPill key={d} label={`Hop ${d}`} active={depthFilter === d} onClick={() => setDepthFilter(d)} />
+                      ))}
+                    </div>
+                  )}
+                  {relTypes.length > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 44 }}>Type</span>
+                      <FilterPill label="All" active={relFilter === ""} onClick={() => setRelFilter("")} />
+                      {relTypes.map(r => (
+                        <FilterPill key={r} label={REL_LABELS[r] ?? r} active={relFilter === r} onClick={() => setRelFilter(r)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Edge rows */}
+              <div style={{ borderTop: "1px solid #F3F4F6" }}>
+                {visibleEdges.length === 0 ? (
+                  <div style={{ padding: "24px 22px", textAlign: "center" as const }}>
+                    <p style={{ fontSize: 13, color: "#9CA3AF" }}>No relationships match the selected filters.</p>
+                  </div>
+                ) : (
+                  visibleEdges.map((edge, i) => {
+                    const isOrigin    = edge.from_node_id === graphData.origin_node.id;
+                    const counterpartId = isOrigin ? edge.to_node_id : edge.from_node_id;
+                    const counterpart   = nodeMap[counterpartId];
+                    const counterpartName = counterpart?.masked
+                      ? "Undisclosed entity"
+                      : (counterpart?.display_name ?? counterpart?.legal_name ?? "Unknown");
+                    const nodeColor = NODE_TYPE_COLORS[counterpart?.node_type ?? ""] ?? "#374151";
+                    const edgeColor = EDGE_STATUS_COLORS[edge.status] ?? "#9CA3AF";
+                    const depthLabel = edge.depth === 1 ? "Direct" : `${edge.depth} hops away`;
+
+                    return (
+                      <div
+                        key={edge.edge_id}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 22px", borderBottom: i < visibleEdges.length - 1 ? "1px solid #F9FAFB" : "none" }}
+                      >
+                        {/* Node type icon */}
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          background: counterpart?.masked ? "#F9FAFB" : `${nodeColor}15`,
+                          color: counterpart?.masked ? "#D1D5DB" : nodeColor,
+                          border: `1px solid ${counterpart?.masked ? "#E5E7EB" : `${nodeColor}30`}`,
+                        }}>
+                          {counterpart?.masked ? <Lock size={12} /> : nodeTypeIcon(counterpart?.node_type ?? null)}
+                        </div>
+
+                        {/* Counterparty + relationship */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" as const }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: counterpart?.masked ? "#9CA3AF" : "#0A2540", fontStyle: counterpart?.masked ? "italic" : "normal" }}>
+                              {counterpartName}
+                            </p>
+                            {counterpart?.node_type && !counterpart.masked && (
+                              <span style={{ fontSize: 9, fontWeight: 700, color: nodeColor, background: `${nodeColor}12`, padding: "1px 5px", borderRadius: 4, letterSpacing: "0.04em" }}>
+                                {counterpart.node_type.replace("_", " ")}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+                            <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 500 }}>
+                              {isOrigin ? "→" : "←"} {REL_LABELS[edge.relationship_type] ?? edge.relationship_type}
+                            </span>
+                            <span style={{ fontSize: 10, color: "#D1D5DB" }}>·</span>
+                            <span style={{ fontSize: 10, color: "#9CA3AF" }}>{depthLabel}</span>
+                          </div>
+                        </div>
+
+                        {/* Right side: weight + status */}
+                        <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                          {edge.weight != null && edge.weight > 0 && (
+                            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540", letterSpacing: "-0.03em" }}>
+                              {fmt(edge.weight)}
+                            </p>
+                          )}
+                          <span style={{ fontSize: 10, fontWeight: 700, color: edgeColor, background: `${edgeColor}15`, padding: "1px 6px", borderRadius: 4 }}>
+                            {edge.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Defaulted warning */}
+              {graphData.edges.some(e => e.status === "DEFAULTED") && (
+                <div style={{ margin: "12px 22px", display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 9 }}>
+                  <AlertTriangle size={12} style={{ color: "#DC2626", flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 11, color: "#991B1B", lineHeight: 1.5 }}>
+                    One or more relationships in this network carry a DEFAULTED status. Review carefully before proceeding.
+                  </p>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{ padding: "10px 22px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+                <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  Showing relationships up to 3 hops from {displayName}. Edge metadata is visible under consent; counterparty identities are only shown where you have independent access.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   ON-CHAIN HOLDINGS PANEL (Phase 3)
+   Collapsed by default. On expand: resolves the business's
+   graph node the same way RelationshipGraphPanel does, then
+   calls graph-node-get with include_chain=true&include_trust=true
+   to get verified chain_accounts (+ their chain_holdings) and
+   the on_chain_net_worth_usd / on_chain_activity_score trust
+   fields. Read-only — this panel never initiates verification
+   or linking, that flow belongs to the business's own portal.
+───────────────────────────────────────────────────────── */
+function OnChainHoldingsPanel({
+  businessId,
+  token,
+  displayName,
+}: {
+  businessId: string;
+  token: string;
+  displayName: string;
+}) {
+  const [open,         setOpen]         = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [accounts,     setAccounts]     = useState<ChainAccount[] | null>(null);
+  const [trustScores,  setTrustScores]  = useState<TrustScores | null>(null);
+
+  const fetchOnChain = useCallback(async () => {
+    if (!token || !businessId) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data: matchedNode, error: nodeErr } = await supabase
+        .schema("graph")
+        .from("nodes")
+        .select("cl_id")
+        .eq("linked_entity_type", "business")
+        .eq("linked_entity_id", businessId)
+        .maybeSingle();
+
+      if (nodeErr) throw new Error("Could not look up graph node for this business.");
+      if (!matchedNode) {
+        setError("This business does not yet have a graph node. It will appear after its first financing record is created.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE}/graph-node-get/${encodeURIComponent(matchedNode.cl_id)}?include_chain=true&include_trust=true`,
+        { headers: { Authorization: `Bearer ${token}`, apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! } }
+      );
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error ?? `On-chain data fetch failed (${res.status})`);
+      }
+      const json = await res.json();
+      const allAccounts: ChainAccount[] = json.data?.chain_accounts ?? [];
+      setAccounts(allAccounts.filter(a => a.verified)); // unverified claims are not net-worth signal
+      setTrustScores(json.data?.trust_scores ?? null);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to load on-chain holdings.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token, businessId]);
+
+  function handleToggle() {
+    if (!open && accounts === null && !loading) fetchOnChain();
+    setOpen(o => !o);
+  }
+
+  const totalHoldingsCount = (accounts ?? []).reduce((sum, a) => sum + a.holdings.length, 0);
+  const netWorthUsd = trustScores?.on_chain_net_worth_usd ?? 0;
+
+  return (
+    <Card>
+      <button
+        onClick={handleToggle}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "18px 22px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: open ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}>
+            <Landmark size={13} color={open ? "#00D4FF" : "#9CA3AF"} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540" }}>On-Chain Holdings</p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+              {accounts !== null
+                ? `${accounts.length} verified wallet${accounts.length !== 1 ? "s" : ""} \u00b7 ${netWorthUsd > 0 ? fmtUsd(netWorthUsd) + " tracked net worth" : "no priced balances yet"}`
+                : "Expand to view verified blockchain wallets and balances"}
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: "#9CA3AF", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div style={{ borderTop: "1px solid #F3F4F6" }}>
+          {loading && (
+            <div style={{ padding: "40px 22px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={18} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading on-chain holdings…</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ padding: "24px 22px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={16} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280" }}>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && accounts !== null && accounts.length === 0 && (
+            <div style={{ padding: "40px 22px", textAlign: "center" as const }}>
+              <Landmark size={28} style={{ color: "#E5E7EB", marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No verified wallets</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>
+                {displayName} has not linked or verified a blockchain wallet yet.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && accounts !== null && accounts.length > 0 && (
+            <>
+              {/* Trust signal summary */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, padding: "14px 22px" }}>
+                <StatBox label="Net Worth (tracked)" value={netWorthUsd > 0 ? fmtUsd(netWorthUsd) : "\u2014"} color="#0A2540" />
+                <StatBox
+                  label="On-Chain Activity"
+                  value={trustScores?.on_chain_activity_score != null ? `${Math.round(trustScores.on_chain_activity_score)}/100` : "\u2014"}
+                  color={trustScores?.on_chain_activity_score != null && trustScores.on_chain_activity_score > 0 ? "#10B981" : "#9CA3AF"}
+                />
+                <StatBox label="Verified Wallets" value={String(accounts.length)} />
+              </div>
+
+              <div style={{ margin: "0 22px 12px", display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 9 }}>
+                <Info size={12} style={{ color: "#00A8CC", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 11, color: "#0A5060", lineHeight: 1.5 }}>
+                  Balances are refreshed nightly and priced at fetch time where a price source is available. Only cryptographically verified wallets (signature or transaction proof) are shown \u2014 unverified claims are never counted toward net worth.
+                </p>
+              </div>
+
+              {/* Per-wallet rows */}
+              <div style={{ borderTop: "1px solid #F3F4F6" }}>
+                {accounts.map((acct, i) => {
+                  const chainColor = CHAIN_COLORS[acct.chain] ?? "#6B7280";
+                  const chainLabel = CHAIN_LABELS[acct.chain] ?? acct.chain;
+                  const acctNetWorth = acct.holdings.reduce(
+                    (sum, h) => sum + (h.balance_usd_equivalent ?? 0), 0,
+                  );
+
+                  return (
+                    <div key={acct.id} style={{ padding: "14px 22px", borderBottom: i < accounts.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: acct.holdings.length > 0 ? 10 : 0 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `${chainColor}15`, border: `1px solid ${chainColor}30` }}>
+                          <Landmark size={12} color={chainColor} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{chainLabel}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "rgba(16,185,129,0.1)", padding: "1px 5px", borderRadius: 4 }}>VERIFIED</span>
+                            {acct.verified_by && (
+                              <span style={{ fontSize: 9, fontWeight: 600, color: "#9CA3AF" }}>via {acct.verified_by}</span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>{fmtAddress(acct.address)}</p>
+                        </div>
+                        {acctNetWorth > 0 && (
+                          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540", letterSpacing: "-0.03em", flexShrink: 0 }}>
+                            {fmtUsd(acctNetWorth)}
+                          </p>
+                        )}
+                      </div>
+
+                      {acct.holdings.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6, paddingLeft: 38 }}>
+                          {acct.holdings.map(h => (
+                            <span key={h.asset} style={{ fontSize: 11, fontWeight: 600, color: "#374151", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 6, padding: "3px 8px" }}>
+                              {h.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} {h.asset}
+                              {h.balance_usd_equivalent != null && (
+                                <span style={{ color: "#9CA3AF", marginLeft: 4 }}>({fmtUsd(h.balance_usd_equivalent)})</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ padding: "10px 22px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+                <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  On-chain net worth and activity are a supplementary signal alongside the Creditlinker score \u2014 they do not replace bank-derived financial dimensions.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -256,7 +900,6 @@ export default function FinancerBusinessProfile() {
         return { key, label: meta.label, color: meta.color, value: Math.round(numeric) };
       });
 
-      // Store token for the transactions API call
       const { data: { session } } = await supabase.auth.getSession();
       setToken(session?.access_token ?? null);
 
@@ -281,7 +924,7 @@ export default function FinancerBusinessProfile() {
     })();
   }, [user, anonymizedId]);
 
-  /* ── Fetch transactions from the API ── */
+  /* ── Fetch transactions ── */
   const fetchTransactions = useCallback(async () => {
     if (!data || !token) return;
     setTxLoading(true);
@@ -332,7 +975,6 @@ export default function FinancerBusinessProfile() {
     }
   }, [data, token, txPage, txDebSearch, txDir, txCat, txFrom, txTo]);
 
-  /* ── Fetch when transactions panel opens or filters change ── */
   useEffect(() => {
     if (txOpen && data && token) fetchTransactions();
   }, [txOpen, fetchTransactions]);
@@ -535,7 +1177,7 @@ export default function FinancerBusinessProfile() {
               </div>
             </Card>
 
-            {/* ── TRANSACTIONS PANEL ── */}
+            {/* Transactions panel */}
             <Card>
               <button
                 onClick={() => setTxOpen(o => !o)}
@@ -554,133 +1196,89 @@ export default function FinancerBusinessProfile() {
 
               {txOpen && (
                 <div style={{ borderTop: "1px solid #F3F4F6" }}>
-
-                  {/* Stats row */}
                   {txStats && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, padding: "14px 22px" }}>
-                      <StatBox label="Total In"  value={fmt(txStats.total_in)}           color="#10B981" />
-                      <StatBox label="Total Out" value={fmt(txStats.total_out)}           color="#EF4444" />
-                      <StatBox label="Net Flow"  value={fmt(Math.abs(txStats.net))}       color={txStats.net >= 0 ? "#10B981" : "#EF4444"} />
+                      <StatBox label="Total In"  value={fmt(txStats.total_in)}  color="#10B981" />
+                      <StatBox label="Total Out" value={fmt(txStats.total_out)} color="#EF4444" />
+                      <StatBox label="Net Flow"  value={fmt(Math.abs(txStats.net))} color={txStats.net >= 0 ? "#10B981" : "#EF4444"} />
                     </div>
                   )}
 
-                  {/* Filters */}
                   <div style={{ padding: "0 22px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      {/* Search */}
                       <div style={{ position: "relative" as const, flex: 1 }}>
                         <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF", pointerEvents: "none" }} />
-                        <input
-                          value={txSearch}
-                          onChange={e => setTxSearch(e.target.value)}
-                          placeholder="Search counterparty…"
-                          style={{ width: "100%", height: 34, paddingLeft: 30, paddingRight: 10, borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12, color: "#0A2540", outline: "none", boxSizing: "border-box" as const }}
-                        />
-                        {txSearch && (
-                          <button onClick={() => setTxSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", display: "flex" }}>
-                            <X size={12} />
-                          </button>
-                        )}
+                        <input value={txSearch} onChange={e => setTxSearch(e.target.value)} placeholder="Search counterparty…"
+                          style={{ width: "100%", height: 34, paddingLeft: 30, paddingRight: 10, borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12, color: "#0A2540", outline: "none", boxSizing: "border-box" as const }} />
+                        {txSearch && <button onClick={() => setTxSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", display: "flex" }}><X size={12} /></button>}
                       </div>
-                      <button
-                        onClick={() => setShowTxFilters(f => !f)}
-                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 12px", height: 34, border: "1.5px solid", borderRadius: 8, borderColor: showTxFilters ? "#0A2540" : "#E5E7EB", background: showTxFilters ? "#0A2540" : "white", color: showTxFilters ? "white" : "#6B7280", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                      >
+                      <button onClick={() => setShowTxFilters(f => !f)}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 12px", height: 34, border: "1.5px solid", borderRadius: 8, borderColor: showTxFilters ? "#0A2540" : "#E5E7EB", background: showTxFilters ? "#0A2540" : "white", color: showTxFilters ? "white" : "#6B7280", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                         <SlidersHorizontal size={12} /> Filters
                         {hasTxFilters && <span style={{ width: 5, height: 5, borderRadius: "50%", background: showTxFilters ? "#00D4FF" : "#0A2540" }} />}
                       </button>
-                      {hasTxFilters && (
-                        <button onClick={clearTxFilters} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#6B7280", background: "none", border: "none", cursor: "pointer" }}>
-                          <X size={11} /> Clear
-                        </button>
-                      )}
+                      {hasTxFilters && <button onClick={clearTxFilters} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#6B7280", background: "none", border: "none", cursor: "pointer" }}><X size={11} /> Clear</button>}
                     </div>
 
                     {showTxFilters && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 14px", background: "#F9FAFB", borderRadius: 10 }}>
-                        {/* Direction */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 60 }}>Direction</span>
                           {["", "credit", "debit"].map(d => (
                             <FilterPill key={d} label={d === "" ? "All" : d.charAt(0).toUpperCase() + d.slice(1)} active={txDir === d} onClick={() => { setTxDir(d); setTxPage(1); }} />
                           ))}
                         </div>
-                        {/* Category */}
                         {txMeta && txMeta.categories.length > 0 && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
                             <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 60 }}>Category</span>
                             <FilterPill label="All" active={txCat === ""} onClick={() => { setTxCat(""); setTxPage(1); }} />
-                            {txMeta.categories.map(c => (
-                              <FilterPill key={c} label={c} active={txCat === c} onClick={() => { setTxCat(c); setTxPage(1); }} />
-                            ))}
+                            {txMeta.categories.map(c => <FilterPill key={c} label={c} active={txCat === c} onClick={() => { setTxCat(c); setTxPage(1); }} />)}
                           </div>
                         )}
-                        {/* Date range */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 60 }}>Date</span>
-                          <input type="date" value={txFrom} max={txTo || undefined}
-                            onChange={e => { setTxFrom(e.target.value); setTxPage(1); }}
+                          <input type="date" value={txFrom} max={txTo || undefined} onChange={e => { setTxFrom(e.target.value); setTxPage(1); }}
                             style={{ height: 30, padding: "0 8px", borderRadius: 7, border: "1px solid #E5E7EB", fontSize: 12, color: txFrom ? "#0A2540" : "#9CA3AF", outline: "none" }} />
                           <span style={{ fontSize: 12, color: "#9CA3AF" }}>to</span>
-                          <input type="date" value={txTo} min={txFrom || undefined}
-                            onChange={e => { setTxTo(e.target.value); setTxPage(1); }}
+                          <input type="date" value={txTo} min={txFrom || undefined} onChange={e => { setTxTo(e.target.value); setTxPage(1); }}
                             style={{ height: 30, padding: "0 8px", borderRadius: 7, border: "1px solid #E5E7EB", fontSize: 12, color: txTo ? "#0A2540" : "#9CA3AF", outline: "none" }} />
-                          {(txFrom || txTo) && (
-                            <button onClick={() => { setTxFrom(""); setTxTo(""); setTxPage(1); }} style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
-                              <X size={11} /> Clear
-                            </button>
-                          )}
+                          {(txFrom || txTo) && <button onClick={() => { setTxFrom(""); setTxTo(""); setTxPage(1); }} style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}><X size={11} /> Clear</button>}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Transaction rows */}
                   <div style={{ borderTop: "1px solid #F3F4F6", opacity: txLoading ? 0.5 : 1, transition: "opacity 0.15s" }}>
                     {txError ? (
                       <div style={{ padding: "24px 22px", display: "flex", alignItems: "center", gap: 10 }}>
-                        <AlertCircle size={16} style={{ color: "#EF4444", flexShrink: 0 }} />
-                        <p style={{ fontSize: 13, color: "#EF4444" }}>{txError}</p>
+                        <AlertCircle size={16} style={{ color: "#EF4444", flexShrink: 0 }} /><p style={{ fontSize: 13, color: "#EF4444" }}>{txError}</p>
                       </div>
                     ) : txLoading && txRows.length === 0 ? (
                       <div style={{ padding: "32px 22px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        <Loader2 size={16} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
-                        <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading transactions…</p>
+                        <Loader2 size={16} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} /><p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading transactions…</p>
                       </div>
                     ) : txRows.length === 0 ? (
-                      <div style={{ padding: "32px 22px", textAlign: "center" as const }}>
-                        <p style={{ fontSize: 13, color: "#9CA3AF" }}>No transactions match the current filters.</p>
-                      </div>
+                      <div style={{ padding: "32px 22px", textAlign: "center" as const }}><p style={{ fontSize: 13, color: "#9CA3AF" }}>No transactions match the current filters.</p></div>
                     ) : (
                       txRows.map((tx, i) => (
                         <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 22px", borderBottom: i < txRows.length - 1 ? "1px solid #F9FAFB" : "none" }}>
-                          {/* Direction icon */}
                           <div style={{ width: 30, height: 30, borderRadius: 7, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: tx.is_internal_transfer ? "rgba(56,189,248,0.1)" : tx.direction === "credit" ? "#ECFDF5" : "#F3F4F6", color: tx.is_internal_transfer ? "#38BDF8" : tx.direction === "credit" ? "#10B981" : "#6B7280" }}>
                             {tx.is_internal_transfer ? <ArrowLeftRight size={12} /> : tx.direction === "credit" ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
                           </div>
-                          {/* Description + meta */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" as const }}>
-                              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                                {tx.counterparty_cluster ?? tx.category}
-                              </p>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{tx.counterparty_cluster ?? tx.category}</p>
                               {tx.is_recurring && <Repeat2 size={10} style={{ color: "#9CA3AF", flexShrink: 0 }} />}
-                              {(tx.flags ?? []).length > 0 && (
-                                <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 5px", borderRadius: 4 }}>Flag</span>
-                              )}
+                              {(tx.flags ?? []).length > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 5px", borderRadius: 4 }}>Flag</span>}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <p style={{ fontSize: 11, color: "#9CA3AF" }}>{fmtDate(tx.date)}</p>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: categoryColor(tx.category) }}>
-                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: categoryColor(tx.category) }} />
-                                {tx.category}
+                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: categoryColor(tx.category) }} />{tx.category}
                               </span>
-                              {tx.balance_after !== null && (
-                                <span style={{ fontSize: 10, color: "#9CA3AF" }}>bal. {fmt(tx.balance_after)}</span>
-                              )}
+                              {tx.balance_after !== null && <span style={{ fontSize: 10, color: "#9CA3AF" }}>bal. {fmt(tx.balance_after)}</span>}
                             </div>
                           </div>
-                          {/* Amount */}
                           <p style={{ fontSize: 13, fontWeight: 700, color: tx.direction === "credit" ? "#10B981" : "#0A2540", flexShrink: 0 }}>
                             {tx.direction === "credit" ? "+" : "−"}{fmt(tx.amount)}
                           </p>
@@ -689,12 +1287,9 @@ export default function FinancerBusinessProfile() {
                     )}
                   </div>
 
-                  {/* Pagination */}
                   {txTotalPages > 1 && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 22px", borderTop: "1px solid #F3F4F6" }}>
-                      <p style={{ fontSize: 12, color: "#9CA3AF" }}>
-                        {(txPage - 1) * PAGE_SIZE + 1}–{Math.min(txPage * PAGE_SIZE, txTotal)} of {txTotal.toLocaleString()}
-                      </p>
+                      <p style={{ fontSize: 12, color: "#9CA3AF" }}>{(txPage - 1) * PAGE_SIZE + 1}–{Math.min(txPage * PAGE_SIZE, txTotal)} of {txTotal.toLocaleString()}</p>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txPage === 1}
                           style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: txPage === 1 ? "not-allowed" : "pointer", color: txPage === 1 ? "#D1D5DB" : "#374151" }}>
@@ -703,9 +1298,9 @@ export default function FinancerBusinessProfile() {
                         {Array.from({ length: Math.min(txTotalPages, 5) }, (_, i) => {
                           let p = i + 1;
                           if (txTotalPages > 5) {
-                            if (txPage <= 3)               p = i + 1;
+                            if (txPage <= 3) p = i + 1;
                             else if (txPage >= txTotalPages - 2) p = txTotalPages - 4 + i;
-                            else                             p = txPage - 2 + i;
+                            else p = txPage - 2 + i;
                           }
                           return (
                             <button key={p} onClick={() => setTxPage(p)}
@@ -722,7 +1317,6 @@ export default function FinancerBusinessProfile() {
                     </div>
                   )}
 
-                  {/* Data note */}
                   <div style={{ padding: "10px 22px 14px", display: "flex", alignItems: "center", gap: 6 }}>
                     <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0 }} />
                     <p style={{ fontSize: 11, color: "#9CA3AF" }}>Transactions are normalized bank records from Creditlinker's ingestion pipeline. Raw bank descriptions are clustered into counterparty names.</p>
@@ -730,6 +1324,24 @@ export default function FinancerBusinessProfile() {
                 </div>
               )}
             </Card>
+
+            {/* ── RELATIONSHIP GRAPH PANEL ── */}
+            {token && (
+              <RelationshipGraphPanel
+                businessId={data.business_id}
+                token={token}
+                displayName={displayName}
+              />
+            )}
+
+            {/* ── ON-CHAIN HOLDINGS PANEL (Phase 3) ── */}
+            {token && (
+              <OnChainHoldingsPanel
+                businessId={data.business_id}
+                token={token}
+                displayName={displayName}
+              />
+            )}
 
           </div>
 

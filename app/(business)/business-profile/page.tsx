@@ -7,7 +7,8 @@ import {
   FileSignature, Receipt, Plus, X, Save,
   Loader2, Info, Lock, ChevronRight, RefreshCw,
   ArrowUpRight, ExternalLink, Mail, MapPin,
-  CheckCircle, AlertTriangle,
+  CheckCircle, AlertTriangle, GitFork, Landmark, Users, Briefcase,
+  Copy, CheckCheck, Link2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -358,10 +359,756 @@ function DelBtn({ onRequest }: { onRequest: () => void }) {
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   RELATIONSHIP GRAPH PANEL (business self-view)
+   Collapsed by default. Resolves this business's own graph
+   node directly via business_id, then calls graph-discover.
+   Self-view: graph-discover does not fire a traversal audit
+   when the viewer owns the origin node, and since every node
+   here belongs to the business itself there is no masking to
+   worry about on the origin side — though counterparties more
+   than one hop away that the business has no independent
+   consent for will still be masked per the standard rule.
+───────────────────────────────────────────────────────── */
+type BizGraphNode = {
+  id: string; cl_id: string | null; node_type: string | null;
+  display_name: string | null; legal_name: string | null;
+  status: string | null; masked: boolean;
+};
+type BizGraphEdge = {
+  edge_id: string; from_node_id: string; to_node_id: string;
+  relationship_type: string; status: string; weight: number | null;
+  currency: string | null; depth: number;
+};
+type BizGraphData = {
+  origin_node: BizGraphNode;
+  nodes:       BizGraphNode[];
+  edges:       BizGraphEdge[];
+  summary: {
+    total_nodes_found: number; total_edges_found: number;
+    max_depth_reached: number; total_exposure_ngn: number;
+    masked_node_count: number;
+  };
+};
+
+const BIZ_REL_LABELS: Record<string, string> = {
+  BORROWER_OF: "Borrower", LENDER_TO: "Lender", GUARANTOR_FOR: "Guarantor for",
+  SUPPLIER_TO: "Supplier to", CUSTOMER_OF: "Customer of", EMPLOYER_OF: "Employer of",
+  EMPLOYED_BY: "Employed by", DIRECTOR_OF: "Director of", SHAREHOLDER_OF: "Shareholder of",
+  INVOICE_DEBTOR: "Invoice debtor", BNPL_ACCOUNT: "BNPL account",
+  ACCOUNT_HOLDER_AT: "Account holder at", SUBSIDIARY_OF: "Subsidiary of", RELATED_PARTY: "Related party",
+};
+const BIZ_NODE_COLORS: Record<string, string> = {
+  BUSINESS: "#0A2540", FINANCIAL_INST: "#7C3AED", INDIVIDUAL: "#0369A1",
+  COOPERATIVE: "#065F46", NGO: "#92400E", GOVERNMENT: "#991B1B", TRUST: "#374151",
+};
+const BIZ_EDGE_STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "#10B981", CLOSED: "#9CA3AF", DISPUTED: "#F59E0B", DEFAULTED: "#EF4444",
+};
+
+function bizNodeIcon(type: string | null) {
+  switch (type) {
+    case "FINANCIAL_INST": return <Landmark size={12} />;
+    case "INDIVIDUAL":     return <Users size={12} />;
+    case "BUSINESS":       return <Briefcase size={12} />;
+    default:               return <FileSignature size={12} />;
+  }
+}
+
+function RelationshipGraphPanel({ businessId }: { businessId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [graphData, setGraphData] = useState<BizGraphData | null>(null);
+  const [direction, setDirection] = useState<"both" | "outbound" | "inbound">("both");
+
+  const fetchGraph = useCallback(async (dir: "both" | "outbound" | "inbound") => {
+    if (!businessId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Resolve our own graph node directly — RLS allows a business to
+      // always see its own node regardless of consent state.
+      const { data: node, error: nodeErr } = await supabase
+        .schema("graph")
+        .from("nodes")
+        .select("id, cl_id, node_type, display_name, legal_name, status, linked_entity_type, linked_entity_id")
+        .eq("linked_entity_type", "business")
+        .eq("linked_entity_id", businessId)
+        .maybeSingle();
+
+      if (nodeErr) throw new Error("Could not look up your graph node.");
+      if (!node) {
+        setError("Your relationship graph will appear here once you have an active financing record.");
+        setLoading(false);
+        return;
+      }
+
+      const json = await callFn(
+        `graph-discover/${encodeURIComponent(node.cl_id)}?depth=3&direction=${dir}`,
+        undefined,
+        "GET",
+      );
+      setGraphData(json.data);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to load your relationship graph.");
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId]);
+
+  function handleToggle() {
+    if (!open && !graphData && !loading) fetchGraph(direction);
+    setOpen(o => !o);
+  }
+
+  function handleDirectionChange(dir: "both" | "outbound" | "inbound") {
+    setDirection(dir);
+    setGraphData(null);
+    fetchGraph(dir);
+  }
+
+  const nodeMap: Record<string, BizGraphNode> = {};
+  if (graphData) {
+    for (const n of graphData.nodes) nodeMap[n.id] = n;
+    nodeMap[graphData.origin_node.id] = graphData.origin_node;
+  }
+
+  return (
+    <Card>
+      <button onClick={handleToggle}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: open ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <GitFork size={13} color={open ? "#00D4FF" : "#9CA3AF"} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>Relationship Graph</p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+              {graphData
+                ? `${graphData.summary.total_edges_found} relationship${graphData.summary.total_edges_found !== 1 ? "s" : ""} recorded across your financial network`
+                : "See your loans, suppliers, and other recorded financial relationships"}
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: "#9CA3AF", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div style={{ borderTop: "1px solid #F3F4F6" }}>
+          {/* Direction picker — always visible once open, explicit choice, no silent default */}
+          <div style={{ padding: "14px 20px 0", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", minWidth: 60 }}>Direction</span>
+            {([
+              { key: "both" as const,     label: "Both directions" },
+              { key: "outbound" as const, label: "What you owe" },
+              { key: "inbound" as const,  label: "Owed to you" },
+            ]).map(opt => (
+              <button key={opt.key} onClick={() => handleDirectionChange(opt.key)}
+                style={{ padding: "5px 12px", borderRadius: 9999, border: "1.5px solid", borderColor: direction === opt.key ? "#0A2540" : "#E5E7EB", background: direction === opt.key ? "#0A2540" : "white", color: direction === opt.key ? "white" : "#6B7280", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {loading && (
+            <div style={{ padding: "32px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={16} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading your relationship graph…</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ padding: "20px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={15} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280" }}>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && graphData && graphData.edges.length === 0 && (
+            <div style={{ padding: "32px 20px", textAlign: "center" as const }}>
+              <GitFork size={26} style={{ color: "#E5E7EB", marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No relationships recorded yet</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>Relationships appear automatically once you have financing, suppliers, or other recorded connections.</p>
+            </div>
+          )}
+
+          {!loading && !error && graphData && graphData.edges.length > 0 && (
+            <div>
+              {graphData.edges.map((edge, i) => {
+                const isOrigin = edge.from_node_id === graphData.origin_node.id;
+                const counterpartId = isOrigin ? edge.to_node_id : edge.from_node_id;
+                const counterpart = nodeMap[counterpartId];
+                const counterpartName = counterpart?.masked
+                  ? "Undisclosed entity"
+                  : (counterpart?.display_name ?? counterpart?.legal_name ?? "Unknown");
+                const nodeColor = BIZ_NODE_COLORS[counterpart?.node_type ?? ""] ?? "#374151";
+                const edgeColor = BIZ_EDGE_STATUS_COLORS[edge.status] ?? "#9CA3AF";
+
+                return (
+                  <div key={edge.edge_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: i < graphData.edges.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: counterpart?.masked ? "#F9FAFB" : `${nodeColor}15`, color: counterpart?.masked ? "#D1D5DB" : nodeColor, border: `1px solid ${counterpart?.masked ? "#E5E7EB" : `${nodeColor}30`}` }}>
+                      {counterpart?.masked ? <Lock size={11} /> : bizNodeIcon(counterpart?.node_type ?? null)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: counterpart?.masked ? "#9CA3AF" : "#0A2540", fontStyle: counterpart?.masked ? "italic" : "normal", marginBottom: 2 }}>
+                        {counterpartName}
+                      </p>
+                      <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                        {isOrigin ? "→" : "←"} {BIZ_REL_LABELS[edge.relationship_type] ?? edge.relationship_type}
+                        {edge.depth > 1 ? ` · ${edge.depth} hops away` : ""}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                      {edge.weight != null && edge.weight > 0 && (
+                        <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540" }}>{fmt(edge.weight)}</p>
+                      )}
+                      <span style={{ fontSize: 10, fontWeight: 700, color: edgeColor, background: `${edgeColor}15`, padding: "1px 6px", borderRadius: 4 }}>{edge.status}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ padding: "10px 20px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+                <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>This is how Creditlinker sees your financial network — visible to financers you grant consent to.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 const TABS = [
   { id: "profile",     label: "Business Profile" },
   { id: "operational", label: "Operational Data" },
 ];
+
+/* ────────────────────────────────────────────
+   ON-CHAIN HOLDINGS PANEL (business self-view, Phase 3)
+   Mirrors the financer-facing panel but read-only and scoped
+   to the business's own verified wallets — linking/verifying
+   a wallet is a separate flow (not built here), this panel
+   only displays what's already verified plus the resulting
+   trust signal contribution.
+──────────────────────────────────────────── */
+type BizChainHolding = {
+  asset: string; balance: number; balance_usd_equivalent: number | null; last_fetched_at: string;
+};
+type BizChainAccount = {
+  id: string; chain: string; address: string; verified: boolean; verified_by: string | null;
+  holdings: BizChainHolding[];
+};
+type BizTrustScores = {
+  on_chain_net_worth_usd: number | null;
+  on_chain_activity_score: number | null;
+};
+
+const BIZ_CHAIN_LABELS: Record<string, string> = { ethereum: "Ethereum", bitcoin: "Bitcoin", solana: "Solana", tron: "Tron" };
+const BIZ_CHAIN_COLORS: Record<string, string> = { ethereum: "#627EEA", bitcoin: "#F7931A", solana: "#14F195", tron: "#EF0027" };
+
+// Chain options for the Link Wallet modal — reuses the labels/colors above,
+// adds the address placeholder text per chain.
+const LINK_CHAIN_OPTIONS = [
+  { id: "ethereum" as const, label: BIZ_CHAIN_LABELS.ethereum, color: BIZ_CHAIN_COLORS.ethereum, placeholder: "0x..." },
+  { id: "bitcoin"  as const, label: BIZ_CHAIN_LABELS.bitcoin,  color: BIZ_CHAIN_COLORS.bitcoin,  placeholder: "bc1q... or 1..." },
+  { id: "solana"   as const, label: BIZ_CHAIN_LABELS.solana,   color: BIZ_CHAIN_COLORS.solana,   placeholder: "..." },
+  { id: "tron"     as const, label: BIZ_CHAIN_LABELS.tron,     color: BIZ_CHAIN_COLORS.tron,     placeholder: "T..." },
+];
+
+function bizFmtUsd(n: number) {
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(2) + "M";
+  if (n >= 1_000)     return "$" + (n / 1_000).toFixed(1) + "K";
+  return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+function bizFmtAddress(addr: string) {
+  if (addr.length <= 14) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function OnChainHoldingsPanel({ businessId }: { businessId: string }) {
+  const [open,        setOpen]        = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [clId,        setClId]        = useState<string | null>(null);
+  const [accounts,    setAccounts]    = useState<BizChainAccount[] | null>(null);
+  const [trustScores, setTrustScores] = useState<BizTrustScores | null>(null);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [verifyAccount, setVerifyAccount] = useState<BizChainAccount | null>(null);
+
+  const fetchOnChain = useCallback(async () => {
+    if (!businessId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: node, error: nodeErr } = await supabase
+        .schema("graph")
+        .from("nodes")
+        .select("cl_id")
+        .eq("linked_entity_type", "business")
+        .eq("linked_entity_id", businessId)
+        .maybeSingle();
+
+      if (nodeErr) throw new Error("Could not look up your graph node.");
+      if (!node) {
+        setError("Your on-chain holdings will appear here once you have an active financing record.");
+        setLoading(false);
+        return;
+      }
+
+      setClId(node.cl_id);
+
+      const json = await callFn(
+        `graph-node-get/${encodeURIComponent(node.cl_id)}?include_chain=true&include_trust=true`,
+        undefined,
+        "GET",
+      );
+      const allAccounts: BizChainAccount[] = json.data?.chain_accounts ?? [];
+      setAccounts(allAccounts);
+      setTrustScores(json.data?.trust_scores ?? null);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to load your on-chain holdings.");
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId]);
+
+  function handleToggle() {
+    if (!open && accounts === null && !loading) fetchOnChain();
+    setOpen(o => !o);
+  }
+
+  const netWorthUsd = trustScores?.on_chain_net_worth_usd ?? 0;
+  const verifiedCount = (accounts ?? []).filter(a => a.verified).length;
+
+  return (
+    <Card>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", gap: 12 }}>
+        <button onClick={handleToggle}
+          style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, background: "none", border: "none", cursor: "pointer", textAlign: "left" as const, padding: 0 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: open ? "#0A2540" : "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Landmark size={13} color={open ? "#00D4FF" : "#9CA3AF"} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>On-Chain Holdings</p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+              {accounts !== null
+                ? `${verifiedCount} verified wallet${verifiedCount !== 1 ? "s" : ""} \u00b7 ${netWorthUsd > 0 ? bizFmtUsd(netWorthUsd) + " tracked net worth" : "no priced balances yet"}`
+                : "See your verified blockchain wallets and tracked balances"}
+            </p>
+          </div>
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <button onClick={() => setLinkModalOpen(true)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#0A2540", cursor: "pointer" }}>
+            <Plus size={12} /> Link wallet
+          </button>
+          <button onClick={handleToggle} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", padding: 0 }}>
+            <ChevronRight size={16} style={{ color: "#9CA3AF", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ borderTop: "1px solid #F3F4F6" }}>
+          {loading && (
+            <div style={{ padding: "32px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={16} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading your on-chain holdings…</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ padding: "20px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={15} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280" }}>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && accounts !== null && accounts.length === 0 && (
+            <div style={{ padding: "32px 20px", textAlign: "center" as const }}>
+              <Landmark size={26} style={{ color: "#E5E7EB", marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No wallets linked yet</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 14 }}>Link and verify a blockchain wallet to let financers see your on-chain balances as part of your financial picture.</p>
+              <button onClick={() => setLinkModalOpen(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "2px dashed #E5E7EB", background: "none", fontSize: 13, fontWeight: 600, color: "#9CA3AF", cursor: "pointer" }}>
+                <Plus size={13} /> Link your first wallet
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && accounts !== null && accounts.length > 0 && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, padding: "14px 20px" }}>
+                <div style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 10, padding: "12px 14px" }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>Net Worth (tracked)</p>
+                  <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#0A2540" }}>{netWorthUsd > 0 ? bizFmtUsd(netWorthUsd) : "—"}</p>
+                </div>
+                <div style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 10, padding: "12px 14px" }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 4 }}>On-Chain Activity</p>
+                  <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: trustScores?.on_chain_activity_score ? "#10B981" : "#9CA3AF" }}>
+                    {trustScores?.on_chain_activity_score != null ? `${Math.round(trustScores.on_chain_activity_score)}/100` : "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                {accounts.map((acct, i) => {
+                  const chainColor = BIZ_CHAIN_COLORS[acct.chain] ?? "#6B7280";
+                  const chainLabel = BIZ_CHAIN_LABELS[acct.chain] ?? acct.chain;
+                  const acctNetWorth = acct.holdings.reduce((sum, h) => sum + (h.balance_usd_equivalent ?? 0), 0);
+                  return (
+                    <div key={acct.id} style={{ padding: "13px 20px", borderBottom: i < accounts.length - 1 ? "1px solid #F9FAFB" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: acct.holdings.length > 0 ? 8 : 0 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `${chainColor}15`, border: `1px solid ${chainColor}30` }}>
+                          <Landmark size={12} color={chainColor} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{chainLabel}</span>
+                            {acct.verified ? (
+                              <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "rgba(16,185,129,0.1)", padding: "1px 5px", borderRadius: 4 }}>VERIFIED</span>
+                            ) : (
+                              <span style={{ fontSize: 9, fontWeight: 700, color: "#D97706", background: "rgba(245,158,11,0.1)", padding: "1px 5px", borderRadius: 4 }}>PENDING VERIFICATION</span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "monospace" }}>{bizFmtAddress(acct.address)}</p>
+                        </div>
+                        {acct.verified && acctNetWorth > 0 && (
+                          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540", flexShrink: 0 }}>{bizFmtUsd(acctNetWorth)}</p>
+                        )}
+                        {!acct.verified && (
+                          <button onClick={() => setVerifyAccount(acct)}
+                            style={{ flexShrink: 0, padding: "5px 11px", borderRadius: 7, border: "1px solid #0A2540", background: "#0A2540", color: "white", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                            Verify now
+                          </button>
+                        )}
+                      </div>
+                      {acct.verified && acct.holdings.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6, paddingLeft: 38 }}>
+                          {acct.holdings.map(h => (
+                            <span key={h.asset} style={{ fontSize: 11, fontWeight: 600, color: "#374151", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 6, padding: "3px 8px" }}>
+                              {h.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} {h.asset}
+                              {h.balance_usd_equivalent != null && <span style={{ color: "#9CA3AF", marginLeft: 4 }}>({bizFmtUsd(h.balance_usd_equivalent)})</span>}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ padding: "10px 20px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+                <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>On-chain net worth and activity are a supplementary signal visible to financers you grant consent to — they do not replace your bank-derived score.</p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {linkModalOpen && clId && (
+        <LinkWalletModal
+          clId={clId}
+          onClose={() => setLinkModalOpen(false)}
+          onLinked={(account) => {
+            setAccounts(prev => [...(prev ?? []), account]);
+            setLinkModalOpen(false);
+            setOpen(true);
+            setVerifyAccount(account);
+          }}
+        />
+      )}
+
+      {verifyAccount && clId && (
+        <WalletVerifyModal
+          clId={clId}
+          account={verifyAccount}
+          onClose={() => setVerifyAccount(null)}
+          onVerified={(updated) => {
+            setAccounts(prev => (prev ?? []).map(a => a.id === updated.id ? updated : a));
+            setVerifyAccount(null);
+            fetchOnChain(); // refresh net worth / activity once verified
+          }}
+        />
+      )}
+    </Card>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   LINK WALLET MODAL
+   Ported from the equivalent flow drafted in financial-identity,
+   adapted to use callFn (adds the required apikey header) and to
+   return the BizChainAccount shape OnChainHoldingsPanel expects.
+───────────────────────────────────────────────────────── */
+function LinkWalletModal({ clId, onClose, onLinked }: {
+  clId: string; onClose: () => void; onLinked: (account: BizChainAccount) => void;
+}) {
+  const [chain, setChain] = useState<"ethereum" | "bitcoin" | "solana" | "tron">("ethereum");
+  const [address, setAddress] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const meta = LINK_CHAIN_OPTIONS.find(c => c.id === chain)!;
+
+  async function handleSubmit() {
+    if (!address.trim()) { setError("Please enter a wallet address."); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const json = await callFn(`graph-chain-accounts/${encodeURIComponent(clId)}/chain-accounts`, { chain, address: address.trim() }, "POST");
+      const raw = json?.data?.chain_account;
+      if (!raw) throw new Error("Unexpected response linking wallet.");
+      onLinked({
+        id: raw.id,
+        chain: raw.chain,
+        address: raw.address,
+        verified: raw.verified ?? false,
+        verified_by: raw.verified_by ?? null,
+        holdings: [],
+      });
+    } catch (e: any) {
+      setError(e.message ?? "Failed to link wallet. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 24px 80px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid #F3F4F6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Landmark size={15} style={{ color: "#0A2540" }} />
+            </div>
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>Link a wallet</p>
+              <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>Your private key is never shared</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 4 }}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Blockchain</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {LINK_CHAIN_OPTIONS.map(c => (
+                <button key={c.id} onClick={() => setChain(c.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, border: `1.5px solid ${chain === c.id ? c.color : "#E5E7EB"}`, background: chain === c.id ? `${c.color}0D` : "white", cursor: "pointer", transition: "all 0.15s" }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 6, background: `${c.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Landmark size={12} style={{ color: c.color }} />
+                  </div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#0A2540" }}>{c.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Wallet address</p>
+            <Input value={address} onChange={e => { setAddress(e.target.value); setError(null); }} placeholder={meta.placeholder} style={{ height: 40, fontSize: 13, fontFamily: "monospace" }} />
+          </div>
+
+          <div style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 9, display: "flex", gap: 8 }}>
+            <Info size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.6 }}>
+              {chain === "bitcoin"
+                ? "Bitcoin ownership is verified by sending a small test transaction. You'll be shown the amount and address after linking."
+                : "After linking, you'll be asked to sign a short message in your wallet to prove ownership. This does not cost gas or move any funds."}
+            </p>
+          </div>
+
+          {error && (
+            <div style={{ display: "flex", gap: 8, padding: "10px 12px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 9 }}>
+              <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: "#991B1B" }}>{error}</p>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "0 22px 20px", display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, height: 42, borderRadius: 9, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
+          <button onClick={handleSubmit} disabled={submitting || !address.trim()}
+            style={{ flex: 2, height: 42, borderRadius: 9, background: submitting || !address.trim() ? "#9CA3AF" : "#0A2540", color: "white", fontSize: 13, fontWeight: 600, border: "none", cursor: submitting || !address.trim() ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {submitting ? <><Loader2 size={13} className="animate-spin" /> Linking…</> : <><Link2 size={13} /> Link wallet</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   WALLET VERIFY MODAL
+   Two-step: fetch a challenge (signature message or bitcoin
+   deposit-address+amount), then submit proof. Ported from the
+   financial-identity draft, adapted to callFn + BizChainAccount.
+───────────────────────────────────────────────────────── */
+function WalletVerifyModal({ clId, account, onClose, onVerified }: {
+  clId: string; account: BizChainAccount; onClose: () => void; onVerified: (account: BizChainAccount) => void;
+}) {
+  const [step, setStep] = useState<"challenge" | "submit">("challenge");
+  const [challenge, setChallenge] = useState<{ message?: string; deposit_address?: string; amount_sats?: number; method: string } | null>(null);
+  const [signature, setSignature] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const chainLabel = BIZ_CHAIN_LABELS[account.chain] ?? account.chain;
+  const chainColor = BIZ_CHAIN_COLORS[account.chain] ?? "#6B7280";
+
+  useEffect(() => {
+    async function fetchChallenge() {
+      try {
+        const json = await callFn(`graph-chain-accounts-verify/${encodeURIComponent(clId)}/chain-accounts/${account.id}/challenge`, undefined, "POST");
+        const verification = json?.data?.verification;
+        if (!verification) throw new Error("Failed to generate verification challenge.");
+        setChallenge(verification);
+        setStep("submit");
+      } catch (e: any) {
+        setError(e.message ?? "Failed to generate verification challenge.");
+      }
+    }
+    fetchChallenge();
+  }, [account.id, clId]);
+
+  async function handleVerify() {
+    if (challenge?.method === "signature" && !signature.trim()) {
+      setError("Please paste the signature from your wallet.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const body = challenge?.method === "signature" ? { signature: signature.trim() } : {};
+      const json = await callFn(`graph-chain-accounts-verify/${encodeURIComponent(clId)}/chain-accounts/${account.id}/verify`, body, "POST");
+      const raw = json?.data?.chain_account;
+      if (!raw) throw new Error("Verification failed. Please try again.");
+      onVerified({
+        id: raw.id,
+        chain: raw.chain,
+        address: raw.address,
+        verified: raw.verified ?? true,
+        verified_by: raw.verified_by ?? null,
+        holdings: account.holdings,
+      });
+    } catch (e: any) {
+      setError(e.message ?? "Verification failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function copyText(text: string) {
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 24px 80px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid #F3F4F6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: `${chainColor}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Landmark size={15} style={{ color: chainColor }} />
+            </div>
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", letterSpacing: "-0.02em" }}>Verify {chainLabel} wallet</p>
+              <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1, fontFamily: "monospace" }}>{bizFmtAddress(account.address)}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 4 }}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {step === "challenge" && !error && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "12px 0" }}>
+              <Loader2 size={22} style={{ color: "#9CA3AF", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Generating verification challenge…</p>
+            </div>
+          )}
+
+          {step === "submit" && challenge?.method === "signature" && (
+            <>
+              <div style={{ padding: "12px 14px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Message to sign</p>
+                <p style={{ fontSize: 12, color: "#0A2540", fontFamily: "monospace", lineHeight: 1.6, wordBreak: "break-all" as const }}>{challenge.message}</p>
+                <button onClick={() => copyText(challenge.message!)}
+                  style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: copied ? "#10B981" : "#6B7280", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                  {copied ? <><CheckCheck size={11} /> Copied</> : <><Copy size={11} /> Copy message</>}
+                </button>
+              </div>
+
+              <div style={{ padding: "10px 12px", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.12)", borderRadius: 9, display: "flex", gap: 8 }}>
+                <Info size={12} style={{ color: "#00A8CC", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 11, color: "#0A5060", lineHeight: 1.65 }}>
+                  Open your wallet app (MetaMask, Phantom, etc.), use the <strong>Sign Message</strong> feature, paste the message above, then paste the resulting signature here. This does not cost gas or move any funds.
+                </p>
+              </div>
+
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Paste signature</p>
+                <textarea value={signature} onChange={e => { setSignature(e.target.value); setError(null); }} placeholder="0x..." rows={3}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `1.5px solid ${error ? "#EF4444" : "#E5E7EB"}`, fontSize: 12, color: "#0A2540", fontFamily: "monospace", outline: "none", resize: "vertical" as const, boxSizing: "border-box" as const }} />
+              </div>
+            </>
+          )}
+
+          {step === "submit" && challenge?.method === "transaction" && (
+            <>
+              <div style={{ padding: "12px 14px", background: "#FFFBEB", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#92400E", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Send a small test transaction</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 11, color: "#78350F", marginBottom: 3 }}>Send exactly:</p>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: "#92400E", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{challenge.amount_sats?.toLocaleString()} sats</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, color: "#78350F", marginBottom: 3 }}>To this address:</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <p style={{ fontSize: 12, fontFamily: "monospace", color: "#0A2540", wordBreak: "break-all" as const, flex: 1 }}>{challenge.deposit_address}</p>
+                      <button onClick={() => copyText(challenge.deposit_address!)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", flexShrink: 0 }}>
+                        {copied ? <CheckCheck size={13} style={{ color: "#10B981" }} /> : <Copy size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 9, display: "flex", gap: 8 }}>
+                <Info size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.65 }}>After sending the transaction, click Verify below. Bitcoin confirmations usually take a few minutes — if it hasn't confirmed yet you'll see an error; just try again shortly. The challenge expires in 60 minutes.</p>
+              </div>
+            </>
+          )}
+
+          {error && (
+            <div style={{ display: "flex", gap: 8, padding: "10px 12px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 9 }}>
+              <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: "#991B1B" }}>{error}</p>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "0 22px 20px", display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, height: 42, borderRadius: 9, border: "1px solid #E5E7EB", background: "white", fontSize: 13, fontWeight: 600, color: "#6B7280", cursor: "pointer" }}>Cancel</button>
+          {step === "submit" && (
+            <button onClick={handleVerify} disabled={submitting || (challenge?.method === "signature" && !signature.trim())}
+              style={{ flex: 2, height: 42, borderRadius: 9, background: submitting ? "#9CA3AF" : "#0A2540", color: "white", fontSize: 13, fontWeight: 600, border: "none", cursor: submitting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              {submitting ? <><Loader2 size={13} className="animate-spin" /> Verifying…</> : <><CheckCircle2 size={13} /> Verify ownership</>}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ─────────────────────────────────────────────────────────
    BRANCH FORM
@@ -1272,6 +2019,12 @@ export default function BusinessProfilePage() {
                 </p>
               </div>
             </Card>
+
+            {/* RELATIONSHIP GRAPH — self view */}
+            {businessId && <RelationshipGraphPanel businessId={businessId} />}
+
+            {/* ON-CHAIN HOLDINGS — self view (Phase 3) */}
+            {businessId && <OnChainHoldingsPanel businessId={businessId} />}
           </div>
         )}
 

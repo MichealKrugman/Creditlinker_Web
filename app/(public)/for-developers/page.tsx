@@ -276,7 +276,7 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
                 <Zap size={13} aria-hidden="true" style={{ color: "#00D4FF" }} />
                 <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>QUICKSTART</span>
               </div>
-              <CodeBlock title="quickstart.ts" lang="TypeScript">
+              <CodeBlock title="quickstart.js" lang="JavaScript">
                 {quickstartCode}
               </CodeBlock>
 
@@ -374,7 +374,7 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
                 id="api-heading"
                 badge={<Badge><Code2 size={10} aria-hidden="true" /> REST API</Badge>}
                 title={<>Clean, predictable<br />endpoints.</>}
-                sub="Bearer JWT auth via Keycloak. All endpoints return typed JSON. The full set of Partner, Business, and Institution endpoints is documented in the interactive API reference."
+                sub="All endpoints return typed JSON. The full set of Partner, Business, and Institution endpoints is documented in the interactive API reference."
               />
 
               <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: "24px 26px" }}>
@@ -394,15 +394,11 @@ console.<span style="color:#d2a8ff">log</span>(result.<span style="color:#79c0ff
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>BASE URL</p>
                 </div>
                 <div style={{ padding: "16px 18px" }}>
-                  <code style={{ fontSize: 14, color: "#00D4FF", fontFamily: "monospace" }}>https://api.creditlinker.io/v1</code>
+                  <code style={{ fontSize: 14, color: "#00D4FF", fontFamily: "monospace" }}>https://api.creditlinker.com.ng</code>
                 </div>
                 <div style={{ padding: "0 18px 16px" }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em", marginBottom: 10 }}>AUTHENTICATION</p>
-                  <pre style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: "#e6edf3", fontFamily: "monospace" }}>{`Authorization: Bearer <token>
-
-// Token from Keycloak password grant:
-POST /auth/realms/creditlinker/
-  protocol/openid-connect/token`}</pre>
+                  <pre style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: "#e6edf3", fontFamily: "monospace" }}>{`Authorization: Bearer <token>`}</pre>
                 </div>
               </div>
 
@@ -490,7 +486,7 @@ POST /auth/realms/creditlinker/
                 <Webhook size={13} aria-hidden="true" style={{ color: "rgba(255,255,255,0.3)" }} />
                 <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em" }}>WEBHOOK HANDLER</span>
               </div>
-              <CodeBlock title="webhook.ts" lang="TypeScript">
+              <CodeBlock title="webhook.js" lang="JavaScript">
                 {webhookCode}
               </CodeBlock>
 
@@ -500,7 +496,7 @@ POST /auth/realms/creditlinker/
                   <Database size={13} aria-hidden="true" style={{ color: "rgba(255,255,255,0.3)" }} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em" }}>BUILD TIER — DATA SUBMISSION</span>
                 </div>
-                <CodeBlock title="submit-data.ts" lang="TypeScript">
+                <CodeBlock title="submit-data.js" lang="JavaScript">
                   {submitCode}
                 </CodeBlock>
               </div>
@@ -522,7 +518,7 @@ POST /auth/realms/creditlinker/
           <div className="fd-feat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
             <FeatureCard
               icon={<Package size={20} aria-hidden="true" />}
-              title="TypeScript SDK"
+              title="SDK"
               desc="Full type coverage, auto-pagination, retry logic, and typed webhook event handlers. npm install @creditlinker/sdk."
             />
             <FeatureCard
@@ -564,41 +560,6 @@ POST /auth/realms/creditlinker/
         </div>
       </section>
 
-      {/* ══ EVENTS (system events table) ════════════════════════ */}
-      <section aria-labelledby="system-events-heading" className="fd-section" style={{ padding: "88px 0", background: "white" }}>
-        <div className="fd-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px" }}>
-          <SectionHeading
-            id="system-events-heading"
-            badge={<Badge><Zap size={10} aria-hidden="true" /> Event-driven architecture</Badge>}
-            title={<>Built on events.<br />Everything is observable.</>}
-            sub="Creditlinker runs on an event-driven architecture. Every meaningful state change in the platform fires an event, making your integrations reactive, auditable, and debuggable."
-            center
-          />
-          <div className="fd-event-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
-            {[
-              { category: "Data pipeline",   color: "#38BDF8", events: ["DATA_INGESTED", "TRANSACTION_NORMALIZED", "FEATURES_GENERATED"] },
-              { category: "Identity",         color: "#10B981", events: ["FINANCIAL_PROFILE_UPDATED", "SCORE_RECALCULATED", "IDENTITY_VERSION_CREATED"] },
-              { category: "Consent",          color: "#818CF8", events: ["CONSENT_GRANTED", "CONSENT_REVOKED", "CONSENT_RENEWED", "CONSENT_EXPIRED"] },
-              { category: "Financing",        color: "#F59E0B", events: ["FINANCING_GRANTED", "SETTLEMENT_CONFIRMED", "DISPUTE_OPENED", "DISPUTE_RESOLVED"] },
-              { category: "Discovery",        color: "#F472B6", events: ["DISCOVERY_MATCH_CREATED", "ACCESS_REQUESTED", "ACCESS_GRANTED", "ACCESS_DENIED"] },
-              { category: "System",           color: "#00D4FF", events: ["PIPELINE_RUN_STARTED", "PIPELINE_RUN_COMPLETED", "RISK_FLAG_RAISED"] },
-            ].map((g) => (
-              <div key={g.category} style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 14, padding: "20px 22px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: g.color, display: "inline-block" }} />
-                  <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#374151" }}>{g.category}</p>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                  {g.events.map((e) => (
-                    <code key={e} style={{ fontSize: 12, color: "#0A2540", fontFamily: "monospace", background: "white", border: "1px solid #E5E7EB", padding: "4px 10px", borderRadius: 6, display: "block" }}>{e}</code>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ══ CTA ═══════════════════════════════════════════════════ */}
       <section aria-label="Call to action" className="fd-section" style={{ padding: "88px 0", background: "#0d1117", position: "relative", overflow: "hidden" }}>
         <GridBg />
@@ -613,8 +574,7 @@ POST /auth/realms/creditlinker/
               </h2>
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 36, lineHeight: 1.78 }}>
                 Get your API key, spin up the sandbox, and make your first identity query before
-                your coffee goes cold. The SDK ships with full TypeScript types and complete
-                OpenAPI docs.
+                your coffee goes cold. The SDK ships with complete OpenAPI docs and request/response examples.
               </p>
               <div className="fd-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 <Link href="/developers/api-keys" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>

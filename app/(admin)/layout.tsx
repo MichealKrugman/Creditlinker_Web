@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminTopNav } from "@/components/layout/AdminTopNav";
 import { AdminUserProvider } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
+import { getPlatformSettings } from "@/lib/platform-settings-cache";
+
+const DEFAULT_TIMEOUT_MINUTES = 30;
+const CHECK_INTERVAL_MS = 30_000; // check every 30 seconds
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -13,6 +17,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isLoginPage = pathname === "/admin/login";
 
   const [checking, setChecking] = useState(!isLoginPage);
+
+  // SEC-10: idle session timeout
+  const lastActivityRef   = useRef<number>(Date.now());
+  const timeoutMinutesRef = useRef<number>(DEFAULT_TIMEOUT_MINUTES);
 
   useEffect(() => {
     if (isLoginPage) return;
@@ -26,8 +34,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.replace("/admin/login");
       } else {
         setChecking(false);
+        // SCALE-06: shared platform_settings cache — avoids a second direct
+        // query when the settings page also reads this table within the
+        // same session.
+        getPlatformSettings()
+          .then((s) => {
+            const parsed = Number(s.session_timeout_minutes);
+            if (Number.isFinite(parsed) && parsed > 0) {
+              timeoutMinutesRef.current = parsed;
+            }
+          })
+          .catch(() => { /* keep DEFAULT_TIMEOUT_MINUTES on failure */ });
       }
     });
+  }, [isLoginPage, router]);
+
+  // Activity listeners — reset the idle clock on any user interaction.
+  useEffect(() => {
+    if (isLoginPage) return;
+    const resetActivity = () => { lastActivityRef.current = Date.now(); };
+    window.addEventListener("mousemove", resetActivity);
+    window.addEventListener("keydown",   resetActivity);
+    window.addEventListener("click",     resetActivity);
+    window.addEventListener("scroll",    resetActivity);
+    return () => {
+      window.removeEventListener("mousemove", resetActivity);
+      window.removeEventListener("keydown",   resetActivity);
+      window.removeEventListener("click",     resetActivity);
+      window.removeEventListener("scroll",    resetActivity);
+    };
+  }, [isLoginPage]);
+
+  // Idle timeout check — runs every CHECK_INTERVAL_MS.
+  useEffect(() => {
+    if (isLoginPage) return;
+    const timer = setInterval(async () => {
+      const idleMs      = Date.now() - lastActivityRef.current;
+      const timeoutMs   = timeoutMinutesRef.current * 60_000;
+      if (idleMs >= timeoutMs) {
+        await supabase.auth.signOut();
+        router.replace("/admin/login?reason=timeout");
+      }
+    }, CHECK_INTERVAL_MS);
+    return () => clearInterval(timer);
   }, [isLoginPage, router]);
 
   if (isLoginPage) {

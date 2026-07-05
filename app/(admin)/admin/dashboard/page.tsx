@@ -14,9 +14,9 @@ import { Button } from "@/components/ui/button";
 import { canView, canManage, isSuperAdmin } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
-import { callAdminFn } from "@/lib/admin-api";
+import { callAdminFnCached } from "@/lib/admin-api";
 
-const callFn = callAdminFn;
+const callFn = callAdminFnCached;
 
 // ─────────────────────────────────────────────────────────────
 //  PRIMITIVE COMPONENTS
@@ -442,6 +442,9 @@ export default function AdminDashboard() {
   const [pipelineLoading, setPipelineLoading] = useState(true);
 
   useEffect(() => {
+    // SCALE-06: cached for 60s — KPI tiles are acceptable to be slightly
+    // stale, and this avoids re-invoking the edge function on every
+    // dashboard mount / tab refocus within that window.
     callFn({ action: "get-platform-metrics" }).then(d => setMetrics(d)).catch(() => {});
   }, []);
 

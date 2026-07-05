@@ -195,42 +195,60 @@ export default function AdminAuditLogsPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const hasFilters = search || surface !== "All" || severity !== "All" || dateFrom || dateTo;
 
+  const [exporting, setExporting] = useState(false);
+
   async function handleExport() {
-    let query = supabase
-      .from("platform_events")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(5000);
+    setExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Not authenticated");
 
-    if (surface  !== "All") query = query.eq("surface",  surface);
-    if (severity !== "All") query = query.eq("severity", severity);
-    if (dateFrom) query = query.gte("created_at", dateFrom);
-    if (dateTo)   query = query.lte("created_at", dateTo + "T23:59:59");
-    if (search.trim()) {
-      query = query.or(
-        `event_type.ilike.%${search}%,message.ilike.%${search}%,actor_id.ilike.%${search}%`
-      );
+      const functionsUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace("/rest/v1", "") + "/functions/v1";
+      const params = new URLSearchParams();
+      if (surface  !== "All") params.set("surface",  surface);
+      if (severity !== "All") params.set("severity", severity);
+      if (search.trim())      params.set("search",   search.trim());
+      if (dateFrom)            params.set("date_from", dateFrom);
+      if (dateTo)              params.set("date_to",   dateTo);
+
+      const res = await fetch(`${functionsUrl}/export-audit-log?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? "Export failed");
+      }
+
+      // The edge function streams the CSV in DB-cursor-paginated chunks rather
+      // than loading everything into one query — this just consumes that stream
+      // into a blob for download. Server-side cap is 50,000 rows (vs. the old
+      // hardcoded 5,000), with a trailing comment line if truncated.
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? `platform-events-${new Date().toISOString().slice(0, 10)}.csv`;
+
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement("a");
+      a.href    = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      if (res.headers.get("X-Truncated") === "true") {
+        alert("Export was truncated at 50,000 rows. Narrow your filters to export the remaining events.");
+      }
+    } catch (err: any) {
+      console.error("[audit-logs] export failed", err);
+      alert(err?.message ?? "Export failed.");
+    } finally {
+      setExporting(false);
     }
-
-    const { data } = await query;
-    if (!data) return;
-    const csv = [
-      ["id", "created_at", "surface", "event_type", "severity", "actor_id", "actor_type", "target_type", "target_id", "business_id", "message"].join(","),
-      ...data.map(r => [
-        r.id, r.created_at, r.surface, r.event_type, r.severity,
-        r.actor_id, r.actor_type, r.target_type ?? "", r.target_id ?? "",
-        r.business_id ?? "", `"${r.message.replace(/"/g, '""')}"`,
-      ].join(","))
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    const suffix = [surface !== "All" ? surface : "", severity !== "All" ? severity : "", dateFrom || dateTo ? "filtered" : ""].filter(Boolean).join("-");
-    a.download = `platform-events-${new Date().toISOString().slice(0, 10)}${suffix ? `-${suffix}` : ""}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   return (
@@ -264,8 +282,8 @@ export default function AdminAuditLogsPage() {
             <RefreshCw size={13} className={(loading || adminActionsLoading) ? "animate-spin" : ""} /> Refresh
           </Button>
           {activeTab === "platform_events" && (
-            <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport}>
-              <Download size={13} /> Export CSV
+            <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport} disabled={exporting}>
+              <Download size={13} className={exporting ? "animate-spin" : ""} /> {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           )}
         </div>

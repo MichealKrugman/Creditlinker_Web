@@ -17,6 +17,7 @@ import {
 import { useAdminUser } from "@/lib/admin-user-context";
 import { supabase } from "@/lib/supabase";
 import { callAdminFn } from "@/lib/admin-api";
+import { getPlatformSettings, invalidatePlatformSettings } from "@/lib/platform-settings-cache";
 
 const callFn = callAdminFn;
 
@@ -36,15 +37,12 @@ async function fetchAdminUsers(): Promise<any> {
   return { users, count: users.length };
 }
 
-// Returns Record<string, any> so downstream code can access values without type errors
+// SCALE-06: shared cache with (admin)/layout.tsx — the layout already reads
+// session_timeout_minutes from platform_settings on every protected-route
+// mount, so this page reuses that same cached row set instead of issuing a
+// second direct query.
 async function fetchSettings(): Promise<Record<string, any>> {
-  const { data, error } = await supabase
-    .from("platform_settings")
-    .select("key, value");
-  if (error) throw new Error(error.message);
-  const out: Record<string, any> = {};
-  for (const row of data ?? []) out[row.key] = row.value;
-  return out;
+  return getPlatformSettings();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -324,6 +322,7 @@ export default function AdminSettingsPage() {
       const payload: Record<string, unknown> = {};
       keys.forEach(k => { payload[k] = settings[k]; });
       await callFn({ action: "save-settings", settings: payload });
+      invalidatePlatformSettings(); // SCALE-06: next read (this page, or the admin layout) gets fresh values
       setSave(tab, { saving: false, saved: true, dirty: false });
       setTimeout(() => setSave(tab, { saved: false }), 3000);
     } catch (e: any) {
@@ -498,6 +497,35 @@ export default function AdminSettingsPage() {
             <AlertTriangle size={15} style={{ color:"#EF4444", flexShrink:0, marginTop:1 }} />
             <div>
               <p style={{ fontSize:13, fontWeight:700, color:"#991B1B", marginBottom:6 }}>Danger Zone</p>
+              {/*
+                SEC-09: Purge Sandbox Data — requirements that MUST be
+                implemented before this button is wired to any action:
+
+                1. super_admin role enforced at both UI (already gated by
+                   isSuperAdmin check on this page) AND in the edge function
+                   handler via requireAdminRole(authCtx, "super_admin").
+
+                2. Re-authentication challenge: require the admin to re-enter
+                   their password (signInWithPassword) before the edge function
+                   call is made — not just a click confirmation.
+
+                3. Typed confirmation string: admin must type a specific phrase
+                   (e.g. "purge sandbox") in a modal input before the button
+                   is enabled — do NOT use a simple window.confirm().
+
+                4. Audit log entry: the edge function must write a platform
+                   event and audit_entry BEFORE executing the purge, so there
+                   is a record even if the purge itself fails.
+
+                5. Sandbox-only guard: the edge function must verify
+                   Deno.env.get("ENVIRONMENT") === "sandbox" and return 403
+                   if it is not — this action must never be triggerable
+                   against the production database.
+
+                6. Cooldown: enforce a 30-second countdown in the confirmation
+                   modal before the final submit is enabled (same pattern as
+                   DeleteAccountModal in the business portal).
+              */}
               <Button variant="outline" size="sm" style={{ color:"#EF4444", borderColor:"rgba(239,68,68,0.3)", gap:6 }}>
                 <Database size={13} /> Purge Sandbox Data
               </Button>

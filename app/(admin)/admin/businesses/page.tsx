@@ -13,10 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
-import { supabase } from "@/lib/supabase";
-import { callEdgeFn } from "@/lib/admin-api";
-
-const callFn = callEdgeFn;
+import { callAdminFn } from "@/lib/admin-api";
 
 const PAGE_SIZE = 20;
 const STATUSES = ["All", "active", "suspended", "incomplete"];
@@ -161,34 +158,13 @@ export default function AdminBusinessesPage() {
   const load = useCallback(async (pg = page, q = search, st = status, vf = verif) => {
     setLoading(true);
     try {
-      let query = supabase
-        .from("businesses")
-        .select(`
-          business_id, name, sector, profile_status, kyc_status,
-          created_at, data_coverage_start, data_coverage_end,
-          creditlinker_scores ( composite_score ),
-          linked_accounts ( account_id )
-        `, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE - 1);
-
-      if (q)         query = query.ilike("name", `%${q}%`);
-      if (st !== "All") query = query.eq("profile_status", st);
-      if (vf !== "All") query = query.eq("kyc_status", vf);
-
-      const { data, error, count } = await query;
-      if (error) throw error;
-      setTotalCount(count ?? 0);
-      setBusinesses((data ?? []).map((b: any) => ({
-        ...b,
-        score:        b.creditlinker_scores?.[0]?.composite_score ?? 0,
-        accounts:     b.linked_accounts?.length ?? 0,
-        months:       b.data_coverage_start && b.data_coverage_end
-          ? Math.round((new Date(b.data_coverage_end).getTime() - new Date(b.data_coverage_start).getTime()) / (1000 * 60 * 60 * 24 * 30))
-          : 0,
-        status:       b.profile_status,
-        verification: b.kyc_status,
-      })));
+      const data = await callAdminFn({
+        action: "get-businesses",
+        page: pg, limit: PAGE_SIZE,
+        search: q, status: st, verification: vf,
+      });
+      setTotalCount(data.pagination?.total ?? 0);
+      setBusinesses(data.businesses ?? []);
     } catch (e) {
       console.error("[businesses] load failed", e);
     } finally {
@@ -214,9 +190,9 @@ export default function AdminBusinessesPage() {
     setActionError("");
     try {
       if (modal.type === "suspend") {
-        await callFn("admin-suspend-business", { business_id: modal.bizId, reason }, "POST");
+        await callAdminFn({ action: "suspend-business", business_id: modal.bizId, reason });
       } else if (modal.type === "unsuspend") {
-        await callFn("admin-activate-business", { business_id: modal.bizId, reason }, "POST");
+        await callAdminFn({ action: "activate-business", business_id: modal.bizId, reason });
       }
       setModal(null);
       await load();

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Webhook, Plus, Trash2, RefreshCw, CheckCircle2,
   XCircle, ChevronDown, ChevronUp, Send, AlertCircle,
-  Clock, Globe, Loader2,
+  Clock, Globe, Loader2, RotateCcw, SkipForward,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,13 @@ type WebhookEndpoint = {
 };
 
 type DeliveryRecord = {
-  id:           string;
-  event_type:   string;
-  status:       "delivered" | "failed" | "pending";
-  http_status:  number | null;
-  created_at:   string;
+  id:            string;
+  event_type:    string;
+  status:        "delivered" | "failed" | "pending" | "dead_lettered";
+  http_status:   number | null;
+  attempt_count: number;
+  last_error:    string | null;
+  created_at:    string;
 };
 
 const EVENT_TYPES = [
@@ -48,6 +50,15 @@ function formatTime(iso: string): string {
   if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function statusColor(status: DeliveryRecord["status"]): { bg: string; text: string } {
+  switch (status) {
+    case "delivered":    return { bg: "#ECFDF5", text: "#10B981" };
+    case "failed":       return { bg: "#FEF2F2", text: "#EF4444" };
+    case "dead_lettered": return { bg: "#FFF7ED", text: "#F97316" };
+    default:             return { bg: "#F3F4F6", text: "#6B7280" };
+  }
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -77,13 +88,13 @@ function WebhookRow({
   const [testing,     setTesting]     = useState(false);
   const [deliveries,  setDeliveries]  = useState<DeliveryRecord[]>([]);
   const [loadingDels, setLoadingDels] = useState(false);
+  const [retrying,    setRetrying]    = useState<string | null>(null);
 
   async function loadDeliveries() {
-    if (deliveries.length > 0) return; // already loaded
     setLoadingDels(true);
     const { data } = await supabase
       .from("developer_webhook_events")
-      .select("id, event_type, status, http_status, created_at")
+      .select("id, event_type, status, http_status, attempt_count, last_error, created_at")
       .eq("developer_id", developerId)
       .eq("endpoint_url", hook.url)
       .order("created_at", { ascending: false })
@@ -103,9 +114,19 @@ function WebhookRow({
     setTesting(true);
     await onTest(hook.id);
     setTesting(false);
-    // Refresh deliveries
     setDeliveries([]);
     loadDeliveries();
+  }
+
+  async function handleRetry(deliveryId: string) {
+    setRetrying(deliveryId);
+    // Reset the delivery to pending so the retry runner picks it up immediately.
+    await supabase
+      .from("developer_webhook_events")
+      .update({ status: "pending", next_retry_at: new Date().toISOString() })
+      .eq("id", deliveryId);
+    await loadDeliveries();
+    setRetrying(null);
   }
 
   const lastUsed = hook.last_used_at ? formatTime(hook.last_used_at) : "Never";
@@ -176,30 +197,73 @@ function WebhookRow({
 
       {expanded && (
         <div style={{ borderTop: "1px solid #F9FAFB", background: "#FAFAFA" }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", textTransform: "uppercase" as const, padding: "10px 24px 6px" }}>
-            Recent Deliveries
-          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 24px 6px" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+              Recent Deliveries
+            </p>
+            <button onClick={loadDeliveries} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              <RefreshCw size={10} /> Refresh
+            </button>
+          </div>
           {loadingDels ? (
             <div style={{ padding: "16px 24px" }}>
               <Loader2 size={14} style={{ color: "#D1D5DB", animation: "spin 0.8s linear infinite" }} />
             </div>
           ) : deliveries.length === 0 ? (
             <p style={{ padding: "12px 24px", fontSize: 12, color: "#9CA3AF" }}>No deliveries yet.</p>
-          ) : deliveries.map(d => (
-            <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 24px", borderBottom: "1px solid #F3F4F6" }}>
-              {d.status === "delivered"
-                ? <CheckCircle2 size={13} style={{ color: "#10B981", flexShrink: 0 }} />
-                : <XCircle size={13} style={{ color: "#EF4444", flexShrink: 0 }} />
-              }
-              <code style={{ fontSize: 12, color: "#374151", flex: 1, fontFamily: "var(--font-mono, monospace)" }}>{d.event_type}</code>
-              {d.http_status && (
-                <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 9999, background: d.status === "delivered" ? "#ECFDF5" : "#FEF2F2", color: d.status === "delivered" ? "#10B981" : "#EF4444" }}>
-                  {d.http_status}
+          ) : deliveries.map(d => {
+            const colors      = statusColor(d.status);
+            const canRetry    = d.status === "failed" || d.status === "dead_lettered";
+            const isRetrying  = retrying === d.id;
+            return (
+              <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 24px", borderBottom: "1px solid #F3F4F6", flexWrap: "wrap" }}>
+                {d.status === "delivered"
+                  ? <CheckCircle2 size={13} style={{ color: "#10B981", flexShrink: 0 }} />
+                  : d.status === "pending"
+                    ? <Clock size={13} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                    : <XCircle size={13} style={{ color: d.status === "dead_lettered" ? "#F97316" : "#EF4444", flexShrink: 0 }} />
+                }
+                <code style={{ fontSize: 12, color: "#374151", flex: 1, fontFamily: "var(--font-mono, monospace)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                  {d.event_type}
+                </code>
+                <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 9999, background: colors.bg, color: colors.text, flexShrink: 0 }}>
+                  {d.status}
                 </span>
-              )}
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{formatTime(d.created_at)}</span>
-            </div>
-          ))}
+                {d.http_status != null && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: d.status === "delivered" ? "#10B981" : "#EF4444", flexShrink: 0 }}>
+                    {d.http_status}
+                  </span>
+                )}
+                {d.attempt_count > 0 && (
+                  <span style={{ fontSize: 10, color: "#9CA3AF", flexShrink: 0 }}>
+                    {d.attempt_count} attempt{d.attempt_count !== 1 ? "s" : ""}
+                  </span>
+                )}
+                {d.last_error && (
+                  <span style={{ fontSize: 10, color: "#EF4444", flexShrink: 0, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={d.last_error}>
+                    {d.last_error}
+                  </span>
+                )}
+                <span style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0 }}>{formatTime(d.created_at)}</span>
+                {canRetry && (
+                  <button
+                    onClick={() => handleRetry(d.id)}
+                    disabled={isRetrying}
+                    title={d.status === "dead_lettered" ? "Re-queue this dead-lettered delivery" : "Retry this delivery now"}
+                    style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, color: "#6B7280", background: "white", border: "1px solid #E5E7EB", borderRadius: 5, padding: "2px 7px", cursor: "pointer", flexShrink: 0 }}
+                  >
+                    {isRetrying
+                      ? <Loader2 size={9} style={{ animation: "spin 0.8s linear infinite" }} />
+                      : d.status === "dead_lettered"
+                        ? <SkipForward size={9} />
+                        : <RotateCcw size={9} />
+                    }
+                    {d.status === "dead_lettered" ? "Re-queue" : "Retry"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -319,7 +383,6 @@ export default function WebhooksPage() {
   }
 
   async function handleTest(id: string): Promise<void> {
-    // Calls the dispatch route with a test ping event for this endpoint
     const hook = hooks.find(h => h.id === id);
     if (!hook || !account) return;
     try {
@@ -327,7 +390,7 @@ export default function WebhooksPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-internal-secret": "dev_internal_test", // only works in sandbox
+          "x-internal-secret": "dev_internal_test",
         },
         body: JSON.stringify({
           event_type:   "ping",
@@ -366,7 +429,9 @@ export default function WebhooksPage() {
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 18px", borderRadius: 12, background: "#F0FDFF", border: "1px solid rgba(0,212,255,0.2)" }}>
         <AlertCircle size={15} style={{ color: "#0891B2", flexShrink: 0, marginTop: 1 }} />
         <p style={{ fontSize: 13, color: "#0A5060", lineHeight: 1.6 }}>
-          Creditlinker signs all webhook payloads with an <code style={{ fontSize: 12, background: "rgba(0,212,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>X-CL-Signature</code> header. Verify this in your handler using your webhook secret.
+          Creditlinker signs all webhook payloads with an <code style={{ fontSize: 12, background: "rgba(0,212,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>X-CL-Signature</code> header.
+          Failed deliveries are retried automatically with exponential backoff (1 min → 5 min → 30 min → 2 hr → dead-letter).
+          You can also retry or re-queue individual deliveries from the delivery log below.
         </p>
       </div>
 

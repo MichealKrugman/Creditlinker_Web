@@ -223,29 +223,76 @@ export default function DashboardPage() {
       if (!session?.access_token) throw new Error('Not authenticated');
 
       const functionsUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace('/rest/v1', '') + '/functions/v1';
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      };
+
       const res = await fetch(`${functionsUrl}/run-pipeline`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
+        headers: authHeaders,
         body: JSON.stringify({ business_id: activeBusiness.business_id, sync_reason: 'user_requested' }),
       });
       const data = await res.json();
-      if (data?.cached) {
-        setPipelineStatus({ type: 'cached', message: data.reason ?? 'Pipeline ran recently. Please try again later.' });
-      } else if (data?.status === 'success' || data?.status === 'partial') {
-        await fetchDashboardData(activeBusiness.business_id);
-        setPipelineStatus({ type: 'success', message: `Pipeline complete. Score: ${data.composite_score?.raw_score ?? data.composite_score ?? 'updated'}.` });
-      } else {
-        setPipelineStatus({ type: 'error', message: data?.errors?.[0]?.message ?? data?.error ?? 'Pipeline did not complete successfully.' });
+
+      if (res.status === 409 && data?.job_id) {
+        // A job is already in progress for this business — pick up polling on it.
+        pollPipelineJob(data.job_id, functionsUrl, authHeaders, activeBusiness.business_id);
+        return;
       }
+
+      if (!res.ok || !data?.job_id) {
+        setPipelineStatus({ type: 'error', message: data?.error ?? 'Failed to queue pipeline job.' });
+        setRunningPipeline(false);
+        return;
+      }
+
+      pollPipelineJob(data.job_id, functionsUrl, authHeaders, activeBusiness.business_id);
     } catch (err: any) {
       setPipelineStatus({ type: 'error', message: err?.message ?? 'Failed to run pipeline.' });
-    } finally {
       setRunningPipeline(false);
     }
+  };
+
+  const pollPipelineJob = (
+    jobId: string,
+    functionsUrl: string,
+    authHeaders: Record<string, string>,
+    businessId: string,
+  ) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${functionsUrl}/get-pipeline-job-status?job_id=${jobId}`, {
+          method: 'GET',
+          headers: authHeaders,
+        });
+        const job = await res.json();
+
+        if (!res.ok) {
+          clearInterval(interval);
+          setRunningPipeline(false);
+          setPipelineStatus({ type: 'error', message: job?.error ?? 'Lost track of the pipeline job.' });
+          return;
+        }
+
+        if (job.status === 'succeeded') {
+          clearInterval(interval);
+          await fetchDashboardData(businessId);
+          setRunningPipeline(false);
+          setPipelineStatus({ type: 'success', message: 'Pipeline complete. Your score has been updated.' });
+        } else if (job.status === 'failed') {
+          clearInterval(interval);
+          setRunningPipeline(false);
+          setPipelineStatus({ type: 'error', message: job?.error ?? 'Pipeline did not complete successfully.' });
+        }
+        // queued / running — keep polling, loading state stays on
+      } catch (err: any) {
+        clearInterval(interval);
+        setRunningPipeline(false);
+        setPipelineStatus({ type: 'error', message: err?.message ?? 'Failed to check pipeline status.' });
+      }
+    }, 3000);
   };
 
   const handleRefresh = async () => {

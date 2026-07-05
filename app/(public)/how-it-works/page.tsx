@@ -637,7 +637,7 @@ export default function HowItWorksPage() {
             <span style={{ color: "#00D4FF" }}>financial identity?</span>
           </h2>
           <p className="hiw-cta-body" style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", marginBottom: 40, lineHeight: 1.78 }}>
-            Sign up in minutes. Link your first data source in under two. See your six-dimensional identity before the end of the day.
+            Sign up in minutes. Link your first data source in under two. See your six-dimensional identity after the pipeline runs.
           </p>
           <div className="hiw-cta-btns" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link href="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#00D4FF", color: "#0A2540", padding: "13px 26px", borderRadius: 10, fontWeight: 700, fontSize: 15, boxShadow: "0 4px 20px rgba(0,212,255,0.22)" }}>

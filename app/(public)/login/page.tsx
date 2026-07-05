@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { reportLoginFailure, reportLoginSuccess } from "@/lib/login-guard";
 import { ArrowRight, Loader2, AlertCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,9 +86,11 @@ export default function LoginPage() {
       if (verifyErr) {
         // Wrong code — clear and let them try again
         setMfaCode("");
+        await reportLoginFailure("public", email);
         throw new Error("Incorrect code. Please try again.");
       }
       // Session is now aal2 — safe to redirect
+      await reportLoginSuccess("public", email);
       router.push(redirectPath);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed. Please try again.");

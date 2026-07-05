@@ -125,11 +125,11 @@ const NAV = [
     ],
   },
   {
-    group: "How Lenders Evaluate You",
+    group: "How Financiers Evaluate You",
     icon: <Eye size={13} />,
     items: [
-      { id: "lender-view",       label: "What lenders see"           },
-      { id: "discovery",         label: "How lenders find you"       },
+      { id: "lender-view",       label: "What Financiers see"           },
+      { id: "discovery",         label: "How Financiers find you"       },
       { id: "evaluation",        label: "The evaluation process"     },
     ],
   },
@@ -140,7 +140,7 @@ const NAV = [
       { id: "consent-explained",  label: "How consent works"         },
       { id: "granting-access",    label: "Granting access"           },
       { id: "revoking-access",    label: "Revoking access"           },
-      { id: "what-lenders-see",   label: "Permission levels"         },
+      { id: "what-Financiers-see",   label: "Permission levels"         },
       { id: "access-history",     label: "Viewing access history"    },
     ],
   },
@@ -158,7 +158,7 @@ const NAV = [
     icon: <HelpCircle size={13} />,
     items: [
       { id: "faq-profile",    label: "About your profile"        },
-      { id: "faq-lenders",    label: "About lenders"             },
+      { id: "faq-Financiers",    label: "About Financiers"             },
       { id: "faq-data",       label: "About your data"           },
     ],
   },
@@ -408,13 +408,13 @@ export default function DocsPage() {
                 How Creditlinker works
               </h1>
               <P>
-                Creditlinker helps Nigerian businesses build a verified financial identity from their real banking activity, then use that identity to access capital. This guide explains what that means for you, how your data is used, and what rights you have at every step.
+                Creditlinker helps businesses build a verified financial identity from their banking activity and other information, then use that identity to access capital. This guide explains what that means for you, how your data is used, and what rights you have at every step.
               </P>
               <div className="docs-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 28 }}>
                 {[
                   { icon: <BarChart3 size={16} />, title: "Your profile",        desc: "How your financial identity is built",  id: "what-is-profile"   },
                   { icon: <Database size={16} />,  title: "Your data",           desc: "What we collect and how",              id: "data-overview"     },
-                  { icon: <Eye size={16} />,        title: "Lender access",      desc: "What lenders can and can't see",       id: "lender-view"       },
+                  { icon: <Eye size={16} />,        title: "Lender access",      desc: "What Financiers can and can't see",       id: "lender-view"       },
                   { icon: <Lock size={16} />,       title: "Your control",       desc: "Consent, permissions & revocation",    id: "consent-explained" },
                 ].map((card) => (
                   <button
@@ -443,11 +443,11 @@ export default function DocsPage() {
                 Creditlinker is built for small and medium-sized businesses in Nigeria that struggle to access capital because they lack a formal credit history, not because their finances aren't healthy.
               </P>
               <P>
-                Traditional lenders rely on credit bureau scores, which many businesses either don't have or haven't had enough time to build. Creditlinker fills that gap by creating a financial identity from the real evidence of how your business operates: your transactions, your cash flow, your payment patterns.
+                Traditional Financiers rely on credit bureau scores, which many businesses either don't have or haven't had enough time to build. Creditlinker fills that gap by creating a financial identity from the real evidence of how your business operates: your transactions, your cash flow, your payment patterns.
               </P>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
                 {[
-                  { who: "Business owners",      desc: "Connect your bank, build your financial identity, and get discovered by lenders who match your profile." },
+                  { who: "Business owners",      desc: "Connect your bank, build your financial identity, and get discovered by Financiers who match your profile." },
                   { who: "Capital providers",     desc: "Access verified, consent-gated business profiles to make faster, fairer lending decisions." },
                   { who: "Platform partners",     desc: "Embed Creditlinker's financial identity layer into your own product to offer capital access to your users." },
                 ].map((r) => (
@@ -468,9 +468,9 @@ export default function DocsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <StepCard number="1" title="Connect your financial data" desc="You link your bank account through our secure Mono Open Banking integration, or upload bank statements directly. Your raw transaction history is the foundation." />
                 <StepCard number="2" title="We build your financial profile" desc="Our system analyzes your transactions, categorizing income, expenses, cash flow patterns, and payment behavior, and produces a verified financial identity." />
-                <StepCard number="3" title="Lenders discover you (anonymously)" desc="Capital providers can see you exist and roughly match their criteria, but they can't see your details until you explicitly grant them access." />
+                <StepCard number="3" title="Financiers discover you (anonymously)" desc="Capital providers can see you exist and roughly match their criteria, but they can't see your details until you explicitly grant them access." />
                 <StepCard number="4" title="You choose who sees what" desc="When a lender requests access, you review their request and decide whether to grant it, and for how long. You can revoke access at any time." />
-                <StepCard number="5" title="Lenders evaluate and make offers" desc="Once you've granted access, the lender can review your profile and make a financing offer. You're never obligated to accept." />
+                <StepCard number="5" title="Financiers evaluate and make offers" desc="Once you've granted access, the lender can review your profile and make a financing offer. You're never obligated to accept." />
               </div>
             </DocSection>
 
@@ -487,7 +487,7 @@ export default function DocsPage() {
                 Your financial profile is a structured, verified summary of your business's financial health, built entirely from your real banking activity. It is not a credit score in the traditional sense. It's a richer picture: six distinct dimensions of how your business manages money, how consistent your income is, and how disciplined your spending has been.
               </P>
               <P>
-                Think of it as your business's financial CV. It exists in our system, belongs to you, and is shared with lenders only on your terms.
+                Think of it as your business's financial CV. It exists in our system, belongs to you, and is shared with Financiers only on your terms.
               </P>
               <Callout type="tip">
                 Unlike a bureau credit score, your Creditlinker profile is built from your actual banking activity, not loan repayment history or debt records. A business with no loans on record can still build a strong profile.
@@ -497,7 +497,7 @@ export default function DocsPage() {
             <DocSection id="six-dimensions">
               <H2>The 6 financial health dimensions</H2>
               <P>
-                Your profile is scored across six independent dimensions. Each one is evaluated separately. No single number hides the full picture. Lenders can see all six and weight them based on what they care about.
+                Your profile is scored across six independent dimensions. Each one is evaluated separately. No single number hides the full picture. Financiers can see all six and weight them based on what they care about.
               </P>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
                 <DimensionCard name="Revenue Stability" color="#10B981" desc="How consistent and predictable your income is over time. A business with steady, growing revenue scores higher than one with erratic or declining inflows." />
@@ -507,19 +507,19 @@ export default function DocsPage() {
                 <DimensionCard name="Financial Consistency" color="#00D4FF" desc="How regular and complete your financial activity and record-keeping is. Businesses with continuous, well-documented histories are rewarded here." />
                 <DimensionCard name="Risk Profile" color="#F472B6" desc="Whether there are any unusual patterns in your transactions, like irregular counterparties, sudden behavioral shifts, or signs of financial distress." />
               </div>
-              <p style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.85, marginBottom: 16, marginTop: 16 }}>Each dimension is scored from 0 to 100. A score of 80+ is considered strong. Lenders can see exactly where your strengths lie and which dimensions matter most for the type of financing you're seeking.</p>
+              <p style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.85, marginBottom: 16, marginTop: 16 }}>Each dimension is scored from 0 to 100. A score of 80+ is considered strong. Financiers can see exactly where your strengths lie and which dimensions matter most for the type of financing you're seeking.</p>
             </DocSection>
 
             <DocSection id="profile-quality">
               <H2>Profile quality</H2>
               <P>
-                Alongside your six dimension scores, every profile carries a <strong>data quality indicator</strong>, a signal to lenders about how much financial data underpins the profile. More data, from more accounts, over a longer period, means a higher quality score.
+                Alongside your six dimension scores, every profile carries a <strong>data quality indicator</strong>, a signal to Financiers about how much financial data underpins the profile. More data, from more accounts, over a longer period, means a higher quality score.
               </P>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                 {[
                   { label: "Strong",   range: "85–100", desc: "Multiple linked accounts, 12+ months of transactions, high confidence",       color: "#10B981" },
                   { label: "Moderate", range: "60–84",  desc: "Single account or some gaps in coverage, still enough data to be meaningful",  color: "#F59E0B" },
-                  { label: "Thin",     range: "0–59",   desc: "Limited history or sparse data. The profile exists, but lenders may be cautious.", color: "#EF4444" },
+                  { label: "Thin",     range: "0–59",   desc: "Limited history or sparse data. The profile exists, but Financiers may be cautious.", color: "#EF4444" },
                 ].map((t) => (
                   <div key={t.label} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 18px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12 }}>
                     <span style={{ fontSize: 11, fontWeight: 800, color: t.color, background: `${t.color}15`, border: `1px solid ${t.color}30`, padding: "2px 10px", borderRadius: 5, flexShrink: 0, marginTop: 1 }}>{t.label} · {t.range}</span>
@@ -538,7 +538,7 @@ export default function DocsPage() {
               <UL items={[
                 "Profile rebuilds automatically when new bank data is synced",
                 "Each rebuild creates a versioned snapshot; your history is preserved",
-                "Lenders who have active access are notified when your profile changes",
+                "Financiers who have active access are notified when your profile changes",
                 "The timestamp of the most recent rebuild is always visible on your profile",
               ]} />
               <P>This means your profile gets stronger over time, simply by continuing to run your business normally.</P>
@@ -608,16 +608,16 @@ export default function DocsPage() {
             </DocSection>
 
             {/* ═══════════════════════════════════════
-                HOW LENDERS EVALUATE YOU
+                HOW Financiers EVALUATE YOU
             ═══════════════════════════════════════ */}
             <DocSection id="lender-view">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <Eye size={16} style={{ color: "#00D4FF" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>How Lenders Evaluate You</span>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9CA3AF", textTransform: "uppercase" }}>How Financiers Evaluate You</span>
               </div>
-              <H2>What lenders can see</H2>
+              <H2>What Financiers can see</H2>
               <P>
-                Lenders on Creditlinker can only ever see what you've explicitly permitted them to see. There are three levels of access, and you control which level each lender receives:
+                Financiers on Creditlinker can only ever see what you've explicitly permitted them to see. There are three levels of access, and you control which level each lender receives:
               </P>
               <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
                 {[
@@ -631,13 +631,13 @@ export default function DocsPage() {
                   </div>
                 ))}
               </div>
-              <Callout type="tip">You can grant different lenders different levels of access. A lender you trust more can see more. A lender you're less sure about can start with scores only.</Callout>
+              <Callout type="tip">You can grant different Financiers different levels of access. A lender you trust more can see more. A lender you're less sure about can start with scores only.</Callout>
             </DocSection>
 
             <DocSection id="discovery">
-              <H2>How lenders find you</H2>
+              <H2>How Financiers find you</H2>
               <P>
-                You are never visible to lenders by default. You have to opt in to discovery, a setting in your dashboard that signals you're open to financing. Once you opt in, lenders can see that a business matching your general profile exists, but they see no identifying information.
+                You are never visible to Financiers by default. You have to opt in to discovery, a setting in your dashboard that signals you're open to financing. Once you opt in, Financiers can see that a business matching your general profile exists, but they see no identifying information.
               </P>
               <P>
                 The anonymized match includes things like: roughly what size your monthly revenue is, which financing categories your profile qualifies for, and your data quality tier. Nothing more.
@@ -715,7 +715,7 @@ export default function DocsPage() {
               <Callout type="warning">Revoking access ends the evaluation process. If a lender was in the middle of reviewing your profile for an offer, revoking access will interrupt that process. Only revoke if you no longer want the lender to proceed.</Callout>
             </DocSection>
 
-            <DocSection id="what-lenders-see">
+            <DocSection id="what-Financiers-see">
               <H2>Permission levels in plain language</H2>
               <P>Here's what each permission level actually means for what a lender can do:</P>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
@@ -780,7 +780,7 @@ export default function DocsPage() {
                 "See precise timestamps for each access event",
                 "Download your full access history at any time",
               ]} />
-              <P>If you ever see access you don't recognize or didn't authorize, contact us immediately at <a href="mailto:support@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.io</a>.</P>
+              <P>If you ever see access you don't recognize or didn't authorize, contact us immediately at <a href="mailto:support@creditlinker.com.ng" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.com.ng</a>.</P>
             </DocSection>
 
             {/* ═══════════════════════════════════════
@@ -805,9 +805,9 @@ export default function DocsPage() {
               ]} />
               <H3>We never sell your data</H3>
               <P>
-                Creditlinker does not sell, rent, or trade your financial data to any third party for any purpose. The only parties who ever see your data are lenders you have explicitly consented to, and Creditlinker's own systems in the process of building your profile.
+                Creditlinker does not sell, rent, or trade your financial data to any third party for any purpose. The only parties who ever see your data are Financiers you have explicitly consented to, and Creditlinker's own systems in the process of building your profile.
               </P>
-              <Callout type="tip">To report a security concern, email us at <a href="mailto:security@creditlinker.io" style={{ color: "#065F46", fontWeight: 600 }}>security@creditlinker.io</a>. We respond to all reports within 24 hours.</Callout>
+              <Callout type="tip">To report a security concern, email us at <a href="mailto:security@creditlinker.com.ng" style={{ color: "#065F46", fontWeight: 600 }}>security@creditlinker.com.ng</a>. We respond to all reports within 24 hours.</Callout>
             </DocSection>
 
             <DocSection id="privacy">
@@ -820,7 +820,7 @@ export default function DocsPage() {
                 "Right to portability: your financial data export is yours. Take it anywhere.",
                 "Right to revoke consent: you can withdraw any lender's access at any time, instantly",
               ]} />
-              <P>To exercise any of these rights, visit the Privacy section of your dashboard or contact <a href="mailto:privacy@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>privacy@creditlinker.io</a>.</P>
+              <P>To exercise any of these rights, visit the Privacy section of your dashboard or contact <a href="mailto:support@creditlinker.com.ng" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.com.ng</a>.</P>
             </DocSection>
 
             <DocSection id="data-retention">
@@ -829,7 +829,7 @@ export default function DocsPage() {
                 We keep your financial data for as long as your account is active. If you close your account, we delete all your financial data within 30 days. Access logs are retained for 7 years to meet regulatory obligations, but are not shared with any third party after your account is closed.
               </P>
               <P>
-                If you disconnect a bank account or delete a statement, that data is removed from your active profile on the next rebuild. Historical snapshots that were built with that data are archived but remain accessible to lenders who had active consent at the time they were created.
+                If you disconnect a bank account or delete a statement, that data is removed from your active profile on the next rebuild. Historical snapshots that were built with that data are archived but remain accessible to Financiers who had active consent at the time they were created.
               </P>
             </DocSection>
 
@@ -856,7 +856,7 @@ export default function DocsPage() {
               />
               <QA
                 q="What if I think something in my profile is wrong?"
-                a={<>Contact us at <a href="mailto:support@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.io</a> and describe what you believe is incorrect. We'll review the underlying transactions and correct any processing errors. In most cases, uploading additional or more recent bank statements will also naturally improve or correct a profile.</>}
+                a={<>Contact us at <a href="mailto:support@creditlinker.com.ng" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.com.ng</a> and describe what you believe is incorrect. We'll review the underlying transactions and correct any processing errors. In most cases, uploading additional or more recent bank statements will also naturally improve or correct a profile.</>}
               />
               <QA
                 q="Does my profile affect a bureau credit score?"
@@ -864,11 +864,11 @@ export default function DocsPage() {
               />
             </DocSection>
 
-            <DocSection id="faq-lenders">
-              <H2>About lenders</H2>
+            <DocSection id="faq-Financiers">
+              <H2>About Financiers</H2>
               <QA
-                q="Who are the lenders on Creditlinker?"
-                a="Lenders on Creditlinker are licensed capital providers: banks, microfinance institutions, fintech lenders, and other regulated financial institutions that have been verified and onboarded onto our platform. You can see a lender's profile before granting them access."
+                q="Who are the Financiers on Creditlinker?"
+                a="Financiers on Creditlinker are licensed capital providers: banks, microfinance institutions, fintech Financiers, and other regulated financial institutions that have been verified and onboarded onto our platform. You can see a lender's profile before granting them access."
               />
               <QA
                 q="Can a lender contact me without my consent?"
@@ -879,8 +879,8 @@ export default function DocsPage() {
                 a="Absolutely not. Receiving an offer means a lender thinks your profile qualifies. Accepting or rejecting it is entirely your decision. You can decline without explanation, and declining has no impact on your profile or future eligibility."
               />
               <QA
-                q="Can multiple lenders see my profile at the same time?"
-                a="Yes. You can grant access to as many lenders as you like simultaneously. Each consent is independent; granting access to one lender doesn't affect your relationship with any other."
+                q="Can multiple Financiers see my profile at the same time?"
+                a="Yes. You can grant access to as many Financiers as you like simultaneously. Each consent is independent; granting access to one lender doesn't affect your relationship with any other."
               />
             </DocSection>
 
@@ -900,7 +900,7 @@ export default function DocsPage() {
               />
               <QA
                 q="How do I delete my account?"
-                a={<>You can request account deletion from the Settings section of your dashboard. Alternatively, email <a href="mailto:privacy@creditlinker.io" style={{ color: "#0A2540", fontWeight: 600 }}>privacy@creditlinker.io</a>. Your account and all associated financial data will be permanently deleted within 30 days.</>}
+                a={<>You can request account deletion from the Settings section of your dashboard. Alternatively, email <a href="mailto:support@creditlinker.com.ng" style={{ color: "#0A2540", fontWeight: 600 }}>support@creditlinker.com.ng</a>. Your account and all associated financial data will be permanently deleted within 30 days.</>}
               />
             </DocSection>
 
@@ -920,15 +920,15 @@ export default function DocsPage() {
                 { id: "data-overview",     label: "What data we use"       },
                 { id: "bank-connection",   label: "Connecting your bank"   },
                 { id: "statements",        label: "Uploading statements"   },
-                { id: "lender-view",       label: "What lenders see"       },
-                { id: "discovery",         label: "How lenders find you"   },
+                { id: "lender-view",       label: "What Financiers see"       },
+                { id: "discovery",         label: "How Financiers find you"   },
                 { id: "consent-explained", label: "How consent works"      },
-                { id: "what-lenders-see",  label: "Permission levels"      },
+                { id: "what-Financiers-see",  label: "Permission levels"      },
                 { id: "access-history",    label: "Access history"         },
                 { id: "security",          label: "Protecting your data"   },
                 { id: "privacy",           label: "Your rights"            },
                 { id: "faq-profile",       label: "Profile questions"      },
-                { id: "faq-lenders",       label: "Lender questions"       },
+                { id: "faq-Financiers",       label: "Lender questions"       },
                 { id: "faq-data",          label: "Data questions"         },
               ].map((item) => (
                 <button

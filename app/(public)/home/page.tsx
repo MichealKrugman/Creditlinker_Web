@@ -234,9 +234,7 @@ export default function HomePage() {
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
                 animation: "shimmer-text 5s linear infinite",
-              }}>
-                Built from your real financial history.
-              </span>
+              }}></span>
             </h1>
 
             {/* Sub */}
@@ -355,10 +353,10 @@ export default function HomePage() {
           }}>
             Most businesses work hard.<br />
             Capital still cannot find them.<br />
-            <span style={{ color: "#00D4FF" }}>That changes today.</span>
+            <span style={{ color: "#00D4FF" }}>That changes now.</span>
           </h2>
           <p className="home-problem-body" style={{ fontSize: "clamp(15px, 1.8vw, 18px)", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, marginBottom: 48, maxWidth: 600, margin: "0 auto 48px" }}>
-            Many Nigerian businesses have real revenue, real customers, and months of operating history. What they are missing is not the track record. It is a way to show it.{" "}
+            Many businesses have real revenue, real customers, and months of operating history. What they are missing is not the track record. It is a way to show it.{" "}
             <strong style={{ color: "rgba(255,255,255,0.75)" }}>Creditlinker packages what your business has already earned into a passport that capital providers can read, verify, and act on.</strong>
           </p>
           <Link
