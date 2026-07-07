@@ -438,8 +438,8 @@ export default function FinancialIdentityPage() {
       ]);
 
       setLastSyncedAt(businessRes.data?.last_pipeline_run_at ?? null);
-      setTxCoverageStart(txCoverageRes.data?.min_date ?? null);
-      setTxCoverageEnd(txCoverageRes.data?.max_date ?? null);
+      setTxCoverageStart(txCoverageRes.data?.min_date != null ? String(txCoverageRes.data.min_date) : null);
+      setTxCoverageEnd(txCoverageRes.data?.max_date != null ? String(txCoverageRes.data.max_date) : null);
 
       // Recommendations are fetched for the specific pipeline run that produced the latest score,
       // so we always show recommendations that correspond to the current score state.
