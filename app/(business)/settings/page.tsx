@@ -46,6 +46,7 @@ interface AccountSettings {
 }
 
 interface NotifPrefs {
+  [key: string]: boolean;
   pipeline_complete:  boolean;
   score_change:       boolean;
   consent_request:    boolean;
