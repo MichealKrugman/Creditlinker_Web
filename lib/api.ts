@@ -527,6 +527,7 @@ export interface AccountSettingsResponse {
   mfa_enabled:    boolean;
   last_login:     string | null;
   business_id:    string;
+  business_name:  string | null;
   member_since:   string;
   open_to_financing: boolean;
   kyc_status:     string;
