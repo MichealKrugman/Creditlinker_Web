@@ -25,6 +25,7 @@ interface ApiOptions {
 export interface ApiError {
   message: string;
   status: number;
+  code?: string;
 }
 
 /**
@@ -52,9 +53,11 @@ export async function apiCall<T>(
 
   if (!response.ok) {
     let message = "An unexpected error occurred.";
+    let code: string | undefined;
     try {
       const err = await response.json();
       message = err.message ?? err.error ?? message;
+      code = err.code;
     } catch {
       // response body wasn't JSON — use default message
     }
@@ -63,7 +66,7 @@ export async function apiCall<T>(
       message = "Your session has expired. Please sign in again.";
     }
 
-    throw { message, status: response.status } as ApiError;
+    throw { message, status: response.status, code } as ApiError;
   }
 
   return response.json() as Promise<T>;
@@ -202,6 +205,33 @@ export interface MessagesResponse {
 export const getFinancerData = () =>
   apiCall<FinancerData>("get-financer-data", {});
 
+/** Load the financer portal businesses list — scoped to this institution only */
+export interface FinancerBusinessMatch {
+  match_id:            string;
+  anonymized_id:       string;
+  business_id:         string | null;
+  institution_id:      string | null;
+  criteria_id:         string | null;
+  capital_category:    string;
+  capital_types:       string[];   // only populated for consented businesses
+  match_score:         number | null;
+  status:              "pending" | "access_requested" | "consented" | "denied";
+  matched_at:          string | null;
+  access_requested_at: string | null;
+  access_responded_at: string | null;
+  business_name:       string | null; // only populated for consented businesses
+  matched_elsewhere:   boolean;
+}
+
+export interface FinancerBusinessesResponse {
+  success:        boolean;
+  institution_id: string;
+  matches:        FinancerBusinessMatch[];
+}
+
+export const getFinancerBusinesses = () =>
+  apiCall<FinancerBusinessesResponse>("get-financer-data", { body: { type: "businesses" } });
+
 /** Fetch messages for a consent thread (also marks unread as read) */
 export const getMessages = (consentId: string) =>
   apiCall<MessagesResponse>("get-messages", { body: { consent_id: consentId } });
@@ -211,6 +241,13 @@ export const sendMessage = (consentId: string, content: string) =>
   apiCall<{ success: boolean; message: MessageRecord }>(
     "send-message",
     { body: { consent_id: consentId, content } }
+  );
+
+/** Financer sends a message to a business on a consent thread */
+export const sendFinancerMessage = (consentId: string, content: string) =>
+  apiCall<{ success: boolean; message: MessageRecord }>(
+    "send-message",
+    { body: { consent_id: consentId, content, sender_type: "institution" } }
   );
 
 /** Extend the valid_until on an active consent */
@@ -447,7 +484,7 @@ export interface SnapshotsResponse {
   snapshots: IdentitySnapshot[];
 }
 
-export type ReportType   = 'financial_identity' | 'readiness' | 'full';
+export type ReportType   = 'financial_identity' | 'readiness' | 'full' | 'transaction_export' | 'audit_trail';
 export type ReportFormat = 'pdf' | 'csv';
 
 export interface GenerateReportResponse {
