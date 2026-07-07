@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { canManage } from "@/lib/admin-rbac";
 import { useAdminUser } from "@/lib/admin-user-context";
 import { callAdminFn } from "@/lib/admin-api";
+import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────
 //  HELPERS
