@@ -1668,7 +1668,15 @@ function SecurityTab({ user }: { user: { email?: string } | null }) {
   async function loadFactors() {
     setMfaLoading(true);
     const { data, error } = await supabase.auth.mfa.listFactors();
-    if (!error && data) setMfaFactors([...data.totp, ...data.phone]);
+    if (!error && data) {
+      const mapped = [...data.totp, ...data.phone].map(f => ({
+        id: f.id,
+        type: f.factor_type,
+        status: f.status,
+        friendly_name: f.friendly_name,
+      }));
+      setMfaFactors(mapped);
+    }
     setMfaLoading(false);
   }
 
