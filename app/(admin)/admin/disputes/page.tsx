@@ -119,7 +119,7 @@ function ResolveModal({
 
 export default function AdminDisputesPage() {
   const { adminUser } = useAdminUser();
-  const canAct = canManage(adminUser, "disputes");
+  const canAct = canManage(adminUser, "verifications");
 
   const [disputes,    setDisputes]    = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
