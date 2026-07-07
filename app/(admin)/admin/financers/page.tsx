@@ -177,7 +177,7 @@ export default function AdminFinancersPage() {
         suspend:   "suspend-financer",
         unsuspend: "activate-financer",
       };
-      await callFn("admin", { action: actionMap[modal.type], institution_id: modal.id, reason }, "POST");
+      await callAdminFn({ action: actionMap[modal.type], institution_id: modal.id, reason });
       setModal(null);
       await load();
     } catch (e: any) {
