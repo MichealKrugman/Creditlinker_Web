@@ -188,7 +188,7 @@ export default function FinancerNotifications() {
                     </div>
                   </div>
                   <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6, marginBottom: 8 }}>{n.body}</p>
-                  <a href={n.action_href} style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }} onClick={e => e.stopPropagation()}>
+                  <a href={n.action_href ?? undefined} style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }} onClick={e => e.stopPropagation()}>
                     {n.action_label} <ArrowUpRight size={11} />
                   </a>
                 </div>
