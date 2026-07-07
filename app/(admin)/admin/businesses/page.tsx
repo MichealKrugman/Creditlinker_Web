@@ -215,7 +215,7 @@ export default function AdminBusinessesPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={load} disabled={loading}>
+          <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={() => load()} disabled={loading}>
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </Button>
           <Button variant="outline" size="sm" style={{ gap: 6 }} onClick={handleExport} disabled={loading}>
