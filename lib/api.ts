@@ -532,6 +532,7 @@ export interface AccountSettingsResponse {
   open_to_financing: boolean;
   kyc_status:     string;
   notification_preferences: {
+    [key: string]: boolean;
     pipeline_complete:  boolean;
     score_change:       boolean;
     consent_request:    boolean;

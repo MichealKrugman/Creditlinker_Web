@@ -7,6 +7,7 @@ import {
   X, Loader2, BookOpen, ClipboardList,
   CheckCircle, XCircle, Clock, Activity, ChevronDown,
   MapPin, Lock, Mail, Save, Shield,
+  Wallet, Copy, ShieldCheck, CheckCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,18 @@ interface LedgerUpload {
   period: string;
   status: UploadStatus;
   entity_id: string;
+}
+
+interface ChainAccount {
+  id: string;
+  node_id: string;
+  chain: "ethereum" | "bitcoin" | "solana" | "tron";
+  address: string;
+  address_type: "EOA" | "CONTRACT" | "MULTISIG" | "GNOSIS_SAFE";
+  verified: boolean;
+  verified_at: string | null;
+  verified_by: "signature" | "transaction" | "manual" | null;
+  created_at: string;
 }
 
 interface UIReconciliationReport {
@@ -122,6 +135,30 @@ const CREDITLINKER_FIELDS = [
   { key: "counterparty", label: "Counterparty",required: false, description: "Client or supplier name" },
   { key: "reference",    label: "Reference",   required: false, description: "Invoice number or transaction reference" },
 ];
+
+// Chain support mirrors the backend exactly (_shared/chain-verify.ts /
+// graph-chain-accounts-verify): all four chains now have working
+// verification (ethereum + bitcoin from the original build, solana +
+// tron added in Phase B1).
+// Solana + Tron flipped to supported: true per Phase B1 — backend
+// signature verification for both now lives in _shared/chain-verify.ts.
+// NOTE: only Ethereum has a one-click "Connect wallet & sign" browser
+// integration (window.ethereum / MetaMask) below — Solana and Tron
+// wallets verify via the manual paste-signature path only, until a
+// future pass wires up window.solana (Phantom) / window.tronWeb
+// (TronLink) one-click signing. See TODO.txt for real-wallet testing
+// still needed before fully trusting this in production.
+const CHAIN_META: Record<string, { label: string; color: string; bg: string; border: string; supported: boolean; method: "signature" | "transaction" }> = {
+  ethereum: { label: "Ethereum", color: "#627EEA", bg: "#EEF2FF", border: "#C7D2FE", supported: true, method: "signature" },
+  bitcoin:  { label: "Bitcoin",  color: "#F7931A", bg: "#FFF7ED", border: "#FED7AA", supported: true, method: "transaction" },
+  solana:   { label: "Solana",   color: "#9945FF", bg: "#F5F3FF", border: "#DDD6FE", supported: true, method: "signature" },
+  tron:     { label: "Tron",     color: "#EF0027", bg: "#FEF2F2", border: "#FECACA", supported: true, method: "signature" },
+};
+
+function maskAddress(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
 
 /* ─────────────────────────────────────────────────────────
    DATA MAPPERS — DB rows → typed interfaces
@@ -1244,6 +1281,498 @@ function LedgerModal({
 }
 
 /* ─────────────────────────────────────────────────────────
+   CONNECT WALLET MODAL
+───────────────────────────────────────────────────────── */
+function toHexMessage(str: string): string {
+  return "0x" + Array.from(new TextEncoder().encode(str)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Minimal, dependency-free base58 encoder (Bitcoin/Solana alphabet) —
+// used only to encode raw Phantom/Solflare signMessage() signature
+// bytes into the same base58 format Creditlinker's backend expects
+// (matching the wallet address's own encoding). Avoids pulling in a
+// full bs58 package for one small utility function.
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58Encode(bytes: Uint8Array): string {
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  let num = 0n;
+  for (const b of bytes) num = (num << 8n) | BigInt(b);
+  let out = "";
+  while (num > 0n) {
+    const rem = Number(num % 58n);
+    out = BASE58_ALPHABET[rem] + out;
+    num /= 58n;
+  }
+  return "1".repeat(zeros) + out;
+}
+
+// Install links shown when a chain's browser wallet isn't detected —
+// industry-standard pattern (RainbowKit/Solana Wallet Adapter): never
+// leave a dead "Connect" button, offer the install path instead.
+const WALLET_INSTALL_URLS: Record<string, { name: string; url: string }> = {
+  ethereum: { name: "MetaMask", url: "https://metamask.io/download/" },
+  solana:   { name: "Phantom",  url: "https://phantom.app/download" },
+  tron:     { name: "TronLink", url: "https://www.tronlink.org/" },
+};
+
+function detectWalletProvider(chain: string): boolean {
+  if (typeof window === "undefined") return false;
+  if (chain === "ethereum") return !!(window as any).ethereum;
+  if (chain === "solana")   return !!(window as any).solana;
+  if (chain === "tron")     return !!(window as any).tronWeb?.ready;
+  return false;
+}
+
+type SignatureChallenge = { method: "signature"; message: string; expires_at: string; instructions: string };
+type TransactionChallenge = { method: "transaction"; deposit_address: string; amount_sats: number; amount_btc: string; expires_at: string; instructions: string };
+
+function WalletModal({
+  onClose,
+  clId,
+  authToken,
+  supabaseUrl,
+  onRefresh,
+  resumeAccount,
+}: {
+  onClose:     () => void;
+  clId:        string;
+  authToken:   string;
+  supabaseUrl: string;
+  onRefresh:   () => void;
+  resumeAccount?: ChainAccount | null;
+}) {
+  const [step,          setStep]          = useState<1 | 2>(resumeAccount ? 2 : 1);
+  const [chain,         setChain]          = useState<string>(resumeAccount?.chain ?? "ethereum");
+  const [address,       setAddress]        = useState("");
+  const [addressType,   setAddressType]    = useState<"EOA" | "CONTRACT" | "MULTISIG" | "GNOSIS_SAFE">("EOA");
+  const [creating,      setCreating]       = useState(false);
+  const [createError,   setCreateError]    = useState<string | null>(null);
+
+  const [account,       setAccount]        = useState<ChainAccount | null>(resumeAccount ?? null);
+  const [challenge,     setChallenge]      = useState<SignatureChallenge | TransactionChallenge | null>(null);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [challengeError,   setChallengeError]   = useState<string | null>(null);
+
+  const [manualMode,    setManualMode]     = useState(false);
+  const [signatureInput, setSignatureInput] = useState("");
+  const [walletSigning, setWalletSigning]  = useState(false);
+  const [manualVerifying, setManualVerifying] = useState(false);
+  const [btcChecking,   setBtcChecking]    = useState(false);
+  const [verifyError,   setVerifyError]    = useState<string | null>(null);
+  const [verified,      setVerified]       = useState(false);
+  const [copiedField,   setCopiedField]    = useState<string | null>(null);
+  const [providerAvailable, setProviderAvailable] = useState<Record<string, boolean>>({});
+
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` };
+
+  useEffect(() => {
+    // TronLink injects window.tronWeb asynchronously after page load —
+    // poll briefly rather than checking once on mount, matching the
+    // pattern most Tron dApps use to avoid a false "not installed" read.
+    const check = () => setProviderAvailable({
+      ethereum: detectWalletProvider("ethereum"),
+      solana:   detectWalletProvider("solana"),
+      tron:     detectWalletProvider("tron"),
+    });
+    check();
+    const interval = setInterval(check, 500);
+    const timeout = setTimeout(() => clearInterval(interval), 4000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
+  }, []);
+
+  useEffect(() => {
+    if (resumeAccount) {
+      fetchChallenge(resumeAccount);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const copy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text).then(() => { setCopiedField(field); setTimeout(() => setCopiedField(null), 1800); });
+  };
+
+  const fetchChallenge = async (acct: ChainAccount) => {
+    setChallengeLoading(true);
+    setChallengeError(null);
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/graph-chain-accounts-verify/${clId}/chain-accounts/${acct.id}/challenge`, {
+        method: "POST", headers,
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setChallengeError(json?.error ?? "Failed to get verification challenge.");
+      } else {
+        setChallenge(json.data);
+      }
+    } catch {
+      setChallengeError("Network error — please try again.");
+    } finally {
+      setChallengeLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!address.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/graph-chain-accounts/${clId}/chain-accounts`, {
+        method: "POST", headers,
+        body: JSON.stringify({ chain, address: address.trim(), address_type: addressType }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setCreateError(json?.error ?? "Failed to link wallet. Please check the address and try again.");
+        setCreating(false);
+        return;
+      }
+      const acct = json.data.chain_account as ChainAccount;
+      setAccount(acct);
+      setStep(2);
+      setCreating(false);
+      await fetchChallenge(acct);
+    } catch {
+      setCreateError("Network error — please try again.");
+      setCreating(false);
+    }
+  };
+
+  const handleConnectWalletSign = async () => {
+    if (!account || challenge?.method !== "signature") return;
+    setVerifyError(null);
+    setWalletSigning(true);
+    try {
+      if (chain === "ethereum") {
+        const eth = (window as any).ethereum;
+        if (!eth) {
+          setVerifyError("No browser wallet detected. Install MetaMask, or use manual signing below.");
+          return;
+        }
+        const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
+        const connected = accounts[0];
+        if (!connected || connected.toLowerCase() !== account.address.toLowerCase()) {
+          setVerifyError(`Connected wallet (${maskAddress(connected ?? "")}) doesn't match the claimed address. Switch accounts in your wallet and try again.`);
+          return;
+        }
+        const signature: string = await eth.request({
+          method: "personal_sign",
+          params: [toHexMessage(challenge.message), connected],
+        });
+        await submitVerify(signature);
+        return;
+      }
+
+      if (chain === "solana") {
+        const sol = (window as any).solana;
+        if (!sol) {
+          setVerifyError("No Solana wallet detected. Install Phantom, or use manual signing below.");
+          return;
+        }
+        const resp = await sol.connect();
+        const connected: string = resp?.publicKey?.toString?.() ?? "";
+        if (!connected || connected !== account.address) {
+          setVerifyError(`Connected wallet (${maskAddress(connected)}) doesn't match the claimed address. Switch accounts in your wallet and try again.`);
+          return;
+        }
+        const signResult = await sol.signMessage(new TextEncoder().encode(challenge.message), "utf8");
+        const rawSig: Uint8Array = signResult?.signature instanceof Uint8Array ? signResult.signature : new Uint8Array(signResult.signature);
+        await submitVerify(base58Encode(rawSig));
+        return;
+      }
+
+      if (chain === "tron") {
+        const tronWeb = (window as any).tronWeb;
+        const tronLink = (window as any).tronLink;
+        if (!tronWeb?.ready) {
+          setVerifyError("No TronLink wallet detected. Install TronLink, or use manual signing below.");
+          return;
+        }
+        // Prompt connection if not already granted — matches TronLink's
+        // documented tron_requestAccounts flow (some versions auto-grant
+        // if this origin is already connected).
+        if (tronLink?.request) {
+          try { await tronLink.request({ method: "tron_requestAccounts" }); } catch { /* may already be connected */ }
+        }
+        const connected: string = tronWeb.defaultAddress?.base58 ?? "";
+        if (!connected || connected !== account.address) {
+          setVerifyError(`Connected wallet (${maskAddress(connected)}) doesn't match the claimed address. Switch accounts in your wallet and try again.`);
+          return;
+        }
+        const signature: string = await tronWeb.trx.signMessageV2(challenge.message);
+        await submitVerify(signature);
+        return;
+      }
+    } catch (err: any) {
+      const rejected = err?.message?.toLowerCase?.().includes("reject") || err?.code === 4001;
+      setVerifyError(rejected ? "Signature request was rejected." : "Could not sign with browser wallet. Try manual signing below.");
+    } finally {
+      setWalletSigning(false);
+    }
+  };
+
+  const handleManualVerify = async () => {
+    if (!signatureInput.trim()) return;
+    setManualVerifying(true);
+    setVerifyError(null);
+    await submitVerify(signatureInput.trim());
+    setManualVerifying(false);
+  };
+
+  const submitVerify = async (signature: string) => {
+    if (!account) return;
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/graph-chain-accounts-verify/${clId}/chain-accounts/${account.id}/verify`, {
+        method: "POST", headers,
+        body: JSON.stringify({ signature }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setVerifyError(json?.error ?? "Signature did not match. Please try again.");
+        return;
+      }
+      setVerified(true);
+      onRefresh();
+    } catch {
+      setVerifyError("Network error — please try again.");
+    }
+  };
+
+  const handleCheckBitcoin = async () => {
+    setBtcChecking(true);
+    setVerifyError(null);
+    await submitVerify("");
+    setBtcChecking(false);
+  };
+
+  const chainMeta = CHAIN_META[chain];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,37,64,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 80px rgba(0,0,0,0.2)", overflow: "hidden", maxHeight: "90vh", overflowY: "auto" as const }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #F3F4F6" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", letterSpacing: "-0.02em" }}>Connect a wallet</p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>Step {step} of 2</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", display: "flex", padding: 4 }}><X size={16} /></button>
+        </div>
+
+        {step === 1 && (
+          <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em", display: "block", marginBottom: 8 }}>Chain</label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+                {Object.entries(CHAIN_META).map(([key, meta]) => {
+                  const sel = chain === key;
+                  return (
+                    <button
+                      key={key}
+                      disabled={!meta.supported}
+                      onClick={() => setChain(key)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9,
+                        border: `2px solid ${sel ? meta.color : "#E5E7EB"}`,
+                        background: sel ? meta.bg : meta.supported ? "white" : "#F9FAFB",
+                        cursor: meta.supported ? "pointer" : "not-allowed",
+                        opacity: meta.supported ? 1 : 0.55,
+                        textAlign: "left" as const,
+                      }}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#0A2540" }}>{meta.label}</span>
+                      {!meta.supported && <span style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", marginLeft: "auto" }}>Soon</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {!chainMeta.supported && (
+                <p style={{ fontSize: 11, color: "#D97706", marginTop: 8 }}>{chainMeta.label} wallet verification isn't built yet — you can't complete this on {chainMeta.label} right now.</p>
+              )}
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em", display: "block", marginBottom: 8 }}>Wallet address</label>
+              <input
+                type="text"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                placeholder={chain === "ethereum" ? "0x…" : chain === "bitcoin" ? "bc1…" : "Wallet address"}
+                style={{ width: "100%", height: 44, padding: "0 14px", borderRadius: 9, border: "1px solid #E5E7EB", fontSize: 13, color: "#0A2540", outline: "none", fontFamily: "monospace" }}
+              />
+              <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8, lineHeight: 1.6 }}>You'll prove ownership of this address in the next step — nothing is verified until then.</p>
+            </div>
+
+            {createError && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8 }}>
+                <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: "#EF4444", lineHeight: 1.5 }}>{createError}</p>
+              </div>
+            )}
+
+            <Button variant="primary" size="lg" onClick={handleCreate} disabled={!chainMeta.supported || !address.trim() || creating} style={{ height: 46, fontSize: 14, fontWeight: 700, borderRadius: 10 }}>
+              {creating ? <><Loader2 size={15} className="animate-spin" /> Linking…</> : <>Continue → <Wallet size={14} /></>}
+            </Button>
+          </div>
+        )}
+
+        {step === 2 && account && (
+          <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: chainMeta.bg, border: `1px solid ${chainMeta.border}`, borderRadius: 9 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: chainMeta.color, flexShrink: 0 }} />
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", fontFamily: "monospace" }}>{maskAddress(account.address)}</p>
+            </div>
+
+            {verified ? (
+              <div style={{ textAlign: "center" as const, padding: "20px 0" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: "#F0FDF4", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+                  <ShieldCheck size={22} style={{ color: "#10B981" }} />
+                </div>
+                <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", marginBottom: 6 }}>Wallet verified</p>
+                <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 20 }}>Ownership confirmed. This wallet now contributes to your financial identity.</p>
+                <Button variant="primary" onClick={onClose} style={{ height: 42, fontSize: 13, fontWeight: 700, borderRadius: 9, width: "100%" }}>Done</Button>
+              </div>
+            ) : challengeLoading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 0" }}>
+                <Loader2 size={20} className="animate-spin" style={{ color: "#D1D5DB" }} />
+              </div>
+            ) : challengeError ? (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8 }}>
+                <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: "#EF4444", lineHeight: 1.5 }}>{challengeError}</p>
+              </div>
+            ) : challenge?.method === "signature" ? (
+              <>
+                {["ethereum", "solana", "tron"].includes(chain) && !manualMode ? (
+                  providerAvailable[chain] ? (
+                    <>
+                      <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: "#0A2540", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Wallet size={15} color="#00D4FF" />
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 3 }}>Sign with your browser wallet</p>
+                          <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>We'll ask your wallet to sign a message proving you control this address. No transaction, no gas fee.</p>
+                        </div>
+                      </div>
+                      {verifyError && (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8 }}>
+                          <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+                          <p style={{ fontSize: 12, color: "#EF4444", lineHeight: 1.5 }}>{verifyError}</p>
+                        </div>
+                      )}
+                      <Button variant="primary" size="lg" onClick={handleConnectWalletSign} disabled={walletSigning} style={{ height: 46, fontSize: 14, fontWeight: 700, borderRadius: 10 }}>
+                        {walletSigning ? <><Loader2 size={15} className="animate-spin" /> Waiting for signature…</> : <><Wallet size={15} /> Connect wallet &amp; sign</>}
+                      </Button>
+                      <button onClick={() => setManualMode(true)} style={{ fontSize: 12, color: "#6B7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textAlign: "center" as const }}>
+                        Using a different wallet? Sign manually instead
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 8 }}>
+                        <AlertCircle size={13} style={{ color: "#D97706", flexShrink: 0, marginTop: 1 }} />
+                        <p style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5 }}>
+                          {WALLET_INSTALL_URLS[chain].name} not detected in this browser.
+                        </p>
+                      </div>
+                      <a href={WALLET_INSTALL_URLS[chain].url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                        <Button variant="outline" size="lg" style={{ height: 46, fontSize: 14, fontWeight: 700, borderRadius: 10, width: "100%" }}>
+                          Install {WALLET_INSTALL_URLS[chain].name} →
+                        </Button>
+                      </a>
+                      <button onClick={() => setManualMode(true)} style={{ fontSize: 12, color: "#6B7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textAlign: "center" as const }}>
+                        Sign manually instead
+                      </button>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>Message to sign</label>
+                      <div style={{ position: "relative" as const }}>
+                        <textarea readOnly value={challenge.message} rows={3}
+                          style={{ width: "100%", padding: "10px 40px 10px 12px", borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12, color: "#374151", fontFamily: "monospace", resize: "none" as const, background: "#F9FAFB" }} />
+                        <button onClick={() => copy(challenge.message, "message")} style={{ position: "absolute" as const, top: 8, right: 8, background: "white", border: "1px solid #E5E7EB", borderRadius: 6, padding: 5, cursor: "pointer" }}>
+                          {copiedField === "message" ? <CheckCheck size={12} style={{ color: "#10B981" }} /> : <Copy size={12} style={{ color: "#6B7280" }} />}
+                        </button>
+                      </div>
+                      <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6, lineHeight: 1.6 }}>
+                        {chain === "ethereum" && "Sign this exact message with the wallet at " + maskAddress(account.address) + ", using any wallet app or CLI tool that supports personal_sign."}
+                        {chain === "solana" && "Sign this exact message with the wallet at " + maskAddress(account.address) + " using its signMessage feature (e.g. Phantom, Solflare). Paste the resulting signature below as base58 — the same encoding as your wallet address."}
+                        {chain === "tron" && "Sign this exact message with the wallet at " + maskAddress(account.address) + " using TronLink's \"Sign Message\" feature. Paste the resulting signature below as a 0x-prefixed hex string."}
+                      </p>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>Signature</label>
+                      <textarea value={signatureInput} onChange={e => setSignatureInput(e.target.value)} rows={2} placeholder={chain === "solana" ? "Base58 signature…" : "0x…"}
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12, color: "#0A2540", fontFamily: "monospace", resize: "none" as const, outline: "none" }} />
+                    </div>
+                    {verifyError && (
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8 }}>
+                        <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+                        <p style={{ fontSize: 12, color: "#EF4444", lineHeight: 1.5 }}>{verifyError}</p>
+                      </div>
+                    )}
+                    <Button variant="primary" size="lg" onClick={handleManualVerify} disabled={!signatureInput.trim() || manualVerifying} style={{ height: 46, fontSize: 14, fontWeight: 700, borderRadius: 10 }}>
+                      {manualVerifying ? <><Loader2 size={15} className="animate-spin" /> Verifying…</> : <>Submit signature</>}
+                    </Button>
+                    {["ethereum", "solana", "tron"].includes(chain) && (
+                      <button onClick={() => setManualMode(false)} style={{ fontSize: 12, color: "#6B7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textAlign: "center" as const }}>
+                        ← Back to connect wallet
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            ) : challenge?.method === "transaction" ? (
+              <>
+                <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <ShieldCheck size={14} style={{ color: "#00A8CC", flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 12, color: "#0A5060", lineHeight: 1.6 }}>Send this exact amount from {maskAddress(account.address)} to the deposit address below. The precise amount is what proves it's you — don't round it.</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>Deposit address</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1, height: 40, padding: "0 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", display: "flex", alignItems: "center", overflow: "hidden" }}>
+                      <p style={{ fontSize: 12, color: "#374151", fontFamily: "monospace", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{challenge.deposit_address}</p>
+                    </div>
+                    <button onClick={() => copy(challenge.deposit_address, "addr")} style={{ width: 40, height: 40, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                      {copiedField === "addr" ? <CheckCheck size={14} style={{ color: "#10B981" }} /> : <Copy size={14} style={{ color: "#6B7280" }} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>Exact amount</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1, height: 40, padding: "0 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", display: "flex", alignItems: "center" }}>
+                      <p style={{ fontSize: 12, color: "#374151", fontFamily: "monospace" }}>{challenge.amount_btc} BTC <span style={{ color: "#9CA3AF" }}>({challenge.amount_sats} sats)</span></p>
+                    </div>
+                    <button onClick={() => copy(challenge.amount_btc, "amt")} style={{ width: 40, height: 40, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                      {copiedField === "amt" ? <CheckCheck size={14} style={{ color: "#10B981" }} /> : <Copy size={14} style={{ color: "#6B7280" }} />}
+                    </button>
+                  </div>
+                </div>
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>Expires {new Date(challenge.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} — confirmation can take a few minutes after sending.</p>
+                {verifyError && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "10px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8 }}>
+                    <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+                    <p style={{ fontSize: 12, color: "#EF4444", lineHeight: 1.5 }}>{verifyError}</p>
+                  </div>
+                )}
+                <Button variant="primary" size="lg" onClick={handleCheckBitcoin} disabled={btcChecking} style={{ height: 46, fontSize: 14, fontWeight: 700, borderRadius: 10 }}>
+                  {btcChecking ? <><Loader2 size={15} className="animate-spin" /> Checking chain…</> : <>I've sent it — Check</>}
+                </Button>
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    PIPELINE LOGS MODAL
 ───────────────────────────────────────────────────────── */
 function PipelineLogsModal({ onClose, log }: { onClose: () => void; log: PipelineLog | null }) {
@@ -1320,12 +1849,15 @@ export default function DataSourcesPage() {
   const [entities,   setEntities]   = useState<Entity[]>([]);
   const [accounts,   setAccounts]   = useState<LinkedAccount[]>([]);
   const [ledgers,    setLedgers]    = useState<LedgerUpload[]>([]);
+  const [chainAccounts, setChainAccounts] = useState<ChainAccount[]>([]);
   const [pipelineLog, setPipelineLog] = useState<PipelineLog | null>(null);
   const [loading,    setLoading]    = useState(true);
 
   const [showConnect,      setShowConnect]      = useState(false);
   const [showLedger,       setShowLedger]       = useState(false);
   const [showLedgerStep,   setShowLedgerStep]   = useState<0 | 1>(1);
+  const [showWallet,       setShowWallet]       = useState(false);
+  const [resumeWalletAccount, setResumeWalletAccount] = useState<ChainAccount | null>(null);
   const [showPipelineLogs, setShowPipelineLogs] = useState(false);
   const [activeMenu,       setActiveMenu]       = useState<string | null>(null);
   const [syncingAccounts,  setSyncingAccounts]  = useState<Set<string>>(new Set());
@@ -1342,7 +1874,7 @@ export default function DataSourcesPage() {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-    const [branchesRes, accountsRes, ledgersRes, pipelineLogsRes] = await Promise.all([
+    const [branchesRes, accountsRes, ledgersRes, pipelineLogsRes, chainAccountsRes] = await Promise.all([
       supabase
         .from("branches")
         .select("branch_id, name, short_name, type, is_default, location")
@@ -1360,9 +1892,16 @@ export default function DataSourcesPage() {
         `${supabaseUrl}/functions/v1/get-pipeline-logs?business_id=${bid}&limit=1`,
         { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } }
       ).then(r => r.json() as Promise<{ records: any[] }>).catch(() => ({ records: [] })),
+      activeBusiness.creditlinker_id
+        ? fetch(
+            `${supabaseUrl}/functions/v1/graph-chain-accounts/${activeBusiness.creditlinker_id}/chain-accounts`,
+            { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } }
+          ).then(r => r.json() as Promise<{ success: boolean; data?: { chain_accounts: ChainAccount[] } }>).catch(() => ({ success: false }))
+        : Promise.resolve({ success: false }),
     ]);
 
     const pipelineRecords = pipelineLogsRes.records ?? [];
+    setChainAccounts((chainAccountsRes as any)?.data?.chain_accounts ?? []);
 
     // Build entity list from branches
     const branches  = branchesRes.data ?? [];
@@ -1514,6 +2053,7 @@ export default function DataSourcesPage() {
     <>
       {showConnect      && <ConnectModal      onClose={() => setShowConnect(false)}      entities={entities} businessId={bid} authToken={authToken} onRefresh={loadAll} />}
       {showLedger       && <LedgerModal       onClose={() => setShowLedger(false)}       entities={entities} businessId={bid} onRefresh={loadAll} initialStep={showLedgerStep} />}
+      {showWallet       && <WalletModal       onClose={() => { setShowWallet(false); setResumeWalletAccount(null); }}       clId={activeBusiness?.creditlinker_id ?? ""} authToken={authToken} supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL!} onRefresh={loadAll} resumeAccount={resumeWalletAccount} />}
       {showPipelineLogs && <PipelineLogsModal onClose={() => setShowPipelineLogs(false)} log={pipelineLog} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -1651,6 +2191,53 @@ export default function DataSourcesPage() {
               <Plus size={15} /> Connect another account
             </button>
           </div>
+        </Card>
+
+        {/* ── CONNECTED WALLETS ── */}
+        <Card>
+          <SectionHeader
+            title="Connected Wallets"
+            sub="On-chain activity contributes to your financial identity once a wallet is verified."
+            action={<Button variant="outline" size="sm" onClick={() => { setResumeWalletAccount(null); setShowWallet(true); }} style={{ gap: 6 }}><Wallet size={12} /> Connect Wallet</Button>}
+          />
+          {chainAccounts.length === 0 ? (
+            <div style={{ padding: "36px 24px", textAlign: "center" as const }}>
+              <Wallet size={28} style={{ color: "#D1D5DB", margin: "0 auto 10px" }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 4 }}>No wallets connected yet</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 16, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 16px" }}>Link an Ethereum or Bitcoin wallet and prove ownership to add on-chain activity to your financial passport.</p>
+              <Button variant="outline" size="sm" onClick={() => { setResumeWalletAccount(null); setShowWallet(true); }} style={{ gap: 6 }}><Wallet size={13} /> Connect your first wallet</Button>
+            </div>
+          ) : (
+            <div style={{ padding: "12px 0 8px" }}>
+              {chainAccounts.map((acct, i) => {
+                const meta = CHAIN_META[acct.chain] ?? CHAIN_META.ethereum;
+                return (
+                  <div key={acct.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 24px", borderBottom: i < chainAccounts.length - 1 ? "1px solid #F3F4F6" : "none", flexWrap: "wrap" as const }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: meta.bg, border: `1px solid ${meta.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Wallet size={17} style={{ color: meta.color }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" as const }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540" }}>{meta.label}</p>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", padding: "2px 7px", borderRadius: 9999 }}>{acct.address_type}</span>
+                        {acct.verified ? (
+                          <Badge variant="success" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, padding: "1px 6px" }}><ShieldCheck size={11} /> Verified</Badge>
+                        ) : (
+                          <Badge variant="secondary" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, padding: "1px 6px" }}><Clock size={11} /> Unverified</Badge>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 12, color: "#9CA3AF", fontFamily: "monospace" }}>{maskAddress(acct.address)}</p>
+                    </div>
+                    {!acct.verified && (
+                      <Button variant="outline" size="sm" onClick={() => { setResumeWalletAccount(acct); setShowWallet(true); }} style={{ gap: 5, flexShrink: 0 }}>
+                        <ShieldCheck size={12} /> Verify
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
 
         {/* ── ACCOUNTING LEDGERS ── */}

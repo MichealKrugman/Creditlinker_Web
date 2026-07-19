@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: 'For Financers', href: '/for-financers' },
   { label: 'For Developers', href: '/for-developers' },
   { label: 'Products', href: '/products' },
+  { label: 'Integrity Explorer', href: '/verify' },
 ];
 
 export function Navbar() {

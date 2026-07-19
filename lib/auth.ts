@@ -5,6 +5,7 @@
  */
 
 import { supabase } from "./supabase";
+import { precheckLogin, reportLoginFailure, reportLoginSuccess, precheckRegister, formatLockMessage, formatRegisterLimitMessage } from "./login-guard";
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -39,12 +40,19 @@ export async function signIn(
   | { mfaRequired: false; accountType: AccountType; redirectPath: string }
   | { mfaRequired: true;  accountType: AccountType; redirectPath: string; factorId: string }
 > {
+  // SEC-04: check lockout BEFORE spending a Supabase Auth attempt.
+  const lock = await precheckLogin("public", email);
+  if (lock.locked) {
+    throw new Error(formatLockMessage(lock.retry_after_seconds));
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
+    await reportLoginFailure("public", email);
     if (error.message.includes("Invalid login credentials")) {
       throw new Error("Invalid email or password.");
     }
@@ -67,6 +75,8 @@ export async function signIn(
     return { mfaRequired: true, accountType, redirectPath, factorId: verifiedFactor.id };
   }
 
+  // No MFA factor — this is a fully successful login, reset the lockout counter.
+  await reportLoginSuccess("public", email);
   return { mfaRequired: false, accountType, redirectPath };
 }
 
@@ -90,6 +100,12 @@ export interface RegisterBusinessInput {
  */
 export async function registerBusiness(input: RegisterBusinessInput): Promise<void> {
   const { fullName, businessName, email, password, isRegistered } = input;
+
+  // SEC-04: throttle bulk account creation per IP before hitting Supabase Auth.
+  const regLimit = await precheckRegister(email);
+  if (regLimit.locked) {
+    throw new Error(formatRegisterLimitMessage(regLimit.retry_after_seconds));
+  }
 
   // Step 1: Create auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -159,6 +175,12 @@ export interface RegisterFinancerInput {
 export async function registerFinancer(input: RegisterFinancerInput): Promise<void> {
   const { fullName, institutionName, email, password } = input;
 
+  // SEC-04: throttle bulk account creation per IP before hitting Supabase Auth.
+  const regLimit = await precheckRegister(email);
+  if (regLimit.locked) {
+    throw new Error(formatRegisterLimitMessage(regLimit.retry_after_seconds));
+  }
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -210,6 +232,12 @@ export interface RegisterDeveloperInput {
  */
 export async function registerDeveloper(input: RegisterDeveloperInput): Promise<void> {
   const { fullName, email, password } = input;
+
+  // SEC-04: throttle bulk account creation per IP before hitting Supabase Auth.
+  const regLimit = await precheckRegister(email);
+  if (regLimit.locked) {
+    throw new Error(formatRegisterLimitMessage(regLimit.retry_after_seconds));
+  }
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
