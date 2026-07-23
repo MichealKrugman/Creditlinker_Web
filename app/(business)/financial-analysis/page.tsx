@@ -595,6 +595,49 @@ export default function FinancialAnalysisPage() {
   const [forecastLoading, setForecastLoading] = useState(true);
   const [forecastError,   setForecastError]   = useState<string | null>(null);
 
+  // Opportunity Unlocks (Phase K7) — same live-computed source as the
+  // financer portal's OpportunityUnlocksModal (forecast-custom-scenario,
+  // type: "opportunities"), not a stored table, so this is fetched fresh
+  // each time rather than read via a Supabase select.
+  const [opportunities, setOpportunities] = useState<OpportunityUnlock[]>([]);
+  const [oppLoading,    setOppLoading]    = useState(true);
+  const [oppError,      setOppError]      = useState<string | null>(null);
+
+  const loadOpportunities = useCallback(async () => {
+    if (!activeBusiness) return;
+    setOppLoading(true);
+    setOppError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Not authenticated");
+
+      const res = await fetch(`${API_BASE}/forecast-custom-scenario`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+        body: JSON.stringify({ type: "opportunities", business_id: activeBusiness.business_id }),
+      });
+
+      if (!res.ok) {
+        // 422 = insufficient data for any readiness assessment yet — same as
+        // "no nearby unlocks", not an error worth surfacing as one.
+        if (res.status === 422) { setOpportunities([]); setOppLoading(false); return; }
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? body.error ?? `Request failed (${res.status})`);
+      }
+
+      const json = await res.json();
+      setOpportunities(json.opportunities ?? []);
+    } catch (err) {
+      setOppError(err instanceof Error ? err.message : "Failed to load opportunity unlocks.");
+    } finally {
+      setOppLoading(false);
+    }
+  }, [activeBusiness?.business_id]);
+
   const loadForecast = useCallback(async () => {
     if (!activeBusiness) return;
     setForecastLoading(true);
