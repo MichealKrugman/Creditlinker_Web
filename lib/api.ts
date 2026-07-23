@@ -84,6 +84,45 @@ export const runPipeline = (businessId: string) =>
 export const recomputeReputation = (businessId: string) =>
   apiCall("recompute-reputation", { body: { business_id: businessId } });
 
+/* ──────────────────────────────────────────────────────────────────
+   PERFORMANCE FORECAST — K5 CUSTOM SCENARIO (ADJUSTABLE DRIVERS)
+────────────────────────────────────────────────────────────────── */
+
+export interface ForecastDriverInputs {
+  avg_transaction_value_change_pct?: number;
+  transaction_volume_change_pct?:    number;
+  expense_change_pct?:               number;
+  receivables_days_change?:          number;
+}
+
+export interface CustomScenarioForecast {
+  business_id:                     string;
+  computed_at:                     string;
+  pipeline_run_id:                 string | null;
+  drivers_applied:                 Required<ForecastDriverInputs>;
+  derived_revenue_growth_pct:      number;
+  projected_monthly_revenue:       number;
+  projected_monthly_expenses:      number;
+  projected_monthly_net_cashflow:  number;
+  projected_net_cashflow_90d:      number;
+  working_capital_cash_impact:     number;
+  projected_operating_runway_days: number | null;
+  runway_outlook:                  "sustainable" | "depleting";
+  explanation:                     string;
+}
+
+/**
+ * K5 — compute an ad-hoc "what-if" forecast from individual driver
+ * sliders (price, volume, expenses, receivables timing) instead of
+ * one aggregate growth %. This is a pure calculator — nothing is
+ * persisted server-side, so it's safe to call on every slider
+ * release without creating duplicate rows.
+ */
+export const getCustomScenarioForecast = (businessId: string, drivers: ForecastDriverInputs) =>
+  apiCall<CustomScenarioForecast>("forecast-custom-scenario", {
+    body: { business_id: businessId, drivers },
+  });
+
 /* ─────────────────────────────────────────────────────────
    DISCOVERY
 ───────────────────────────────────────────────────────── */

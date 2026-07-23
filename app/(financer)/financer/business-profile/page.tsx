@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,7 +9,7 @@ import {
   CheckCircle2, MessageSquare, Send, X, Search, SlidersHorizontal,
   ChevronLeft, ArrowLeftRight, Repeat2, GitFork, Lock,
   Landmark, Users, Briefcase, AlertTriangle, Gauge, Network, Activity,
-  LineChart, TrendingDown, Minus,
+  LineChart, TrendingDown, Minus, Sparkles, Target,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
@@ -233,6 +233,88 @@ type CashflowForecastBlob = {
   peak_month:           string | null;
   trough_month:         string | null;
   data_months_used:     number;
+};
+
+// ── Business performance forecast types (Phase K, Milestone 1) —
+// mirror SDK/engine/business-forecast.engine.ts exactly. Fetched
+// directly from business_performance_forecasts, same RLS-gated
+// pattern as cashflow_forecasts. ──────────────────────────────
+type ForecastScenarioId =
+  | "severe_decline" | "moderate_decline" | "stable"
+  | "moderate_growth" | "strong_growth" | "aggressive_growth";
+
+type BusinessForecastBaseline = {
+  monthly_revenue_avg:      number;
+  monthly_expense_avg:      number;
+  monthly_net_cashflow_avg: number;
+  fixed_cost_weight:        number;
+  cash_runway_days:         number;
+  avg_closing_balance:      number;
+  trend_direction:          "improving" | "declining" | "stable";
+  trend_slope:              number;
+  trend_source:             "cashflow_forecast" | "fallback_no_trend_data";
+  data_months_used:         number;
+};
+
+type ScenarioForecast = {
+  scenario_id:                     ForecastScenarioId;
+  label:                           string;
+  growth_rate_pct:                 number;
+  confidence:                      number;
+  projected_monthly_revenue:       number;
+  projected_monthly_expenses:      number;
+  projected_monthly_net_cashflow:  number;
+  projected_net_cashflow_90d:      number;
+  projected_operating_runway_days: number | null;
+  runway_outlook:                  "sustainable" | "depleting";
+  explanation:                     string;
+};
+
+type BusinessPerformanceForecastBlob = {
+  forecast_id:  string;
+  business_id:  string;
+  computed_at:  string;
+  baseline:     BusinessForecastBaseline;
+  scenarios:    ScenarioForecast[];
+};
+
+// ── Opportunity unlock types (Phase K7) — mirror
+// SDK/engine/opportunity-forecast.engine.ts exactly. Unlike the
+// cashflow/performance forecasts above, this is NOT read from a
+// table — it's an ephemeral calculator, fetched live via the
+// forecast-custom-scenario edge function's type:"opportunities"
+// branch (same multiplexed endpoint K5's sliders use). ──────
+type DriverChangeStep = {
+  action_route:              string;
+  root_cause:                string;
+  estimated_score_gain:      number;
+  is_quick_win:              boolean;
+  transaction_level_evidence?: string;
+};
+
+type OpportunityUnlock = {
+  opportunity_id:            string;
+  finance_type:              string;
+  finance_type_label:        string;
+  blocked_dimension:         string;
+  blocked_dimension_label:   string;
+  current_score:             number;
+  required_score:            number;
+  gap:                       number;
+  driver_changes:            DriverChangeStep[];
+  covers_gap:                boolean;
+  estimated_time_to_unlock:  string;
+  amount_range?:             { min?: number; max?: number } | null;
+  explanation:               string;
+};
+
+const SCENARIO_COLOR: Record<ForecastScenarioId, string> = {
+  severe_decline:     "#EF4444",
+  moderate_decline:   "#F59E0B",
+  stable:             "#6B7280",
+  moderate_growth:    "#0EA5E9",
+  strong_growth:      "#10B981",
+  aggressive_growth:  "#00D4FF",
 };
 
 const DIM_META: Record<string, { label: string; color: string }> = {
@@ -1464,8 +1546,509 @@ function CashflowIntelligenceModal({
 }
 
 /* ─────────────────────────────────────────────────────────
+   PERFORMANCE FORECAST MODAL (Phase K, Milestone 2)
+   Same pattern as CashflowIntelligenceModal — opened via a
+   button, not inline. Fetches business_performance_forecasts
+   directly (RLS-gated to consented financers, same pattern as
+   cashflow_forecasts and creditlinker_scores). Renders the
+   baseline + all six scenarios already computed by
+   computeBusinessPerformanceForecast() (SDK/engine/
+   business-forecast.engine.ts) — no computation happens here.
+───────────────────────────────────────────────────────── */
+function PerformanceForecastModal({
+  businessId,
+  displayName,
+  onClose,
+}: {
+  businessId: string;
+  displayName: string;
+  onClose: () => void;
+}) {
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [data,     setData]     = useState<BusinessPerformanceForecastBlob | null>(null);
+  const [selectedId, setSelectedId] = useState<ForecastScenarioId>("stable");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      const { data: row, error: err } = await supabase
+        .from("business_performance_forecasts")
+        .select("forecast, computed_at")
+        .eq("business_id", businessId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (err) { setError(err.message); setLoading(false); return; }
+      if (!row) { setNotFound(true); setLoading(false); return; }
+      setData(row.forecast as BusinessPerformanceForecastBlob);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [businessId]);
+
+  const selected = data?.scenarios.find(s => s.scenario_id === selectedId) ?? null;
+
+  const trendMeta = !data ? null : data.baseline.trend_direction === "improving"
+    ? { icon: <TrendingUp size={14} />,   label: "Improving", color: "#10B981" }
+    : data.baseline.trend_direction === "declining"
+    ? { icon: <TrendingDown size={14} />, label: "Declining", color: "#EF4444" }
+    : { icon: <Minus size={14} />,        label: "Stable",    color: "#6B7280" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "85vh", overflowY: "auto" as const, boxShadow: "0 24px 80px rgba(0,0,0,0.2)" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #F3F4F6", position: "sticky" as const, top: 0, background: "white", zIndex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: "#0A2540", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Sparkles size={15} color="#00D4FF" />
+            </div>
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", marginBottom: 2 }}>Performance Forecast</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>{displayName}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 4 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px 24px" }}>
+          {loading && (
+            <div style={{ padding: "40px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={18} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Loading performance forecast…</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={16} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280" }}>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && notFound && (
+            <div style={{ padding: "32px 0", textAlign: "center" as const }}>
+              <Sparkles size={28} style={{ color: "#E5E7EB", marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No forecast yet</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF", maxWidth: 360, margin: "0 auto" }}>
+                A performance forecast for {displayName} hasn't been generated yet — this happens automatically once their pipeline has run successfully at least once.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && !notFound && data && trendMeta && (
+            <>
+              {/* Baseline */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
+                <div style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 10, padding: "12px 16px" }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Trend</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: trendMeta.color }}>
+                    {trendMeta.icon}
+                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, letterSpacing: "-0.03em" }}>{trendMeta.label}</span>
+                  </div>
+                </div>
+                <StatBox label="Monthly Net Cashflow" value={fmt(data.baseline.monthly_net_cashflow_avg)} color={data.baseline.monthly_net_cashflow_avg >= 0 ? "#10B981" : "#EF4444"} />
+                <StatBox label="Data Coverage" value={`${data.baseline.data_months_used}mo`} />
+              </div>
+
+              {/* Scenario grid */}
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Scenarios</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 18 }}>
+                {data.scenarios.map(s => {
+                  const color = SCENARIO_COLOR[s.scenario_id];
+                  const isSelected = s.scenario_id === selectedId;
+                  return (
+                    <button
+                      key={s.scenario_id}
+                      onClick={() => setSelectedId(s.scenario_id)}
+                      style={{
+                        textAlign: "left" as const, cursor: "pointer",
+                        border: `1.5px solid ${isSelected ? color : "#E5E7EB"}`,
+                        background: isSelected ? `${color}08` : "white",
+                        borderRadius: 10, padding: "10px 12px",
+                        display: "flex", flexDirection: "column", gap: 4,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#0A2540" }}>{s.label}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color }}>{s.growth_rate_pct > 0 ? "+" : ""}{s.growth_rate_pct}%</span>
+                      </div>
+                      <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: "#0A2540", letterSpacing: "-0.03em" }}>{fmt(s.projected_monthly_net_cashflow)}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected scenario detail */}
+              {selected && (
+                <div style={{ border: "1px solid #F3F4F6", borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#0A2540" }}>{selected.label}</p>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: SCENARIO_COLOR[selected.scenario_id], background: `${SCENARIO_COLOR[selected.scenario_id]}15`, padding: "3px 8px", borderRadius: 6 }}>{selected.confidence}% confidence</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+                    <StatBox label="Revenue" value={fmt(selected.projected_monthly_revenue)} />
+                    <StatBox label="Expenses" value={fmt(selected.projected_monthly_expenses)} />
+                    <StatBox label="Net Cashflow" value={fmt(selected.projected_monthly_net_cashflow)} color={selected.projected_monthly_net_cashflow >= 0 ? "#10B981" : "#EF4444"} />
+                  </div>
+                  <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.7 }}>{selected.explanation}</p>
+                </div>
+              )}
+
+              <div style={{ marginTop: 16, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.6 }}>
+                  These are directional scenarios, not guarantees — each states its own assumption plainly. This does not include or imply any loan or credit limit amount.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────────────────── */
+/**
+ * Groups OpportunityUnlocks by blocked dimension, not by finance
+ * type or score. Every finance type blocked by the same dimension
+ * pulls its driver_changes from the exact same recommendation set
+ * (computeRecommendations() output is keyed by dimension only, in
+ * recommendations.engine.ts) — so Term Loan and Working Capital
+ * Loan being blocked by risk_profile always means the same flags,
+ * even when their required_score thresholds differ. Grouping by
+ * score, as an earlier version of this did, missed that: two
+ * products needing different score thresholds still show identical
+ * flags, and repeating that full list per product is exactly the
+ * redundancy to avoid. Showing the shared flags once per dimension
+ * section, with a compact per-product row underneath for the parts
+ * that do differ (score, gap, time), is the fix.
+ */
+type ProductRow = {
+  label:                     string;
+  current_score:             number;
+  required_score:            number;
+  gap:                       number;
+  covers_gap:                boolean;
+  estimated_time_to_unlock:  string;
+};
+
+type GroupedOpportunity = {
+  key:                       string;
+  blocked_dimension:         string;
+  blocked_dimension_label:   string;
+  primary_explanation:       string;
+  products:                  ProductRow[];
+  driver_changes:            DriverChangeStep[];
+};
+
+function groupOpportunities(ops: OpportunityUnlock[]): GroupedOpportunity[] {
+  type Building = {
+    blocked_dimension: string;
+    blocked_dimension_label: string;
+    primary_explanation: string;
+    products: ProductRow[];
+    driverMap: Map<string, DriverChangeStep>;
+  };
+  const map = new Map<string, Building>();
+
+  // ops arrives already sorted gap-ascending (opportunity-forecast.engine.ts) —
+  // so the first opportunity seen for a given dimension is its closest one,
+  // and that opportunity's own explanation is the one worth surfacing as the
+  // section's headline.
+  for (const op of ops) {
+    let g = map.get(op.blocked_dimension);
+    if (!g) {
+      g = {
+        blocked_dimension: op.blocked_dimension,
+        blocked_dimension_label: op.blocked_dimension_label,
+        primary_explanation: op.explanation,
+        products: [],
+        driverMap: new Map(),
+      };
+      map.set(op.blocked_dimension, g);
+    }
+    g.products.push({
+      label: op.finance_type_label,
+      current_score: op.current_score,
+      required_score: op.required_score,
+      gap: op.gap,
+      covers_gap: op.covers_gap,
+      estimated_time_to_unlock: op.estimated_time_to_unlock,
+    });
+    // Dedupe driver changes by their actual content, not by index —
+    // two opportunities in the same dimension can differ in how many
+    // driver_changes got truncated in (larger gap pulls in more), so
+    // the union (not just the first op's list) is the complete set.
+    for (const step of op.driver_changes) {
+      const stepKey = `${step.action_route}\u0000${step.root_cause}`;
+      if (!g.driverMap.has(stepKey)) g.driverMap.set(stepKey, step);
+    }
+  }
+
+  return Array.from(map.values())
+    .map(g => ({
+      key: g.blocked_dimension,
+      blocked_dimension: g.blocked_dimension,
+      blocked_dimension_label: g.blocked_dimension_label,
+      primary_explanation: g.primary_explanation,
+      products: g.products.sort((a, b) => a.gap - b.gap),
+      driver_changes: Array.from(g.driverMap.values()),
+    }))
+    // Closest-to-unlock first, using each section's own nearest product.
+    .sort((a, b) => a.products[0].gap - b.products[0].gap);
+}
+
+/**
+ * One driver-change row inside an Opportunity Unlock card.
+ * transaction_level_evidence is already pipe-delimited (" | ")
+ * by recommendations.engine.ts for multi-flag cases — split on
+ * that rather than re-parsing root_cause, which is a prose
+ * sentence not meant for splitting.
+ *
+ * Collapsed by default: a single-fact recommendation just shows
+ * its root_cause line as before (no toggle, nothing to expand).
+ * A multi-fact one (e.g. several risk flags) instead shows a
+ * "Show details (n)" toggle, and only renders the actual bullet
+ * list once clicked — keeps the default view to one line per
+ * step, however many facts are behind it.
+ */
+function DriverChangeRow({ step }: { step: DriverChangeStep }) {
+  const [expanded, setExpanded] = useState(false);
+  const evidenceItems = (step.transaction_level_evidence ?? "")
+    .split(" | ")
+    .map(s => s.trim())
+    .filter(Boolean);
+  const hasList = evidenceItems.length > 1;
+  const colonIdx = step.root_cause.indexOf(":");
+  const label = hasList && colonIdx > -1 ? step.root_cause.slice(0, colonIdx).trim().toLowerCase() : "details";
+
+  return (
+    <div style={{ padding: "8px 10px", background: "white", border: "1px solid #F3F4F6", borderRadius: 8 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        {step.is_quick_win
+          ? <TrendingUp size={12} style={{ color: "#10B981", flexShrink: 0, marginTop: 2 }} />
+          : <ChevronRight size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 2 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+            {step.action_route}
+            {step.is_quick_win && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "rgba(16,185,129,0.1)", padding: "1px 5px", borderRadius: 4, flexShrink: 0 }}>Quick win</span>
+            )}
+          </p>
+          {hasList ? (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, padding: 0, background: "none", border: "none", cursor: "pointer", color: "#6B7280", fontSize: 11, fontWeight: 600 }}
+            >
+              <ChevronRight size={10} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+              {expanded ? "Hide" : "Show"} {label} ({evidenceItems.length})
+            </button>
+          ) : (
+            <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>{step.root_cause}</p>
+          )}
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#10B981", flexShrink: 0 }}>~{step.estimated_score_gain} (est.)</span>
+      </div>
+      {hasList && expanded && (
+        <ul style={{ margin: "8px 0 2px 20px", padding: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+          {evidenceItems.map((item, i) => (
+            <li key={i} style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.5 }}>{item}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function OpportunityUnlocksModal({
+  businessId,
+  token,
+  displayName,
+  onClose,
+}: {
+  businessId: string;
+  token: string;
+  displayName: string;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+  const [empty,   setEmpty]   = useState(false);
+  const [data,    setData]    = useState<OpportunityUnlock[]>([]);
+  const grouped = useMemo(() => groupOpportunities(data), [data]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_BASE}/forecast-custom-scenario`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          },
+          body: JSON.stringify({ type: "opportunities", business_id: businessId }),
+        });
+        if (cancelled) return;
+
+        if (!res.ok) {
+          if (res.status === 422) { setEmpty(true); setLoading(false); return; }
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail ?? body.error ?? `Request failed (${res.status})`);
+        }
+
+        const json = await res.json();
+        const opportunities: OpportunityUnlock[] = json.opportunities ?? [];
+        if (opportunities.length === 0) setEmpty(true);
+        setData(opportunities);
+      } catch (e: any) {
+        if (!cancelled) setError(e.message ?? "Failed to load opportunity unlocks.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [businessId, token]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(10,37,64,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "white", borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto" as const, boxShadow: "0 24px 80px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #F3F4F6", position: "sticky" as const, top: 0, background: "white", zIndex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: "#0A2540", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Target size={15} color="#00D4FF" />
+            </div>
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "#0A2540", marginBottom: 2 }}>Opportunity Unlocks</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF" }}>{displayName}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 4 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ padding: "20px 24px 24px" }}>
+          {loading && (
+            <div style={{ padding: "40px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Loader2 size={18} style={{ color: "#D1D5DB", animation: "spin 1s linear infinite" }} />
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>Checking eligibility thresholds…</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={16} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280" }}>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && empty && (
+            <div style={{ padding: "32px 0", textAlign: "center" as const }}>
+              <Target size={28} style={{ color: "#E5E7EB", marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#0A2540", marginBottom: 4 }}>No nearby unlocks</p>
+              <p style={{ fontSize: 12, color: "#9CA3AF", maxWidth: 360, margin: "0 auto" }}>
+                Either {displayName} already qualifies broadly across finance types, or the remaining gaps are larger than a single driver change can close.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && !empty && grouped.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {grouped.map((group, idx) => {
+                // Deliberately NOT DIM_META[blocked_dimension].color: that
+                // mapping is tuned for the Dimensions card elsewhere on this
+                // page, where red-for-risk-profile is the correct signal.
+                // Here the message is "how close is this business to
+                // qualifying" — an opportunity framing — so every card in
+                // this modal uses the same positive teal accent regardless
+                // of which dimension is blocking it, whether that's risk,
+                // liquidity, or anything else.
+                const dimColor = "#00A8CC";
+                const anyCoversGap = group.products.some(p => p.covers_gap);
+                return (
+                  <div key={group.key} style={{ border: "1px solid #F3F4F6", borderRadius: 12, padding: "16px 18px", background: anyCoversGap ? "rgba(16,185,129,0.03)" : "#FAFAFA" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                      {idx === 0 ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#00A8CC", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Closest to qualifying</span>
+                      ) : <span />}
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap" as const, flexShrink: 0,
+                        color: anyCoversGap ? "#065F46" : "#92400E",
+                        background: anyCoversGap ? "#ECFDF5" : "rgba(245,158,11,0.08)",
+                        border: `1px solid ${anyCoversGap ? "#A7F3D0" : "rgba(245,158,11,0.25)"}`,
+                      }}>
+                        {anyCoversGap ? "Fully closes gap" : "Gets you closer"}
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#0A2540", lineHeight: 1.5, marginBottom: 12 }}>{group.primary_explanation}</p>
+
+                    {/* Per-product rows — the only thing that actually differs
+                        between finance types blocked by the same dimension is
+                        the score threshold and timeline, so that's all each
+                        row shows. The flags themselves are listed once, below,
+                        not repeated per product. */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                      {group.products.map(p => {
+                        const pct = Math.min(100, Math.round((p.current_score / p.required_score) * 100));
+                        return (
+                          <div key={p.label}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
+                                {p.covers_gap && <CheckCircle2 size={12} style={{ color: "#10B981", flexShrink: 0 }} />}
+                                {p.label}
+                              </span>
+                              <span style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0, whiteSpace: "nowrap" as const }}>{p.current_score}/{p.required_score} · {p.estimated_time_to_unlock}</span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 9999, background: "#F3F4F6", overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${pct}%`, background: dimColor, borderRadius: 9999 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Shared flags/driver-changes — shown once for the whole
+                        dimension section, since they're identical regardless
+                        of which product above they're blocking. */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {group.driver_changes.map((step, i) => (
+                        <DriverChangeRow key={i} step={step} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ marginTop: 16, display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Info size={11} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.6 }}>
+              These are directional readiness paths based on this business's own driver model — not a guarantee of approval, a loan offer, or a credit limit.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FinancerBusinessProfile() {
   const { user } = useSession();
   const searchParams = useSearchParams();
@@ -1486,6 +2069,12 @@ export default function FinancerBusinessProfile() {
 
   // Cashflow intelligence modal
   const [cfModalOpen, setCfModalOpen] = useState(false);
+
+  // Performance forecast modal (Phase K, Milestone 2)
+  const [pfModalOpen, setPfModalOpen] = useState(false);
+
+  // Opportunity unlocks modal (Phase K7)
+  const [oppModalOpen, setOppModalOpen] = useState(false);
 
   // Transactions panel
   const [txOpen,       setTxOpen]       = useState(false);
@@ -1768,6 +2357,25 @@ export default function FinancerBusinessProfile() {
           businessId={data.business_id}
           displayName={displayName}
           onClose={() => setCfModalOpen(false)}
+        />
+      )}
+
+      {/* ── Performance forecast modal (Phase K, Milestone 2) ── */}
+      {pfModalOpen && (
+        <PerformanceForecastModal
+          businessId={data.business_id}
+          displayName={displayName}
+          onClose={() => setPfModalOpen(false)}
+        />
+      )}
+
+      {/* ── Opportunity unlocks modal (Phase K7) ── */}
+      {oppModalOpen && token && (
+        <OpportunityUnlocksModal
+          businessId={data.business_id}
+          token={token}
+          displayName={displayName}
+          onClose={() => setOppModalOpen(false)}
         />
       )}
 
@@ -2075,6 +2683,14 @@ export default function FinancerBusinessProfile() {
                 <button onClick={() => setCfModalOpen(true)}
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" }}>
                   <LineChart size={13} /> Cashflow Intelligence
+                </button>
+                <button onClick={() => setPfModalOpen(true)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" }}>
+                  <Sparkles size={13} /> Performance Forecast
+                </button>
+                <button onClick={() => setOppModalOpen(true)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%" }}>
+                  <Target size={13} /> Opportunity Unlocks
                 </button>
                 <Link href="/financer/financial-analysis" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", color: "#0A2540", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
                   <TrendingUp size={13} /> View Full Analysis

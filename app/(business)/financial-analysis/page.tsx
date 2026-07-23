@@ -98,6 +98,32 @@ interface AggregatedMetrics {
   transaction_count_total?: number;
 }
 
+interface DriverChangeStep {
+  action_route: string;
+  root_cause: string;
+  estimated_score_gain: number;
+  is_quick_win: boolean;
+  transaction_level_evidence?: string;
+}
+
+interface OpportunityUnlock {
+  opportunity_id: string;
+  finance_type: string;
+  finance_type_label: string;
+  blocked_dimension: string;
+  blocked_dimension_label: string;
+  current_score: number;
+  required_score: number;
+  gap: number;
+  driver_changes: DriverChangeStep[];
+  covers_gap: boolean;
+  estimated_time_to_unlock: string;
+  amount_range?: { min?: number; max?: number } | null;
+  explanation: string;
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1";
+
 const PERIODS = ["6M", "12M", "24M"] as const;
 type Period = typeof PERIODS[number];
 
@@ -658,6 +684,7 @@ export default function FinancialAnalysisPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadForecast(); }, [loadForecast]);
+  useEffect(() => { loadOpportunities(); }, [loadOpportunities]);
 
   if (bizLoading) return <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>Loading...</div>;
   if (!activeBusiness) return <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>No business found.</div>;
@@ -913,6 +940,86 @@ export default function FinancialAnalysisPage() {
           })() : (
             <div style={{ height: 80, borderRadius: 10, background: "#F9FAFB", border: "1px dashed #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <p style={{ fontSize: 12, color: "#9CA3AF" }}>No forecast yet — run the pipeline to generate a 6-month projection.</p>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* ── OPPORTUNITY UNLOCKS (Phase K7) ── */}
+      <CollapsibleSection
+        title="Opportunity Unlocks"
+        sub={
+          !oppLoading && opportunities.length > 0
+            ? `${opportunities.length} finance type${opportunities.length !== 1 ? "s" : ""} within reach`
+            : "What it takes to qualify for more financing types"
+        }
+        defaultOpen={false}
+        action={
+          oppLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#F5F3FF", border: "1px solid #DDD6FE" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#818CF8", animation: "pulse 1.5s infinite" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6D28D9" }}>Computing…</span>
+            </div>
+          ) : oppError ? (
+            <button onClick={loadOpportunities} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "#0A2540", border: "none", color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              <RefreshCw size={11} /> Retry
+            </button>
+          ) : opportunities.length > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#ECFDF5", border: "1px solid #A7F3D0" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>{opportunities.length} available</span>
+            </div>
+          ) : undefined
+        }
+      >
+        <div style={{ padding: "16px 24px 24px" }}>
+          {oppLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <SkeletonBox h={80} r={10} />
+              <SkeletonBox h={80} r={10} />
+            </div>
+          ) : oppError ? (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "12px 16px", background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8 }}>
+              <AlertCircle size={13} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: "#991B1B" }}>{oppError}</p>
+            </div>
+          ) : opportunities.length === 0 ? (
+            <div style={{ height: 80, borderRadius: 10, background: "#F9FAFB", border: "1px dashed #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center" as const, padding: "0 16px" }}>
+                No nearby unlocks right now — either you already qualify broadly, or the gaps are larger than a single driver change can close.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {opportunities.map(op => (
+                <div key={op.opportunity_id} style={{ border: "1px solid #F3F4F6", borderRadius: 12, padding: "16px 18px", background: op.covers_gap ? "rgba(16,185,129,0.03)" : "#FAFAFA" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                    <div>
+                      <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#0A2540", marginBottom: 2 }}>{op.finance_type_label}</p>
+                      <p style={{ fontSize: 12, color: "#9CA3AF" }}>Blocked by {op.blocked_dimension_label} · {op.current_score}/{op.required_score}</p>
+                    </div>
+                    {op.covers_gap && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#065F46", background: "#ECFDF5", border: "1px solid #A7F3D0", padding: "3px 8px", borderRadius: 6, flexShrink: 0, whiteSpace: "nowrap" as const }}>Est. to fully close gap</span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.6, marginBottom: 10 }}>{op.explanation}</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {op.driver_changes.map((step, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", background: "white", border: "1px solid #F3F4F6", borderRadius: 8 }}>
+                        {step.is_quick_win
+                          ? <TrendingUp size={12} style={{ color: "#10B981", flexShrink: 0, marginTop: 2 }} />
+                          : <ChevronRight size={12} style={{ color: "#9CA3AF", flexShrink: 0, marginTop: 2 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: "#0A2540" }}>{step.action_route}</p>
+                          <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>{step.root_cause}</p>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#10B981", flexShrink: 0 }}>~{step.estimated_score_gain} (est.)</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8 }}>Estimated time to unlock: {op.estimated_time_to_unlock}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>

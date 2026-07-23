@@ -8,7 +8,7 @@ import {
   Database, FileText, Banknote, Handshake, BarChart2, Settings,
   Building2, Bell, Scale, ChevronRight, MessageSquare,
   Plus, Crown, Shield, Eye, Check, LogOut, User,
-  ChevronUp, ChevronDown, X, GitFork,
+  ChevronUp, ChevronDown, X, GitFork, Sparkles,
 } from 'lucide-react';
 import { useActiveBusiness, type BusinessRole } from '@/lib/business-context';
 import { useMessageCount } from '@/lib/message-count-context';
@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard',          route: '/dashboard',          icon: LayoutDashboard },
   { label: 'Financial Identity', route: '/financial-identity', icon: ShieldCheck, accent: true },
   { label: 'Financial Analysis', route: '/financial-analysis', icon: TrendingUp },
+  { label: 'Performance Forecast', route: '/performance-forecast', icon: Sparkles },
   { label: 'Transactions',       route: '/transactions',       icon: ArrowLeftRight },
   { label: 'Data Sources',       route: '/data-sources',       icon: Database },
   { label: 'My Graph',           route: '/graph',              icon: GitFork },
