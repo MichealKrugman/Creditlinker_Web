@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import {
   ShieldCheck, ArrowLeftRight, Banknote, TrendingUp,
   ArrowUpRight, ArrowDownLeft, RefreshCw, AlertCircle,
-  ChevronRight, Plus, Zap, Clock, Loader2,
+  ChevronRight, Plus, Zap, Clock, Loader2, Copy, CheckCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -171,6 +171,42 @@ function EmptyState({ icon, message, cta, href }: { icon: React.ReactNode; messa
   );
 }
 
+/**
+ * Bold, copyable CL-ID pill — the business's own public identifier,
+ * the same value /verify/[cl_id] and every financer-facing consent
+ * flow refers to. Businesses previously had no on-screen way to find
+ * this without asking support or digging through a URL, despite it
+ * being their literal public-facing ID.
+ */
+function CreditlinkerIdBadge({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    });
+  };
+  return (
+    <button
+      onClick={copy}
+      title="Copy your Creditlinker ID"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 7,
+        padding: "5px 10px 5px 12px", borderRadius: 9999,
+        background: "#0A2540", border: "1px solid #0A2540",
+        cursor: "pointer",
+      }}
+    >
+      <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 13, fontWeight: 800, color: "#00D4FF", letterSpacing: "0.02em" }}>
+        {id}
+      </span>
+      {copied
+        ? <CheckCheck size={13} style={{ color: "#10B981" }} />
+        : <Copy size={12} style={{ color: "rgba(255,255,255,0.5)" }} />}
+    </button>
+  );
+}
+
 export default function DashboardPage() {
   const { currentUser, activeBusiness, isLoading: bizLoading, refetch } = useActiveBusiness();
 
@@ -327,6 +363,9 @@ export default function DashboardPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, color: "#6B7280" }}>{bizLoading ? "Loading..." : (activeBusiness?.name ?? "No business found")}</span>
               {!loading && <><span style={{ color: "#E5E7EB" }}>.</span><span style={{ fontSize: 13, color: "#6B7280" }}>{coverageText}</span></>}
+              {!loading && activeBusiness?.creditlinker_id && (
+                <CreditlinkerIdBadge id={activeBusiness.creditlinker_id} />
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
